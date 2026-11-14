@@ -136,7 +136,7 @@
 
   <div id="sound" role="group" aria-label="Sound">
     <button type="button" data-mode="synth" aria-pressed="true">Synth<kbd>Z</kbd></button>
-    <button type="button" data-mode="chime" aria-pressed="false">Chime<kbd>X</kbd></button>
+    <button type="button" data-mode="chime" aria-pressed="false">Soft<kbd>X</kbd></button>
   </div>
 
   <div class="row">
@@ -168,7 +168,7 @@
 
   <details>
     <summary>How to listen</summary>
-    <p>Use headphones. Move with <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> (or WASD). You always face up (north). The sound is at the center (0, 0): it gets quieter with distance and pans, filters and delays to show which direction it is in. Pick a layer above (rain, land heat, plants, ocean heat or haze). Each layer adds its own <b>second note</b> to the center note, and the more intense the data is where you stand, the louder and brighter that note gets: faint at the low end, clear in the middle, full and harsh at the top. Press <kbd>H</kbd> to hear a short spoken summary, use the sound key to preview each level. Switch layers with <kbd>1</kbd> to <kbd>5</kbd> (rain, land heat, plants, ocean heat, haze), and sounds with <kbd>Z</kbd> (synth) and <kbd>X</kbd> (chime). Hold <kbd>Shift</kbd> to move faster, <kbd>M</kbd> to mute.</p>
+    <p>Use headphones. Move with <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> (or WASD). You always face up (north). The sound is at the center (0, 0): it gets quieter with distance and pans, filters and delays to show which direction it is in. Pick a layer above (rain, land heat, plants, ocean heat or haze). Each layer adds its own <b>second note</b> to the center note, and the more intense the data is where you stand, the louder and brighter that note gets: faint at the low end, clear in the middle, full and harsh at the top. Press <kbd>H</kbd> to hear a short spoken summary, use the sound key to preview each level. Switch layers with <kbd>1</kbd> to <kbd>5</kbd> (rain, land heat, plants, ocean heat, haze), and sounds with <kbd>Z</kbd> (synth) and <kbd>X</kbd> (soft pulse). Hold <kbd>Shift</kbd> to move faster, <kbd>M</kbd> to mute.</p>
   </details>
 </main>
 
@@ -429,8 +429,8 @@
   let ctx = null, panner = null, master = null, muted = false;
   let stormGain = null, stormFilter = null, stormTrem = null, stormLfo = null, stormLfoDepth = null;
   const stormOscs = [];            // {o, mult}: the layer voice, retuned per layer
-  let mode = 'synth';            // 'synth' (default) or 'chime'
-  let bus = null, synthOut = null, chimeOut = null;
+  let mode = 'synth';            // 'synth' (default) or 'chime' (the soft pulse)
+  let bus = null, synthOut = null, chimeOut = null, chimeIn = null;
 
 
   // ---------- Audio ----------
@@ -541,18 +541,21 @@
     updateListener(true);
   }
 
-  // ---------- Chime ----------
-  // A steady, metronomic bell: one soft strike per beat, an octave higher on the first beat of each bar.
-  // Bell tones are built from inharmonic partials (1, 2.76, 5.4) with a quick attack and a long decay.
-  // The layer's second note rings alongside it, louder as the data gets more intense.
-  const BPM = 84, BEAT = 60 / BPM;
-  const CHIME_ROOT = 220;                               // A3; the accent is an octave up
+  // ---------- Soft pulse ----------
+  // A steady, gentle, round pulse: one warm tone per beat. Pure harmonic partials (no metallic ones), a
+  // slow-ish attack so there is no sharp edge, and a low-pass filter to keep it mellow. The first beat of
+  // each bar is slightly fuller. The layer's second note sounds alongside it, louder as the data intensifies.
+  const BPM = 72, BEAT = 60 / BPM;
+  const CHIME_ROOT = 220;                               // A3
   let nextBeat = 0, beatTime = 0, sched = null;
 
   function buildChime() {
     chimeOut = ctx.createGain();
     chimeOut.gain.value = 0;
     chimeOut.connect(bus);
+    chimeIn = ctx.createBiquadFilter();                 // mellows everything that feeds it
+    chimeIn.type = 'lowpass'; chimeIn.frequency.value = 1400; chimeIn.Q.value = 0.4;
+    chimeIn.connect(chimeOut);
   }
 
   function applyLayerVoice(immediate) {
@@ -567,14 +570,14 @@
     stormLfo.frequency.setTargetAtTime(Math.max(0.05, L.trem), t, 0.1);
   }
 
-  function strike(t, freq, amp, len) {       // one bell strike
-    [[1, 1, 1], [2.76, 0.32, 0.55], [5.4, 0.12, 0.3]].forEach(([ratio, gain, decay]) => {
+  function strike(t, freq, amp, len) {       // one soft, round tone
+    [[1, 1, 1], [2, 0.16, 0.55], [3, 0.04, 0.35]].forEach(([ratio, gain, decay]) => {
       const o = ctx.createOscillator(), g = ctx.createGain();
       o.type = 'sine'; o.frequency.value = freq * ratio;
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(amp * gain, t + 0.006);
+      g.gain.exponentialRampToValueAtTime(amp * gain, t + 0.03);    // soft attack, no click
       g.gain.exponentialRampToValueAtTime(0.0001, t + len * decay);
-      o.connect(g).connect(chimeOut);
+      o.connect(g).connect(chimeIn);
       o.start(t); o.stop(t + len * decay + 0.05);
     });
   }
@@ -583,9 +586,8 @@
     if (!ctx || mode !== 'chime') { if (ctx) { nextBeat = 0; beatTime = ctx.currentTime + 0.05; } return; }
     while (beatTime < ctx.currentTime + 0.15) {
       const accent = nextBeat % 4 === 0;
-      const f = accent ? CHIME_ROOT * 2 : CHIME_ROOT;
-      strike(beatTime, f, accent ? 0.55 : 0.34, 1.8);
-      if (stormLevel > 0.03) strike(beatTime, f * stormRatio(), 0.5 * stormLevel + 0.05, 1.8);   // layer note
+      strike(beatTime, CHIME_ROOT, accent ? 0.5 : 0.34, 1.6);
+      if (stormLevel > 0.03) strike(beatTime, CHIME_ROOT * stormRatio(), 0.45 * stormLevel + 0.04, 1.6);   // layer note
       nextBeat++; beatTime += BEAT;
     }
   }
