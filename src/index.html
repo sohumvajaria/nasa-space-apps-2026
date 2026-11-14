@@ -41,8 +41,8 @@
   const WORLD = 40;            // world spans -WORLD..+WORLD on both axes
   const SPEED = 6;             // units per second
   const REF_DISTANCE = 1.5;    // distance at which volume is 100%
-  const ROLLOFF = 1.1;         // higher = quieter faster with distance
-  const MAX_AUDIBLE = 38;      // fade fully out around here (extra tail on top of inverse law)
+  const MAX_DISTANCE = 60;     // distance where the linear falloff would reach its floor
+  const ROLLOFF = 0.9;         // 1 = fades to silence at MAX_DISTANCE; lower keeps a quiet floor at the far edge
 
   // ---------- State ----------
   const player = { x: 12, y: -8, vx: 0, vy: 0 }; // start offset so direction is obvious
@@ -61,16 +61,11 @@
     // interaural time + level differences and spectral filtering.
     panner = ctx.createPanner();
     panner.panningModel = 'HRTF';
-    panner.distanceModel = 'inverse';
+    panner.distanceModel = 'linear'; // gain = 1 - ROLLOFF*(d-ref)/(max-ref): gentle, even falloff
     panner.refDistance = REF_DISTANCE;
     panner.rolloffFactor = ROLLOFF;
-    panner.maxDistance = 10000;
+    panner.maxDistance = MAX_DISTANCE;
     setPos(panner, 'position', 0, 0, 0);   // source at (0,0)
-
-    // Extra gentle fade so far-away positions get very quiet, not just inverse-law quiet.
-    const fade = ctx.createGain();
-    fade.gain.value = 1;
-    panner._fade = fade;
 
     // The source material: harmonically rich drone with a slow pulse.
     // Broadband content localizes much better than a pure sine.
@@ -122,7 +117,7 @@
     noise.connect(bp).connect(nGain).connect(src);
     noise.start();
 
-    src.connect(lp).connect(pulse).connect(fade).connect(panner).connect(master);
+    src.connect(lp).connect(pulse).connect(panner).connect(master);
 
     // Listener faces "up" on the map (north). Map +y (north) = Web Audio -z (forward).
     const L = ctx.listener;
@@ -156,18 +151,12 @@
     } else {
       L.setPosition(x, 0, z);
     }
-    // Extra distance fade layered on top of the inverse-distance law
-    const dist = Math.hypot(player.x, player.y);
-    const f = Math.max(0, 1 - Math.max(0, dist - REF_DISTANCE) / MAX_AUDIBLE);
-    panner._fade.gain.setTargetAtTime(f * f, ctx.currentTime, 0.05);
   }
 
-  // Volume the listener actually hears (for the HUD), mirrors the inverse model + fade
+  // Volume the listener actually hears (for the HUD), mirrors the linear distance model
   function volumeAt(dist) {
-    const d = Math.max(dist, REF_DISTANCE);
-    const inv = REF_DISTANCE / (REF_DISTANCE + ROLLOFF * (d - REF_DISTANCE));
-    const f = Math.max(0, 1 - Math.max(0, dist - REF_DISTANCE) / MAX_AUDIBLE);
-    return inv * f * f;
+    const d = Math.min(Math.max(dist, REF_DISTANCE), MAX_DISTANCE);
+    return 1 - ROLLOFF * (d - REF_DISTANCE) / (MAX_DISTANCE - REF_DISTANCE);
   }
 
   // ---------- Input ----------
