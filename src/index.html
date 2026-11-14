@@ -34,13 +34,14 @@
     <span>Distance: <b id="dist">0.0</b></span>
     <span>Volume: <b id="vol">100%</b></span>
     <span>Bearing: <b id="brg">-</b></span>
+    <span>Pitch: <b id="pitch">0.0 st</b></span>
   </div>
   <div id="sound" role="group" aria-label="Sound">
     <span>Sound:</span>
     <button type="button" data-mode="synth" aria-pressed="true">Synth <kbd>1</kbd></button>
     <button type="button" data-mode="808" aria-pressed="false">808 bass <kbd>2</kbd></button>
   </div>
-  <small>Use headphones. Move with <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> (or WASD). You always face up (north). The sound is at the center (0, 0): it gets quieter with distance and pans, filters and delays to show which direction it is in. Hold <kbd>Shift</kbd> to move faster, <kbd>M</kbd> to mute.</small>
+  <small>Use headphones. Move with <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> (or WASD). You always face up (north). The sound is at the center (0, 0): it gets quieter with distance and pans, filters and delays to show which direction it is in. Pitch is your front/back cue: <b>higher = the source is ahead (north)</b>, <b>lower = it's behind (south)</b>, original pitch = level with you. Hold <kbd>Shift</kbd> to move faster, <kbd>M</kbd> to mute.</small>
 
 <script>
 (() => {
@@ -59,6 +60,15 @@
   let ctx = null, panner = null, master = null, muted = false;
   let mode = 'synth';            // 'synth' (default) or '808'
   let bus = null, synthOut = null, bassOut = null;
+  const synthOscs = [];                  // [{o, base}] so pitch can be shifted live
+
+  // Front/back cue: pitch rises when the source is AHEAD (north of you) and falls when it
+  // is BEHIND (south). Level with it = original pitch. +/-PITCH_SEMITONES at 20+ units away.
+  const PITCH_SEMITONES = 7, PITCH_RANGE = 20;
+  function pitchSemis() {
+    const dy = -player.y;                          // + when source is north of the player
+    return PITCH_SEMITONES * Math.max(-1, Math.min(1, dy / PITCH_RANGE));
+  }
 
   // ---------- Audio ----------
   function buildAudio() {
@@ -101,7 +111,7 @@
         const o = ctx.createOscillator();
         o.type = i % 2 ? 'triangle' : 'sawtooth';
         o.frequency.value = f;
-        o.detune.value = detune;
+        o.detune.value = detune; synthOscs.push({ o, base: detune });
         const g = ctx.createGain();
         g.gain.value = 0.12 / (1 + i * 0.4);
         o.connect(g).connect(src);
@@ -175,6 +185,7 @@
   }
 
   function hit808(t, freq, len) {
+    freq = Math.max(38, freq * Math.pow(2, pitchSemis() / 12));   // keep sub audible when pitched down
     const o = ctx.createOscillator(), g = ctx.createGain();
     o.type = 'sine';
     o.frequency.setValueAtTime(freq * 3, t);
@@ -288,7 +299,7 @@
 
   const hud = {
     pos: document.getElementById('pos'), dist: document.getElementById('dist'),
-    vol: document.getElementById('vol'), brg: document.getElementById('brg'),
+    vol: document.getElementById('vol'), pitch: document.getElementById('pitch'), brg: document.getElementById('brg'),
   };
 
   function compass(dx, dy) {
@@ -346,11 +357,16 @@
     player.y = Math.max(-WORLD, Math.min(WORLD, player.y + (ay / len) * sp * dt));
 
     if (ax || ay) updateListener(false);
+    if (ctx && synthOscs.length) {
+      const cents = pitchSemis() * 100, t = ctx.currentTime;
+      for (const v of synthOscs) v.o.detune.setTargetAtTime(v.base + cents, t, 0.05);
+    }
 
     const dist = Math.hypot(player.x, player.y);
     hud.pos.textContent = `${player.x.toFixed(1)}, ${player.y.toFixed(1)}`;
     hud.dist.textContent = dist.toFixed(1);
     hud.vol.textContent = Math.round(volumeAt(dist) * 100) + '%';
+    hud.pitch.textContent = (pitchSemis() >= 0 ? '+' : '') + pitchSemis().toFixed(1) + ' st';
     hud.brg.textContent = compass(-player.x, -player.y);
 
     draw(now);
