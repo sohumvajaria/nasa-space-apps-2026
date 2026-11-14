@@ -36,7 +36,6 @@
     <span>Bearing: <b id="brg">-</b></span>
     <span>Storm: <b id="storm">-</b></span>
     <span>Location: <b id="loc">-</b></span>
-    <span>Pitch: <b id="pitch">0.0 st</b></span>
   </div>
   <small id="datastat">Loading NASA IMERG precipitation data...</small>
   <div id="sound" role="group" aria-label="Sound">
@@ -44,7 +43,7 @@
     <button type="button" data-mode="synth" aria-pressed="true">Synth <kbd>1</kbd></button>
     <button type="button" data-mode="808" aria-pressed="false">808 bass <kbd>2</kbd></button>
   </div>
-  <small>Use headphones. Move with <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> (or WASD). You always face up (north). The sound is at the center (0, 0): it gets quieter with distance and pans, filters and delays to show which direction it is in. Pitch is your front/back cue: <b>higher = the source is ahead (north)</b>, <b>lower = it's behind (south)</b>, original pitch = level with you. The map shows live NASA precipitation: the heavier the rain around you, the louder the <b>minor-sixth note</b> above the center note. Hold <kbd>Shift</kbd> to move faster, <kbd>M</kbd> to mute.</small>
+  <small>Use headphones. Move with <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> (or WASD). You always face up (north). The sound is at the center (0, 0): it gets quieter with distance and pans, filters and delays to show which direction it is in. Hold <kbd>Shift</kbd> to move faster, <kbd>M</kbd> to mute.</small>
 
 <script>
 (() => {
@@ -164,15 +163,7 @@
   let stormGain = null;
   let mode = 'synth';            // 'synth' (default) or '808'
   let bus = null, synthOut = null, bassOut = null;
-  const synthOscs = [];                  // [{o, base}] so pitch can be shifted live
 
-  // Front/back cue: pitch rises when the source is AHEAD (north of you) and falls when it
-  // is BEHIND (south). Level with it = original pitch. +/-PITCH_SEMITONES at 20+ units away.
-  const PITCH_SEMITONES = 7, PITCH_RANGE = 20;
-  function pitchSemis() {
-    const dy = -player.y;                          // + when source is north of the player
-    return PITCH_SEMITONES * Math.max(-1, Math.min(1, dy / PITCH_RANGE));
-  }
 
   // ---------- Audio ----------
   function buildAudio() {
@@ -215,7 +206,7 @@
         const o = ctx.createOscillator();
         o.type = i % 2 ? 'triangle' : 'sawtooth';
         o.frequency.value = f;
-        o.detune.value = detune; synthOscs.push({ o, base: detune });
+        o.detune.value = detune;
         const g = ctx.createGain();
         g.gain.value = 0.12 / (1 + i * 0.4);
         o.connect(g).connect(src);
@@ -233,7 +224,6 @@
       const g = ctx.createGain(); g.gain.value = 0.2;
       o.connect(g).connect(stormGain);
       o.start();
-      synthOscs.push({ o, base: detune });
     });
     stormGain.connect(src);
 
@@ -303,7 +293,6 @@
   }
 
   function hit808(t, freq, len) {
-    freq = Math.max(38, freq * Math.pow(2, pitchSemis() / 12));   // keep sub audible when pitched down
     voice808(t, freq, len, 0.9);
     if (stormLevel > 0.03) voice808(t, freq * MINOR_SIXTH, len, 0.9 * stormLevel);   // storm voice
   }
@@ -422,7 +411,7 @@
 
   const hud = {
     pos: document.getElementById('pos'), dist: document.getElementById('dist'),
-    vol: document.getElementById('vol'), storm: document.getElementById('storm'), loc: document.getElementById('loc'), pitch: document.getElementById('pitch'), brg: document.getElementById('brg'),
+    vol: document.getElementById('vol'), storm: document.getElementById('storm'), loc: document.getElementById('loc'), brg: document.getElementById('brg'),
   };
 
   function compass(dx, dy) {
@@ -485,16 +474,11 @@
     if (ctx && stormGain) stormGain.gain.setTargetAtTime(0.9 * stormLevel, ctx.currentTime, 0.08);
     hud.storm.textContent = field ? Math.round(stormLevel * 100) + '%' : 'n/a';
     hud.loc.textContent = field ? `${fmtLat(center.lat + player.y * DEG_PER_UNIT)}, ${fmtLon(center.lon + player.x * DEG_PER_UNIT)}` : 'n/a';
-    if (ctx && synthOscs.length) {
-      const cents = pitchSemis() * 100, t = ctx.currentTime;
-      for (const v of synthOscs) v.o.detune.setTargetAtTime(v.base + cents, t, 0.05);
-    }
 
     const dist = Math.hypot(player.x, player.y);
     hud.pos.textContent = `${player.x.toFixed(1)}, ${player.y.toFixed(1)}`;
     hud.dist.textContent = dist.toFixed(1);
     hud.vol.textContent = Math.round(volumeAt(dist) * 100) + '%';
-    hud.pitch.textContent = (pitchSemis() >= 0 ? '+' : '') + pitchSemis().toFixed(1) + ' st';
     hud.brg.textContent = compass(-player.x, -player.y);
 
     draw(now);
