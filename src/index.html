@@ -227,8 +227,8 @@
     },
     ocean: {
       id: 'GHRSST_L4_MUR_Sea_Surface_Temperature', dataset: 'GHRSST MUR sea surface temperature', noun: 'Sea heat', centerName: 'Warm pool center',
-      blurb: 'Sea surface temperature, centered on the western Pacific warm pool. A minor third drifts slowly in and out and gets warmer and louder as the water heats up. Land is silent.',
-      semis: 3, wave: 'triangle', trem: 0.25, tremDepth: 0.4, bright: 3000, home: { lat: 5, lon: 150 },
+      blurb: 'Sea surface temperature, centered on the western Pacific warm pool. A perfect fourth drifts slowly in and out and gets warmer and louder as the water heats up. Land is silent.',
+      semis: 5, wave: 'triangle', trem: 0.25, tremDepth: 0.4, bright: 3000, home: { lat: 5, lon: 150 },
       tiers: ['no data', 'cold', 'cool', 'warm', 'very warm'],
       say: ['No ocean data here', 'Cold water', 'Cool water', 'Warm water', 'Very warm water'],
       anchors: [[0, 0.03], [0.3, 0.06], [0.5, 0.25], [0.7, 0.5], [0.85, 0.8], [1, 1]],
@@ -250,35 +250,35 @@
 
   let center = { lon: 0, lat: 0 }, field = null, dataImg = null, stormLevel = 0;
   let realStorm = 0, previewLevel = null, previewTimer = null, loadToken = 0;
-  const centers = {};                        // auto-found centers, cached per layer
-  let rampRGB = [], rampCache = new Map();
 
-  const gibsUrl = (w, s, e, n, px, py) => `${GIBS}?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1` +
-    `&LAYERS=${curLayer().id}&SRS=EPSG:4326&BBOX=${w},${s},${e},${n}&WIDTH=${px}&HEIGHT=${py}` +
-    `&FORMAT=image/png&TRANSPARENT=TRUE&TIME=${dataTime}`;
+  const gibsUrl = (key, date, w, s, e, n, px, py) => `${GIBS}?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1` +
+    `&LAYERS=${LAYERS[key].id}&SRS=EPSG:4326&BBOX=${w},${s},${e},${n}&WIDTH=${px}&HEIGHT=${py}` +
+    `&FORMAT=image/png&TRANSPARENT=TRUE&TIME=${date}`;
   const loadImg = url => new Promise((res, rej) => {
     const i = new Image(); i.crossOrigin = 'anonymous';
     i.onload = () => res(i); i.onerror = () => rej(new Error('image load failed')); i.src = url;
   });
 
-  function setRamp(L) {                      // legend colors, low -> high, from the GIBS colormap
-    rampRGB = [];
-    for (let i = 0; i < L.ramp.length; i += 6) {
-      rampRGB.push([parseInt(L.ramp.substr(i, 2), 16), parseInt(L.ramp.substr(i + 2, 2), 16), parseInt(L.ramp.substr(i + 4, 2), 16)]);
+  const ramps = {};                          // per-layer legend colors (low -> high) + a color lookup cache
+  function rampFor(key) {
+    if (ramps[key]) return ramps[key];
+    const str = LAYERS[key].ramp, rgb = [];
+    for (let i = 0; i < str.length; i += 6) {
+      rgb.push([parseInt(str.substr(i, 2), 16), parseInt(str.substr(i + 2, 2), 16), parseInt(str.substr(i + 4, 2), 16)]);
     }
-    rampCache = new Map();
+    return (ramps[key] = { rgb, cache: new Map() });
   }
-  function rampPos(r, g, b) {                // nearest legend color -> position 0..1 along the legend
-    const key = (r << 16) | (g << 8) | b;
-    let v = rampCache.get(key);
+  function rampPos(R, r, g, b) {             // nearest legend color -> position 0..1 along the legend
+    const k = (r << 16) | (g << 8) | b;
+    let v = R.cache.get(k);
     if (v !== undefined) return v;
     let best = 0, bd = Infinity;
-    for (let i = 0; i < rampRGB.length; i++) {
-      const c = rampRGB[i], d = (c[0] - r) ** 2 + (c[1] - g) ** 2 + (c[2] - b) ** 2;
+    for (let i = 0; i < R.rgb.length; i++) {
+      const c = R.rgb[i], d = (c[0] - r) ** 2 + (c[1] - g) ** 2 + (c[2] - b) ** 2;
       if (d < bd) { bd = d; best = i; }
     }
-    v = best / (rampRGB.length - 1);
-    rampCache.set(key, v);
+    v = best / (R.rgb.length - 1);
+    R.cache.set(k, v);
     return v;
   }
   function levelOf(pos, anchors) {           // piecewise-linear through the layer's anchors
@@ -292,13 +292,13 @@
     return anchors[anchors.length - 1][1];
   }
 
-  function toScores(img, w, h) {
+  function toScores(img, w, h, key) {
     const c = document.createElement('canvas'); c.width = w; c.height = h;
     const x = c.getContext('2d', { willReadFrequently: true });
     x.drawImage(img, 0, 0, w, h);
-    const d = x.getImageData(0, 0, w, h).data, out = new Float32Array(w * h), A = curLayer().anchors;
+    const d = x.getImageData(0, 0, w, h).data, out = new Float32Array(w * h), A = LAYERS[key].anchors, R = rampFor(key);
     for (let i = 0; i < out.length; i++) {
-      out[i] = d[4 * i + 3] < 20 ? 0 : Math.max(0.03, levelOf(rampPos(d[4 * i], d[4 * i + 1], d[4 * i + 2]), A));
+      out[i] = d[4 * i + 3] < 20 ? 0 : Math.max(0.03, levelOf(rampPos(R, d[4 * i], d[4 * i + 1], d[4 * i + 2]), A));
     }
     return out;
   }
@@ -327,30 +327,15 @@
       `${L.centerName} (0,0) is near ${fmtLat(center.lat)}, ${fmtLon(center.lon)}. 1 unit is about ${DEG_PER_UNIT} degrees.`;
   }
 
-  async function loadWindow() {   // the high-res picture for the chosen day, around the layer's center
-    const token = ++loadToken, key = layerKey, stat = document.getElementById('datastat'), day = dataTime;
-    const half = 40 * DEG_PER_UNIT;
-    try {
-      const img = await loadImg(gibsUrl(center.lon - half, center.lat - half, center.lon + half, center.lat + half, GRID, GRID));
-      if (token !== loadToken || key !== layerKey) return;   // a newer request replaced this one
-      dataImg = img;
-      field = boxBlur(toScores(dataImg, GRID, GRID), GRID, GRID, 5);   // ~1 unit of smoothing, small so color bands stay distinct
-      stat.textContent = statText();
-    } catch (err) {
-      if (token !== loadToken || key !== layerKey) return;
-      stat.textContent = `No NASA data could be loaded for ${day}; showing the last frame that loaded.`;
-      console.warn(err);
-    }
-  }
-
-  async function findPeak() {      // the most intense spot in the global image (smoothed, within 60 degrees of the equator, 45 for rain)
-    const gw = 720, gh = 360;
-    const global = toScores(await loadImg(gibsUrl(-180, -90, 180, 90, gw, gh)), gw, gh);
-    const blur = boxBlur(global, gw, gh, 8);
+  // The most intense spot in a global image (smoothed, within 60 degrees of the equator, 45 for rain).
+  async function findPeak(key, date) {
+    const gw = 360, gh = 180;                // small on purpose: only needs to find the right region, and loads fast
+    const global = toScores(await loadImg(gibsUrl(key, date, -180, -90, 180, 90, gw, gh)), gw, gh, key);
+    const blur = boxBlur(global, gw, gh, 4);
     let best = -1, bx = 0, by = 0;
     for (let y = 0; y < gh; y++) {
       const lat = 90 - (y + 0.5) / gh * 180;
-      if (Math.abs(lat) > (curLayer().maxLat || 60)) continue;
+      if (Math.abs(lat) > (LAYERS[key].maxLat || 60)) continue;
       for (let x = 0; x < gw; x++) if (blur[y * gw + x] > best) { best = blur[y * gw + x]; bx = x; by = y; }
     }
     return {
@@ -359,25 +344,71 @@
     };
   }
 
+  // Everything for one layer and day, cached so switching back is instant. The first load of every
+  // layer is started in the background as soon as the page opens, so most switches are already done.
+  const centerOf = {};                       // key -> Promise<{lon, lat}>, fixed per layer so dates line up
+  const dataCache = new Map(), ready = new Map();   // 'key|date' -> Promise / resolved data
+  const latestDay = () => new Date(BASE_TIME).toISOString().slice(0, 10);
+  function getLayerData(key, date) {
+    const id = key + '|' + date;
+    if (dataCache.has(id)) return dataCache.get(id);
+    const L = LAYERS[key];
+    const p = (async () => {
+      if (!centerOf[key]) centerOf[key] = L.home ? Promise.resolve({ lon: L.home.lon, lat: L.home.lat }) : findPeak(key, latestDay());
+      const c = await centerOf[key], half = 40 * DEG_PER_UNIT;
+      const img = await loadImg(gibsUrl(key, date, c.lon - half, c.lat - half, c.lon + half, c.lat + half, GRID, GRID));
+      const f = boxBlur(toScores(img, GRID, GRID, key), GRID, GRID, 5);   // ~1 unit of smoothing, small so color bands stay distinct
+      const out = { center: c, img, field: f };
+      ready.set(id, out);
+      return out;
+    })();
+    dataCache.set(id, p);
+    p.catch(() => { dataCache.delete(id); delete centerOf[key]; });
+    return p;
+  }
+
+  function showData(d) { center = d.center; dataImg = d.img; field = d.field; document.getElementById('datastat').textContent = statText(); }
+
+  async function loadWindow() {   // the picture for the chosen day (used by the date slider)
+    const token = ++loadToken, key = layerKey, day = dataTime, stat = document.getElementById('datastat');
+    const hit = ready.get(key + '|' + day);
+    if (hit) { showData(hit); return; }
+    try {
+      const d = await getLayerData(key, day);
+      if (token !== loadToken || key !== layerKey) return;   // a newer request replaced this one
+      showData(d);
+    } catch (err) {
+      if (token !== loadToken || key !== layerKey) return;
+      stat.textContent = `No NASA data could be loaded for ${day}; showing the last frame that loaded.`;
+      console.warn(err);
+    }
+  }
+
+  let prefetched = false;
+  function prefetchOthers() {      // warm every other layer in the background, one request each
+    if (prefetched) return;
+    prefetched = true;
+    Object.keys(LAYERS).forEach(k => { if (k !== layerKey) getLayerData(k, latestDay()).catch(() => {}); });
+  }
+
   async function loadLayer(key) {
     layerKey = key;
-    const L = curLayer(), stat = document.getElementById('datastat');
-    setRamp(L);
-    field = null; dataImg = null; previewLevel = null;
-    dataTime = dayFor(0).toISOString().slice(0, 10);       // newest day
+    const L = curLayer(), stat = document.getElementById('datastat'), token = ++loadToken;
+    previewLevel = null;
+    prefetchOthers();                                      // start every layer's download now, in parallel
+    dataTime = latestDay();                                // newest day
     timeEl.value = 0; timeOut.textContent = dayLabel(0);
     applyLayerUI(); applyLayerVoice();
+    const hit = ready.get(key + '|' + dataTime);
+    if (hit) { showData(hit); return; }                    // already fetched: instant
+    field = null; dataImg = null;
     stat.textContent = 'Loading NASA data...';
     try {
-      if (L.home) center = { lon: L.home.lon, lat: L.home.lat };
-      else {
-        if (!centers[key]) centers[key] = await findPeak();
-        if (key !== layerKey) return;
-        center = centers[key];
-      }
-      await loadWindow();
+      const d = await getLayerData(key, dataTime);
+      if (token !== loadToken || key !== layerKey) return;
+      showData(d);
     } catch (err) {
-      if (key !== layerKey) return;
+      if (token !== loadToken || key !== layerKey) return;
       field = null; dataImg = null;
       stat.textContent = `Could not load the NASA ${L.noun.toLowerCase()} data, so there is no map right now.`;
       console.warn(err);
