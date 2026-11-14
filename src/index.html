@@ -34,13 +34,14 @@
     <span>Distance: <b id="dist">0.0</b></span>
     <span>Volume: <b id="vol">100%</b></span>
     <span>Bearing: <b id="brg">-</b></span>
+    <span>Tempo: <b id="tempo">1.00x</b></span>
   </div>
   <div id="sound" role="group" aria-label="Sound">
     <span>Sound:</span>
     <button type="button" data-mode="synth" aria-pressed="true">Synth <kbd>1</kbd></button>
     <button type="button" data-mode="808" aria-pressed="false">808 bass <kbd>2</kbd></button>
   </div>
-  <small>Use headphones. Move with <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> (or WASD). You always face up (north). The sound is at the center (0, 0): it gets quieter with distance and pans, filters and delays to show which direction it is in. Hold <kbd>Shift</kbd> to move faster, <kbd>M</kbd> to mute.</small>
+  <small>Use headphones. Move with <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> (or WASD). You always face up (north). The sound is at the center (0, 0): it gets quieter with distance and pans, filters and delays to show which direction it is in. The tempo is your front/back cue: <b>faster = the source is ahead (north)</b>, <b>slower = it's behind (south)</b>, normal speed = level with you. Hold <kbd>Shift</kbd> to move faster, <kbd>M</kbd> to mute.</small>
 
 <script>
 (() => {
@@ -59,6 +60,15 @@
   let ctx = null, panner = null, master = null, muted = false;
   let mode = 'synth';            // 'synth' (default) or '808'
   let bus = null, synthOut = null, bassOut = null;
+  let pulseLfo = null, clickLfo = null;   // synth rhythm oscillators, retimed by tempo
+
+  // Front/back cue: tempo speeds up when the source is AHEAD (north of you) and slows
+  // when it is BEHIND (south of you). 1x level with it; 2x at 20+ units ahead; 0.5x at 20+ behind.
+  const TEMPO_RANGE = 20;
+  function tempoMult() {
+    const dy = -player.y;                          // + when source is north of the player
+    return Math.pow(2, Math.max(-1, Math.min(1, dy / TEMPO_RANGE)));
+  }
 
   // ---------- Audio ----------
   function buildAudio() {
@@ -89,7 +99,7 @@
     const pulse = ctx.createGain();
     pulse.gain.value = 0.7;
     const lfo = ctx.createOscillator();
-    lfo.frequency.value = 0.6;
+    lfo.frequency.value = 0.6; pulseLfo = lfo;
     const lfoDepth = ctx.createGain();
     lfoDepth.gain.value = 0.3;
     lfo.connect(lfoDepth).connect(pulse.gain);
@@ -120,7 +130,7 @@
     const nGain = ctx.createGain();
     nGain.gain.value = 0;
     const nLfo = ctx.createOscillator();
-    nLfo.type = 'square'; nLfo.frequency.value = 2.4;
+    nLfo.type = 'square'; nLfo.frequency.value = 2.4; clickLfo = nLfo;
     const nDepth = ctx.createGain();
     nDepth.gain.value = 0.035;
     nLfo.connect(nDepth).connect(nGain.gain);
@@ -199,7 +209,7 @@
       const s = nextStep % 16;
       BASS_PATTERN.forEach(([st, f, l]) => { if (st === s) hit808(stepTime, f, l); });
       if (s % 2 === 0) hat(stepTime, s % 4 === 2 ? 0.18 : 0.08);
-      nextStep++; stepTime += STEP;
+      nextStep++; stepTime += STEP / tempoMult();
     }
   }
 
@@ -288,7 +298,7 @@
 
   const hud = {
     pos: document.getElementById('pos'), dist: document.getElementById('dist'),
-    vol: document.getElementById('vol'), brg: document.getElementById('brg'),
+    vol: document.getElementById('vol'), tempo: document.getElementById('tempo'), brg: document.getElementById('brg'),
   };
 
   function compass(dx, dy) {
@@ -346,11 +356,17 @@
     player.y = Math.max(-WORLD, Math.min(WORLD, player.y + (ay / len) * sp * dt));
 
     if (ax || ay) updateListener(false);
+    if (ctx && pulseLfo) {
+      const m = tempoMult();
+      pulseLfo.frequency.setTargetAtTime(0.6 * m * 1.6, ctx.currentTime, 0.05);
+      clickLfo.frequency.setTargetAtTime(2.4 * m, ctx.currentTime, 0.05);
+    }
 
     const dist = Math.hypot(player.x, player.y);
     hud.pos.textContent = `${player.x.toFixed(1)}, ${player.y.toFixed(1)}`;
     hud.dist.textContent = dist.toFixed(1);
     hud.vol.textContent = Math.round(volumeAt(dist) * 100) + '%';
+    hud.tempo.textContent = tempoMult().toFixed(2) + 'x';
     hud.brg.textContent = compass(-player.x, -player.y);
 
     draw(now);
