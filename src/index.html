@@ -112,11 +112,11 @@
   </header>
 
   <nav id="layers" class="row" aria-label="Map layer">
-    <button type="button" class="pill" data-layer="rain" aria-pressed="true">Rain</button>
-    <button type="button" class="pill" data-layer="heat" aria-pressed="false">Land heat</button>
-    <button type="button" class="pill" data-layer="plants" aria-pressed="false">Plants</button>
-    <button type="button" class="pill" data-layer="ocean" aria-pressed="false">Ocean heat</button>
-    <button type="button" class="pill" data-layer="air" aria-pressed="false">Haze</button>
+    <button type="button" class="pill" data-layer="rain" aria-pressed="true">Rain<kbd>3</kbd></button>
+    <button type="button" class="pill" data-layer="heat" aria-pressed="false">Land heat<kbd>4</kbd></button>
+    <button type="button" class="pill" data-layer="plants" aria-pressed="false">Plants<kbd>5</kbd></button>
+    <button type="button" class="pill" data-layer="ocean" aria-pressed="false">Ocean heat<kbd>6</kbd></button>
+    <button type="button" class="pill" data-layer="air" aria-pressed="false">Haze<kbd>7</kbd></button>
   </nav>
   <p id="layerblurb" class="blurb"></p>
 
@@ -168,7 +168,7 @@
 
   <details>
     <summary>How to listen</summary>
-    <p>Use headphones. Move with <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> (or WASD). You always face up (north). The sound is at the center (0, 0): it gets quieter with distance and pans, filters and delays to show which direction it is in. Pick a layer above (rain, land heat, plants, ocean heat or haze). Each layer adds its own <b>second note</b> to the center note, and the more intense the data is where you stand, the louder and brighter that note gets: faint at the low end, clear in the middle, full and harsh at the top. Press <kbd>H</kbd> to hear a short spoken summary, use the sound key to preview each level. Hold <kbd>Shift</kbd> to move faster, <kbd>M</kbd> to mute.</p>
+    <p>Use headphones. Move with <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> (or WASD). You always face up (north). The sound is at the center (0, 0): it gets quieter with distance and pans, filters and delays to show which direction it is in. Pick a layer above (rain, land heat, plants, ocean heat or haze). Each layer adds its own <b>second note</b> to the center note, and the more intense the data is where you stand, the louder and brighter that note gets: faint at the low end, clear in the middle, full and harsh at the top. Press <kbd>H</kbd> to hear a short spoken summary, use the sound key to preview each level. Switch layers with <kbd>3</kbd> to <kbd>7</kbd> (rain, land heat, plants, ocean heat, haze). Hold <kbd>Shift</kbd> to move faster, <kbd>M</kbd> to mute.</p>
   </details>
 </main>
 
@@ -639,6 +639,8 @@
     if (k) { keys.add(k); e.preventDefault(); }
     if (e.key === 'Shift') keys.add('shift');
     if (e.key.toLowerCase() === 'h') speak();
+    const li = ['3', '4', '5', '6', '7'].indexOf(e.key);
+    if (li >= 0) switchLayer(Object.keys(LAYERS)[li]);
     if (e.key === '1') setMode('synth');
     if (e.key === '2') setMode('808');
     if (e.key.toLowerCase() === 'm' && master) {
@@ -701,10 +703,12 @@
     document.getElementById('keynote').textContent = `Plays what you would hear standing in ${L.noun.toLowerCase() === 'rain' ? 'that much rain' : 'data at that level'}.`;
     document.getElementById('c').setAttribute('aria-label', `Top-down map of NASA ${L.noun.toLowerCase()} data. A sound source sits at the center; your position is the small pale dot.`);
   }
-  layerBtns.forEach(b => b.addEventListener('click', () => {
-    if (b.dataset.layer !== layerKey) loadLayer(b.dataset.layer);
-    b.blur();
-  }));
+  function switchLayer(key) {
+    if (key === layerKey) return;
+    loadLayer(key);
+    document.getElementById('announce').textContent = `Layer: ${LAYERS[key].noun}`;
+  }
+  layerBtns.forEach(b => b.addEventListener('click', () => { switchLayer(b.dataset.layer); b.blur(); }));
 
   // ---------- date slider (daily frames, going back in time) ----------
   const timeEl = document.getElementById('time'), timeOut = document.getElementById('timeout');
