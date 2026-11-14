@@ -112,11 +112,11 @@
   </header>
 
   <nav id="layers" class="row" aria-label="Map layer">
-    <button type="button" class="pill" data-layer="rain" aria-pressed="true">Rain<kbd>3</kbd></button>
-    <button type="button" class="pill" data-layer="heat" aria-pressed="false">Land heat<kbd>4</kbd></button>
-    <button type="button" class="pill" data-layer="plants" aria-pressed="false">Plants<kbd>5</kbd></button>
-    <button type="button" class="pill" data-layer="ocean" aria-pressed="false">Ocean heat<kbd>6</kbd></button>
-    <button type="button" class="pill" data-layer="air" aria-pressed="false">Haze<kbd>7</kbd></button>
+    <button type="button" class="pill" data-layer="rain" aria-pressed="true">Rain<kbd>1</kbd></button>
+    <button type="button" class="pill" data-layer="heat" aria-pressed="false">Land heat<kbd>2</kbd></button>
+    <button type="button" class="pill" data-layer="plants" aria-pressed="false">Plants<kbd>3</kbd></button>
+    <button type="button" class="pill" data-layer="ocean" aria-pressed="false">Ocean heat<kbd>4</kbd></button>
+    <button type="button" class="pill" data-layer="air" aria-pressed="false">Haze<kbd>5</kbd></button>
   </nav>
   <p id="layerblurb" class="blurb"></p>
 
@@ -135,8 +135,8 @@
   </section>
 
   <div id="sound" role="group" aria-label="Sound">
-    <button type="button" data-mode="synth" aria-pressed="true">Synth<kbd>1</kbd></button>
-    <button type="button" data-mode="808" aria-pressed="false">808 bass<kbd>2</kbd></button>
+    <button type="button" data-mode="synth" aria-pressed="true">Synth<kbd>Z</kbd></button>
+    <button type="button" data-mode="chime" aria-pressed="false">Chime<kbd>X</kbd></button>
   </div>
 
   <div class="row">
@@ -168,7 +168,7 @@
 
   <details>
     <summary>How to listen</summary>
-    <p>Use headphones. Move with <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> (or WASD). You always face up (north). The sound is at the center (0, 0): it gets quieter with distance and pans, filters and delays to show which direction it is in. Pick a layer above (rain, land heat, plants, ocean heat or haze). Each layer adds its own <b>second note</b> to the center note, and the more intense the data is where you stand, the louder and brighter that note gets: faint at the low end, clear in the middle, full and harsh at the top. Press <kbd>H</kbd> to hear a short spoken summary, use the sound key to preview each level. Switch layers with <kbd>3</kbd> to <kbd>7</kbd> (rain, land heat, plants, ocean heat, haze). Hold <kbd>Shift</kbd> to move faster, <kbd>M</kbd> to mute.</p>
+    <p>Use headphones. Move with <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> (or WASD). You always face up (north). The sound is at the center (0, 0): it gets quieter with distance and pans, filters and delays to show which direction it is in. Pick a layer above (rain, land heat, plants, ocean heat or haze). Each layer adds its own <b>second note</b> to the center note, and the more intense the data is where you stand, the louder and brighter that note gets: faint at the low end, clear in the middle, full and harsh at the top. Press <kbd>H</kbd> to hear a short spoken summary, use the sound key to preview each level. Switch layers with <kbd>1</kbd> to <kbd>5</kbd> (rain, land heat, plants, ocean heat, haze), and sounds with <kbd>Z</kbd> (synth) and <kbd>X</kbd> (chime). Hold <kbd>Shift</kbd> to move faster, <kbd>M</kbd> to mute.</p>
   </details>
 </main>
 
@@ -429,8 +429,8 @@
   let ctx = null, panner = null, master = null, muted = false;
   let stormGain = null, stormFilter = null, stormTrem = null, stormLfo = null, stormLfoDepth = null;
   const stormOscs = [];            // {o, mult}: the layer voice, retuned per layer
-  let mode = 'synth';            // 'synth' (default) or '808'
-  let bus = null, synthOut = null, bassOut = null;
+  let mode = 'synth';            // 'synth' (default) or 'chime'
+  let bus = null, synthOut = null, chimeOut = null;
 
 
   // ---------- Audio ----------
@@ -527,7 +527,7 @@
     synthOut = ctx.createGain();
     src.connect(lp).connect(pulse).connect(synthOut).connect(bus);
 
-    build808();
+    buildChime();
     applyMode(true);
 
     // Listener faces "up" on the map (north). Map +y (north) = Web Audio -z (forward).
@@ -541,30 +541,18 @@
     updateListener(true);
   }
 
-  // ---------- 808 bass ----------
-  // Sine with a fast pitch drop, soft-clipped so the harmonics are audible on small speakers
-  // and easier to localize, plus a hi-hat for transients. Step-sequenced with a lookahead clock.
-  const BPM = 130, STEP = 60 / BPM / 4;                 // 16th notes
-  const BASS_PATTERN = [                                // [step, midi-ish freq in Hz, length in s]
-    [0, 55.0, 0.9], [3, 55.0, 0.3], [6, 65.41, 0.5], [8, 49.0, 0.9],
-    [11, 49.0, 0.3], [12, 55.0, 0.5], [14, 73.42, 0.3],
-  ];
-  let nextStep = 0, stepTime = 0, sched = null;
+  // ---------- Chime ----------
+  // A steady, metronomic bell: one soft strike per beat, an octave higher on the first beat of each bar.
+  // Bell tones are built from inharmonic partials (1, 2.76, 5.4) with a quick attack and a long decay.
+  // The layer's second note rings alongside it, louder as the data gets more intense.
+  const BPM = 84, BEAT = 60 / BPM;
+  const CHIME_ROOT = 220;                               // A3; the accent is an octave up
+  let nextBeat = 0, beatTime = 0, sched = null;
 
-  function build808() {
-    bassOut = ctx.createGain();
-    bassOut.connect(bus);
-    const shaper = ctx.createWaveShaper();
-    const curve = new Float32Array(1024);
-    for (let i = 0; i < 1024; i++) { const x = i / 512 - 1; curve[i] = Math.tanh(2.6 * x); }
-    shaper.curve = curve; shaper.oversample = '4x';
-    shaper.connect(bassOut);
-    ctx._shaper = shaper;
-    ctx._hatBuf = (() => {
-      const b = ctx.createBuffer(1, ctx.sampleRate * 0.1, ctx.sampleRate), d = b.getChannelData(0);
-      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 3);
-      return b;
-    })();
+  function buildChime() {
+    chimeOut = ctx.createGain();
+    chimeOut.gain.value = 0;
+    chimeOut.connect(bus);
   }
 
   function applyLayerVoice(immediate) {
@@ -579,45 +567,34 @@
     stormLfo.frequency.setTargetAtTime(Math.max(0.05, L.trem), t, 0.1);
   }
 
-  function hit808(t, freq, len) {
-    voice808(t, freq, len, 0.9);
-    if (stormLevel > 0.03) voice808(t, freq * stormRatio(), len, 0.9 * stormLevel);   // layer voice
-  }
-
-  function voice808(t, freq, len, amp) {
-    const o = ctx.createOscillator(), g = ctx.createGain();
-    o.type = 'sine';
-    o.frequency.setValueAtTime(freq * 3, t);
-    o.frequency.exponentialRampToValueAtTime(freq, t + 0.06);   // the "boom" pitch drop
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(amp, t + 0.005);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + len);
-    o.connect(g).connect(ctx._shaper);
-    o.start(t); o.stop(t + len + 0.05);
-  }
-
-  function hat(t, vol) {
-    const n = ctx.createBufferSource(), hp = ctx.createBiquadFilter(), g = ctx.createGain();
-    n.buffer = ctx._hatBuf; hp.type = 'highpass'; hp.frequency.value = 6500; g.gain.value = vol;
-    n.connect(hp).connect(g).connect(bassOut);
-    n.start(t);
+  function strike(t, freq, amp, len) {       // one bell strike
+    [[1, 1, 1], [2.76, 0.32, 0.55], [5.4, 0.12, 0.3]].forEach(([ratio, gain, decay]) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sine'; o.frequency.value = freq * ratio;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(amp * gain, t + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + len * decay);
+      o.connect(g).connect(chimeOut);
+      o.start(t); o.stop(t + len * decay + 0.05);
+    });
   }
 
   function schedule() {
-    if (!ctx || mode !== '808') { if (ctx) { nextStep = 0; stepTime = ctx.currentTime + 0.05; } return; }
-    while (stepTime < ctx.currentTime + 0.15) {
-      const s = nextStep % 16;
-      BASS_PATTERN.forEach(([st, f, l]) => { if (st === s) hit808(stepTime, f, l); });
-      if (s % 2 === 0) hat(stepTime, s % 4 === 2 ? 0.18 : 0.08);
-      nextStep++; stepTime += STEP;
+    if (!ctx || mode !== 'chime') { if (ctx) { nextBeat = 0; beatTime = ctx.currentTime + 0.05; } return; }
+    while (beatTime < ctx.currentTime + 0.15) {
+      const accent = nextBeat % 4 === 0;
+      const f = accent ? CHIME_ROOT * 2 : CHIME_ROOT;
+      strike(beatTime, f, accent ? 0.55 : 0.34, 1.8);
+      if (stormLevel > 0.03) strike(beatTime, f * stormRatio(), 0.5 * stormLevel + 0.05, 1.8);   // layer note
+      nextBeat++; beatTime += BEAT;
     }
   }
 
   function applyMode(initial) {
     const t = ctx.currentTime;
     synthOut.gain.setTargetAtTime(mode === 'synth' ? 1 : 0, t, 0.05);
-    bassOut.gain.setTargetAtTime(mode === '808' ? 1.1 : 0, t, 0.05);
-    nextStep = 0; stepTime = t + 0.05;
+    chimeOut.gain.setTargetAtTime(mode === 'chime' ? 1 : 0, t, 0.05);
+    nextBeat = 0; beatTime = t + 0.05;
     if (!sched) sched = setInterval(schedule, 40);
   }
 
@@ -670,10 +647,10 @@
     if (k) { keys.add(k); e.preventDefault(); }
     if (e.key === 'Shift') keys.add('shift');
     if (e.key.toLowerCase() === 'h') speak();
-    const li = ['3', '4', '5', '6', '7'].indexOf(e.key);
+    const li = ['1', '2', '3', '4', '5'].indexOf(e.key);
     if (li >= 0) switchLayer(Object.keys(LAYERS)[li]);
-    if (e.key === '1') setMode('synth');
-    if (e.key === '2') setMode('808');
+    if (e.key.toLowerCase() === 'z') setMode('synth');
+    if (e.key.toLowerCase() === 'x') setMode('chime');
     if (e.key.toLowerCase() === 'm' && master) {
       muted = !muted;
       master.gain.setTargetAtTime(muted ? 0 : 0.9, ctx.currentTime, 0.02);
