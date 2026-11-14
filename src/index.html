@@ -5,45 +5,120 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Earth Jukebox: Spatial Audio Prototype</title>
 <style>
-  :root { color-scheme: dark; }
-  html, body { margin: 0; height: 100%; background: #070b14; color: #d7e3ff; font: 15px/1.4 system-ui, sans-serif; }
-  body { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px; box-sizing: border-box; }
-  h1 { font-size: 18px; margin: 0; font-weight: 600; }
-  #wrap { position: relative; width: min(92vw, 70vh); aspect-ratio: 1; }
-  canvas { width: 100%; height: 100%; border: 1px solid #25324d; border-radius: 8px; background: #0a1020; display: block; }
-  #start { position: absolute; inset: 0; margin: auto; width: 220px; height: 52px; font-size: 16px; border-radius: 26px;
-           border: 0; background: #4da3ff; color: #04101f; font-weight: 600; cursor: pointer; }
-  #start:focus-visible { outline: 3px solid #fff; }
-  #hud { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; font-variant-numeric: tabular-nums; }
-  #sound { display: flex; gap: 8px; align-items: center; }
-  #sound button { background: #121c33; color: #d7e3ff; border: 1px solid #2c3c5e; padding: 6px 14px; border-radius: 16px; cursor: pointer; font: inherit; }
-  #sound button[aria-pressed="true"] { background: #4da3ff; color: #04101f; border-color: #4da3ff; font-weight: 600; }
-  #sound button:focus-visible { outline: 3px solid #fff; }
-  small { color: #8aa0c8; text-align: center; max-width: 560px; }
-  kbd { background: #1a2640; padding: 1px 6px; border-radius: 4px; border: 1px solid #2c3c5e; }
+  :root {
+    color-scheme: dark;
+    --bg: #0a1112;
+    --bg2: #101b1c;
+    --ink: #e9e4d6;
+    --mute: #8c9893;
+    --faint: #5d6b67;
+    --line: rgba(233, 228, 214, .13);
+    --accent: #dcbf8f;
+    --moss: #86aa9a;
+    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background: var(--bg);
+    background-image: radial-gradient(120% 80% at 50% 0%, var(--bg2) 0%, var(--bg) 60%);
+    background-attachment: fixed;
+    color: var(--ink);
+    font: 15px/1.6 var(--sans);
+    padding-inline: 20px;
+    padding-block: 44px 56px;
+    -webkit-font-smoothing: antialiased;
+  }
+  main { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 34px; }
+
+  header { text-align: center; }
+  .eyebrow { margin: 0 0 14px; font-size: 11px; letter-spacing: .32em; text-transform: uppercase; color: var(--faint); }
+  h1 { margin: 0; font: 400 clamp(30px, 6vw, 40px)/1.1 var(--serif); letter-spacing: .04em; }
+  .sub { margin: 12px 0 0; color: var(--mute); font: italic 400 16px/1.4 var(--serif); }
+
+  #wrap { position: relative; width: min(100%, 540px); aspect-ratio: 1; }
+  canvas {
+    width: 100%; height: 100%; display: block; border-radius: 28px;
+    border: 1px solid var(--line);
+    box-shadow: 0 30px 80px -30px rgba(0,0,0,.7), 0 0 0 8px rgba(233,228,214,.025);
+  }
+  #start {
+    position: absolute; inset: 0; width: 100%; height: 100%; border: 0; border-radius: 28px; cursor: pointer;
+    background: rgba(10, 17, 18, .62); -webkit-backdrop-filter: blur(7px); backdrop-filter: blur(7px);
+    color: var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+    font: inherit; transition: background .4s ease;
+  }
+  #start:hover { background: rgba(10, 17, 18, .5); }
+  #start:focus-visible { outline: 2px solid var(--accent); outline-offset: -6px; }
+  #start .go { font: 400 24px/1 var(--serif); letter-spacing: .08em; padding: 14px 34px; border: 1px solid var(--accent); border-radius: 999px; color: var(--accent); }
+  #start .hint { font-size: 12px; letter-spacing: .14em; color: var(--mute); text-transform: uppercase; }
+
+  #hud { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px 12px; text-align: center; font-variant-numeric: tabular-nums; }
+  #hud > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  #hud .k { font-size: 10px; letter-spacing: .24em; text-transform: uppercase; color: var(--faint); }
+  #hud b { font: 400 18px/1.25 var(--serif); font-weight: 400; color: var(--ink); overflow-wrap: anywhere; }
+  #hud .primary b { color: var(--accent); font-size: 21px; }
+
+  #sound { display: inline-flex; padding: 4px; gap: 2px; border: 1px solid var(--line); border-radius: 999px; }
+  #sound .lbl { display: none; }
+  #sound button {
+    background: transparent; color: var(--mute); border: 0; padding: 8px 20px; border-radius: 999px; cursor: pointer;
+    font: inherit; font-size: 13px; letter-spacing: .08em; transition: background .3s, color .3s;
+  }
+  #sound button:hover { color: var(--ink); }
+  #sound button[aria-pressed="true"] { background: rgba(220,191,143,.14); color: var(--accent); }
+  #sound button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  kbd { font: 11px var(--sans); color: var(--faint); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; margin-left: 6px; }
+
+  #datastat { margin: 0; text-align: center; max-width: 440px; color: var(--faint); font-size: 12px; line-height: 1.7; }
+
+  details { width: 100%; max-width: 440px; border-top: 1px solid var(--line); padding-top: 18px; text-align: center; }
+  summary { cursor: pointer; list-style: none; font-size: 11px; letter-spacing: .28em; text-transform: uppercase; color: var(--mute); }
+  summary::-webkit-details-marker { display: none; }
+  summary:hover { color: var(--ink); }
+  summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 6px; border-radius: 4px; }
+  details p { margin: 16px 0 0; color: var(--mute); font-size: 14px; line-height: 1.8; text-align: left; }
+  details b { color: var(--ink); font-weight: 500; }
+
+  @media (max-width: 420px) { #hud { grid-template-columns: repeat(2, 1fr); } }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
 <body>
-  <h1>Earth Jukebox: spatial audio prototype</h1>
+<main>
+  <header>
+    <p class="eyebrow">NASA Space Apps &middot; 2026</p>
+    <h1>Earth Jukebox</h1>
+    <p class="sub">Listen to the weather.</p>
+  </header>
+
   <div id="wrap">
-    <canvas id="c" width="720" height="720" role="img" aria-label="Top-down map. A sound source sits at the origin; your position is the blue dot."></canvas>
-    <button id="start">Start audio</button>
+    <canvas id="c" width="900" height="900" role="img" aria-label="Top-down map of precipitation. A sound source sits at the center; your position is the small pale dot."></canvas>
+    <button id="start" type="button"><span class="go">Begin listening</span><span class="hint">Headphones recommended</span></button>
   </div>
-  <div id="hud" aria-live="off">
-    <span>Position: <b id="pos">0, 0</b></span>
-    <span>Distance: <b id="dist">0.0</b></span>
-    <span>Volume: <b id="vol">100%</b></span>
-    <span>Bearing: <b id="brg">-</b></span>
-    <span>Storm: <b id="storm">-</b></span>
-    <span>Location: <b id="loc">-</b></span>
-  </div>
-  <small id="datastat">Loading NASA IMERG precipitation data...</small>
+
+  <section id="hud" aria-label="Current readings">
+    <div class="primary"><span class="k">Storm</span><b id="storm">-</b></div>
+    <div><span class="k">Direction</span><b id="brg">-</b></div>
+    <div><span class="k">Distance</span><b id="dist">0.0</b></div>
+    <div><span class="k">Volume</span><b id="vol">100%</b></div>
+    <div><span class="k">Position</span><b id="pos">0, 0</b></div>
+    <div><span class="k">Location</span><b id="loc">-</b></div>
+  </section>
+
   <div id="sound" role="group" aria-label="Sound">
-    <span>Sound:</span>
-    <button type="button" data-mode="synth" aria-pressed="true">Synth <kbd>1</kbd></button>
-    <button type="button" data-mode="808" aria-pressed="false">808 bass <kbd>2</kbd></button>
+    <button type="button" data-mode="synth" aria-pressed="true">Synth<kbd>1</kbd></button>
+    <button type="button" data-mode="808" aria-pressed="false">808 bass<kbd>2</kbd></button>
   </div>
-  <small>Use headphones. Move with <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> (or WASD). You always face up (north). The sound is at the center (0, 0): it gets quieter with distance and pans, filters and delays to show which direction it is in. The map shows NASA precipitation: the heavier the rain you stand in, the louder and brighter the <b>minor-sixth note</b> above the center note. Green is a soft hum, yellow is clear, orange is strong, red is full and harsh. Hold <kbd>Shift</kbd> to move faster, <kbd>M</kbd> to mute.</small>
+
+  <p id="datastat">Loading NASA IMERG precipitation data...</p>
+
+  <details>
+    <summary>How to listen</summary>
+    <p>Use headphones. Move with <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> (or WASD). You always face up (north). The sound is at the center (0, 0): it gets quieter with distance and pans, filters and delays to show which direction it is in. The map shows NASA precipitation: the heavier the rain you stand in, the louder and brighter the <b>minor-sixth note</b> above the center note. Green is a soft hum, yellow is clear, orange is strong, red is full and harsh. Hold <kbd>Shift</kbd> to move faster, <kbd>M</kbd> to mute.</p>
+  </details>
+</main>
 
 <script>
 (() => {
@@ -429,40 +504,49 @@
     return names[Math.round(a / 45) % 8];
   }
 
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const UNIT = W / (2 * WORLD);
+
   function draw(t) {
     g.clearRect(0, 0, W, W);
-    if (dataImg) { g.globalAlpha = 0.8; g.drawImage(dataImg, 0, 0, W, W); g.globalAlpha = 1; }
+    g.fillStyle = '#0b1415'; g.fillRect(0, 0, W, W);
+    if (dataImg) { g.globalAlpha = 0.74; g.drawImage(dataImg, 0, 0, W, W); g.globalAlpha = 1; }
 
-    // grid
-    g.lineWidth = 1;
-    for (let v = -WORLD; v <= WORLD; v += 10) {
-      g.strokeStyle = v === 0 ? '#2a3a5c' : '#141d33';
-      g.beginPath(); g.moveTo(toPx(v), 0); g.lineTo(toPx(v), W); g.stroke();
-      g.beginPath(); g.moveTo(0, toPy(v)); g.lineTo(W, toPy(v)); g.stroke();
-    }
+    // soft vignette pulls the eye to the middle
+    const vg = g.createRadialGradient(W / 2, W / 2, W * 0.28, W / 2, W / 2, W * 0.78);
+    vg.addColorStop(0, 'rgba(8,14,15,0)'); vg.addColorStop(1, 'rgba(8,14,15,0.6)');
+    g.fillStyle = vg; g.fillRect(0, 0, W, W);
 
-    // source: rings pulsing outward
     const sx = toPx(0), sy = toPy(0);
-    for (let i = 0; i < 4; i++) {
-      const ph = ((t / 2000) + i / 4) % 1;
-      g.strokeStyle = `rgba(255,170,60,${0.5 * (1 - ph)})`;
+
+    // quiet distance rings every 10 units
+    g.lineWidth = 1.5; g.setLineDash([2, 9]); g.strokeStyle = 'rgba(233,228,214,0.16)';
+    for (let r = 10; r <= 50; r += 10) { g.beginPath(); g.arc(sx, sy, r * UNIT, 0, Math.PI * 2); g.stroke(); }
+    g.setLineDash([]);
+
+    // the source: a warm orb with slow ripples
+    for (let i = 0; i < 3; i++) {
+      const ph = reduceMotion ? (0.25 + i * 0.3) : (((t / 3600) + i / 3) % 1);
+      g.strokeStyle = `rgba(236,208,160,${0.38 * (1 - ph)})`;
       g.lineWidth = 2;
-      g.beginPath(); g.arc(sx, sy, 8 + ph * 140, 0, Math.PI * 2); g.stroke();
+      g.beginPath(); g.arc(sx, sy, 10 + ph * 150, 0, Math.PI * 2); g.stroke();
     }
-    g.fillStyle = '#ffb03c';
-    g.beginPath(); g.arc(sx, sy, 9, 0, Math.PI * 2); g.fill();
-    g.fillStyle = '#ffd9a0'; g.font = '14px system-ui'; g.fillText('(0,0)', sx + 14, sy - 12);
+    const glow = g.createRadialGradient(sx, sy, 0, sx, sy, 38);
+    glow.addColorStop(0, 'rgba(244,222,176,0.55)'); glow.addColorStop(1, 'rgba(244,222,176,0)');
+    g.fillStyle = glow; g.beginPath(); g.arc(sx, sy, 38, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#f3dfb4'; g.beginPath(); g.arc(sx, sy, 6, 0, Math.PI * 2); g.fill();
 
-    // line from player to source
+    // you: a pale dot with the direction you face (always north)
     const px = toPx(player.x), py = toPy(player.y);
-    g.strokeStyle = 'rgba(255,176,60,0.25)'; g.setLineDash([6, 6]); g.lineWidth = 1;
+    g.strokeStyle = 'rgba(233,228,214,0.16)'; g.lineWidth = 1.5; g.setLineDash([3, 8]);
     g.beginPath(); g.moveTo(px, py); g.lineTo(sx, sy); g.stroke(); g.setLineDash([]);
-
-    // player: dot + facing wedge (always north)
-    g.fillStyle = 'rgba(77,163,255,0.25)';
-    g.beginPath(); g.moveTo(px, py); g.arc(px, py, 38, -Math.PI * 0.75, -Math.PI * 0.25); g.closePath(); g.fill();
-    g.fillStyle = '#4da3ff';
-    g.beginPath(); g.arc(px, py, 8, 0, Math.PI * 2); g.fill();
+    const wedge = g.createRadialGradient(px, py, 0, px, py, 70);
+    wedge.addColorStop(0, 'rgba(176,222,206,0.30)'); wedge.addColorStop(1, 'rgba(176,222,206,0)');
+    g.fillStyle = wedge;
+    g.beginPath(); g.moveTo(px, py); g.arc(px, py, 70, -Math.PI * 0.75, -Math.PI * 0.25); g.closePath(); g.fill();
+    g.strokeStyle = 'rgba(214,240,228,0.55)'; g.lineWidth = 1.5;
+    g.beginPath(); g.arc(px, py, 11, 0, Math.PI * 2); g.stroke();
+    g.fillStyle = '#d6f0e4'; g.beginPath(); g.arc(px, py, 5, 0, Math.PI * 2); g.fill();
   }
 
   let last = performance.now();
