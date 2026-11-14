@@ -103,6 +103,10 @@
   .pill:hover { color: var(--ink); border-color: var(--faint); }
   .pill[aria-pressed="true"] { background: rgba(220,191,143,.14); color: var(--accent); border-color: rgba(220,191,143,.4); }
   .pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  #wrap, #wrap canvas { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  #stick { position: absolute; width: 112px; height: 112px; margin: -56px 0 0 -56px; border-radius: 50%; border: 1.5px solid rgba(220,191,143,.5); background: radial-gradient(circle, rgba(220,191,143,.10), rgba(220,191,143,.03)); pointer-events: none; z-index: 2; }
+  #knob { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; background: rgba(220,191,143,.55); box-shadow: 0 0 24px rgba(220,191,143,.4); }
+  #touchhint { margin: -14px 0 0; text-align: center; font-size: 12px; color: var(--faint); }
   .links { margin: 14px 0 0; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; }
   .links a { color: var(--mute); text-decoration: none; border-bottom: 1px solid var(--line); padding-bottom: 2px; }
   .links a:hover { color: var(--accent); border-color: var(--accent); }
@@ -144,8 +148,11 @@
   <div id="wrap">
     <canvas id="c" width="900" height="900" role="img" aria-label="Top-down map of NASA satellite data. A sound source sits at the center; your position is the small pale dot."></canvas>
     <canvas id="relief" width="900" height="900" role="img" aria-label="3D terrain view of the NASA map. A glowing beam marks the sound source; you are the small pale marker." hidden></canvas>
+    <div id="stick" hidden><div id="knob"></div></div>
     <button id="start" type="button"><span class="go">Begin listening</span><span class="hint">Headphones recommended</span></button>
   </div>
+
+  <p id="touchhint">Touch or drag on the map to move. Pull farther to go faster.</p>
 
   <section id="hud" aria-label="Current readings">
     <div class="primary"><span class="k" id="stormk">Rain</span><b id="storm">-</b></div>
@@ -163,6 +170,8 @@
 
   <div class="row">
     <button type="button" class="pill" id="speak">Hear summary<kbd>H</kbd></button>
+    <button type="button" class="pill" id="mute" aria-pressed="false">Mute<kbd>M</kbd></button>
+    <button type="button" class="pill" id="haptics" aria-pressed="true" hidden>Vibration: on</button>
     <button type="button" class="pill" id="view" aria-pressed="true">3D terrain<kbd>V</kbd></button>
   </div>
 
@@ -678,10 +687,7 @@
     if (li >= 0) switchLayer(Object.keys(LAYERS)[li]);
     if (e.key.toLowerCase() === 'z') setMode('synth');
     if (e.key.toLowerCase() === 'x') setMode('chime');
-    if (e.key.toLowerCase() === 'm' && master) {
-      muted = !muted;
-      master.gain.setTargetAtTime(muted ? 0 : 0.9, ctx.currentTime, 0.02);
-    }
+    if (e.key.toLowerCase() === 'm') toggleMute();
   });
   window.addEventListener('keyup', e => {
     const k = KEYMAP[e.key] || KEYMAP[e.key.toLowerCase?.()];
@@ -689,6 +695,61 @@
     if (e.key === 'Shift') keys.delete('shift');
   });
   window.addEventListener('blur', () => keys.clear());
+
+  function toggleMute() {
+    muted = !muted;
+    if (master) master.gain.setTargetAtTime(muted ? 0 : 0.9, ctx.currentTime, 0.02);
+    document.getElementById('mute').setAttribute('aria-pressed', String(muted));
+  }
+  document.getElementById('mute').addEventListener('click', e => { toggleMute(); e.currentTarget.blur(); });
+
+  // ---------- touch / pointer steering: press on the map and drag, like a joystick ----------
+  const joy = { on: false, id: null, ox: 0, oy: 0, x: 0, y: 0, fast: false };
+  const stickEl = document.getElementById('stick'), knobEl = document.getElementById('knob'), JR = 56;
+  const wrapNode = document.getElementById('wrap');
+  wrapNode.addEventListener('pointerdown', e => {
+    if (e.target.closest('#start') || joy.on) return;
+    joy.on = true; joy.id = e.pointerId; joy.ox = e.clientX; joy.oy = e.clientY;
+    const r = wrapNode.getBoundingClientRect();
+    stickEl.style.left = (e.clientX - r.left) + 'px'; stickEl.style.top = (e.clientY - r.top) + 'px';
+    knobEl.style.transform = 'translate(0,0)'; stickEl.hidden = false;
+    try { wrapNode.setPointerCapture(e.pointerId); } catch (err) {}
+    e.preventDefault();
+  });
+  wrapNode.addEventListener('pointermove', e => {
+    if (!joy.on || e.pointerId !== joy.id) return;
+    const dx = e.clientX - joy.ox, dy = e.clientY - joy.oy, raw = Math.hypot(dx, dy) / JR;
+    const k = raw > 1 ? 1 / raw : 1;                       // knob and steering stay inside the ring
+    joy.x = dx / JR * k; joy.y = -dy / JR * k;
+    if (Math.hypot(joy.x, joy.y) < 0.15) { joy.x = 0; joy.y = 0; }   // small dead zone
+    joy.fast = raw > 1.5;                                  // pull well past the ring to move faster
+    knobEl.style.transform = `translate(${dx * k}px, ${dy * k}px)`;
+  });
+  const joyEnd = e => {
+    if (e.pointerId !== joy.id) return;
+    joy.on = false; joy.x = 0; joy.y = 0; joy.fast = false; stickEl.hidden = true;
+  };
+  wrapNode.addEventListener('pointerup', joyEnd); wrapNode.addEventListener('pointercancel', joyEnd);
+  wrapNode.addEventListener('contextmenu', e => e.preventDefault());
+
+  // ---------- vibration when you walk into more intense data (phones that support it) ----------
+  const hapBtn = document.getElementById('haptics');
+  let hapticsOn = matchMedia('(pointer: coarse)').matches, lastTier = 0, lastBuzz = 0;
+  if (navigator.vibrate) {
+    hapBtn.hidden = false;
+    hapBtn.setAttribute('aria-pressed', String(hapticsOn)); hapBtn.textContent = 'Vibration: ' + (hapticsOn ? 'on' : 'off');
+    hapBtn.addEventListener('click', () => {
+      hapticsOn = !hapticsOn; hapBtn.setAttribute('aria-pressed', String(hapticsOn));
+      hapBtn.textContent = 'Vibration: ' + (hapticsOn ? 'on' : 'off'); if (hapticsOn) navigator.vibrate(30); hapBtn.blur();
+    });
+  }
+  function buzzOnTier(idx, now) {
+    if (idx > lastTier && idx >= 2 && hapticsOn && navigator.vibrate && previewLevel == null && now - lastBuzz > 1200) {
+      navigator.vibrate(idx === 2 ? [30] : idx === 3 ? [40, 40, 40] : [70, 40, 70, 40, 70]);   // stronger data, stronger buzz
+      lastBuzz = now;
+    }
+    lastTier = idx;
+  }
 
   const startBtn = document.getElementById('start');
   async function ensureAudio() {
@@ -1078,12 +1139,14 @@
 
     let ax = (keys.has('right') ? 1 : 0) - (keys.has('left') ? 1 : 0);
     let ay = (keys.has('up') ? 1 : 0) - (keys.has('down') ? 1 : 0);
-    const len = Math.hypot(ax, ay) || 1;
-    const sp = SPEED * (keys.has('shift') ? 2.2 : 1);
-    player.x = Math.max(-WORLD, Math.min(WORLD, player.x + (ax / len) * sp * dt));
-    player.y = Math.max(-WORLD, Math.min(WORLD, player.y + (ay / len) * sp * dt));
+    ax += joy.x; ay += joy.y;
+    const len = Math.hypot(ax, ay) || 1, mag = Math.min(1, len);   // keys are full speed; the touch stick is analog
+    const sp = SPEED * (keys.has('shift') || joy.fast ? 2.2 : 1);
+    player.x = Math.max(-WORLD, Math.min(WORLD, player.x + (ax / len) * sp * mag * dt));
+    player.y = Math.max(-WORLD, Math.min(WORLD, player.y + (ay / len) * sp * mag * dt));
 
     if (ax || ay) updateListener(false);
+    buzzOnTier(tierIndex(realStorm), now);
     realStorm = stormAt(player.x, player.y);
     stormLevel = previewLevel != null ? previewLevel : realStorm;
     if (ctx && stormGain) {
