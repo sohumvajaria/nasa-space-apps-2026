@@ -201,7 +201,7 @@
     rain: {
       id: 'IMERG_Precipitation_Rate', dataset: 'GPM IMERG precipitation rate', noun: 'Rain', centerName: 'Storm center',
       blurb: 'Rain rate from the GPM IMERG satellites. A minor sixth rises above the center note and gets louder and brighter as the rain gets heavier.',
-      semis: 8, wave: 'sawtooth', trem: 0, tremDepth: 0, bright: 5000, home: null,
+      semis: 8, wave: 'sawtooth', trem: 0, tremDepth: 0, bright: 5000, home: null, maxLat: 45,
       tiers: ['dry', 'light', 'moderate', 'heavy', 'extreme'],
       say: ['No rain here', 'Light rain', 'Moderate rain', 'Heavy rain', 'Extreme rain'],
       anchors: [[0, 0.08], [0.1, 0.25], [0.2, 0.45], [0.25, 0.62], [0.31, 0.8], [0.36, 0.9], [0.45, 1], [1, 1]],
@@ -343,14 +343,14 @@
     }
   }
 
-  async function findPeak() {      // the most intense spot in the global image (smoothed, within 60 degrees of the equator)
+  async function findPeak() {      // the most intense spot in the global image (smoothed, within 60 degrees of the equator, 45 for rain)
     const gw = 720, gh = 360;
     const global = toScores(await loadImg(gibsUrl(-180, -90, 180, 90, gw, gh)), gw, gh);
     const blur = boxBlur(global, gw, gh, 8);
     let best = -1, bx = 0, by = 0;
     for (let y = 0; y < gh; y++) {
       const lat = 90 - (y + 0.5) / gh * 180;
-      if (Math.abs(lat) > 60) continue;
+      if (Math.abs(lat) > (curLayer().maxLat || 60)) continue;
       for (let x = 0; x < gw; x++) if (blur[y * gw + x] > best) { best = blur[y * gw + x]; bx = x; by = y; }
     }
     return {
