@@ -43,7 +43,7 @@
     <button type="button" data-mode="synth" aria-pressed="true">Synth <kbd>1</kbd></button>
     <button type="button" data-mode="808" aria-pressed="false">808 bass <kbd>2</kbd></button>
   </div>
-  <small>Use headphones. Move with <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> (or WASD). You always face up (north). The sound is at the center (0, 0): it gets quieter with distance and pans, filters and delays to show which direction it is in. Hold <kbd>Shift</kbd> to move faster, <kbd>M</kbd> to mute.</small>
+  <small>Use headphones. Move with <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> (or WASD). You always face up (north). The sound is at the center (0, 0): it gets quieter with distance and pans, filters and delays to show which direction it is in. The map shows NASA precipitation: the heavier the rain you stand in, the louder and brighter the <b>minor-sixth note</b> above the center note. Green is a soft hum, yellow is clear, orange is strong, red is full and harsh. Hold <kbd>Shift</kbd> to move faster, <kbd>M</kbd> to mute.</small>
 
 <script>
 (() => {
@@ -97,7 +97,7 @@
     x.drawImage(img, 0, 0, w, h);
     const d = x.getImageData(0, 0, w, h).data, out = new Float32Array(w * h);
     for (let i = 0; i < out.length; i++) {
-      out[i] = d[4 * i + 3] < 20 ? 0 : 0.25 + 0.75 * intensity(d[4 * i], d[4 * i + 1], d[4 * i + 2]);
+      out[i] = d[4 * i + 3] < 20 ? 0 : Math.max(0.03, intensity(d[4 * i], d[4 * i + 1], d[4 * i + 2]));
     }
     return out;
   }
@@ -139,7 +139,7 @@
       // 2) high-res window around it: plane x in [-40,40] -> lon, y -> lat
       const half = 40 * DEG_PER_UNIT;
       dataImg = await loadImg(gibsUrl(center.lon - half, center.lat - half, center.lon + half, center.lat + half, GRID, GRID));
-      field = boxBlur(toScores(dataImg, GRID, GRID), GRID, GRID, 12);   // ~2.4 units of smoothing
+      field = boxBlur(toScores(dataImg, GRID, GRID), GRID, GRID, 5);   // ~1 unit of smoothing, small so color bands stay distinct
       stat.textContent = `Data: NASA IMERG precipitation rate (GIBS), ${DATA_TIME.replace('T', ' ').slice(0, 16)} UTC. ` +
         `Storm center (0,0) is near ${fmtLat(center.lat)}, ${fmtLon(center.lon)}. 1 unit is about ${DEG_PER_UNIT} degrees.`;
     } catch (err) {
@@ -155,12 +155,17 @@
     if (!field) return 0;
     const px = Math.max(0, Math.min(GRID - 1, Math.floor((x + 40) / 80 * GRID)));
     const py = Math.max(0, Math.min(GRID - 1, Math.floor((40 - y) / 80 * GRID)));
-    return Math.min(1, field[py * GRID + px] * 1.5);
+    // Squared response so the legend colors land on clearly separate levels:
+    // light blue ~1%, green ~15%, yellow ~45%, orange ~70%, red ~100%.
+    return Math.min(1, Math.pow(field[py * GRID + px] / 0.9, 2));
+  }
+  function stormTier(v) {
+    return v < 0.03 ? 'dry' : v < 0.12 ? 'light' : v < 0.3 ? 'green' : v < 0.55 ? 'yellow' : v < 0.85 ? 'orange' : 'red';
   }
   loadData();
 
   let ctx = null, panner = null, master = null, muted = false;
-  let stormGain = null;
+  let stormGain = null, stormFilter = null;
   let mode = 'synth';            // 'synth' (default) or '808'
   let bus = null, synthOut = null, bassOut = null;
 
@@ -225,7 +230,9 @@
       o.connect(g).connect(stormGain);
       o.start();
     });
-    stormGain.connect(src);
+    stormFilter = ctx.createBiquadFilter();
+    stormFilter.type = 'lowpass'; stormFilter.frequency.value = 250; stormFilter.Q.value = 1.2;
+    stormGain.connect(stormFilter).connect(src);
 
     // A soft rhythmic click/noise layer, which adds transients that help the brain locate direction.
     const noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
@@ -471,8 +478,13 @@
 
     if (ax || ay) updateListener(false);
     stormLevel = stormAt(player.x, player.y);
-    if (ctx && stormGain) stormGain.gain.setTargetAtTime(0.9 * stormLevel, ctx.currentTime, 0.08);
-    hud.storm.textContent = field ? Math.round(stormLevel * 100) + '%' : 'n/a';
+    if (ctx && stormGain) {
+      const t = ctx.currentTime;
+      stormGain.gain.setTargetAtTime(1.2 * stormLevel, t, 0.08);
+      // louder AND brighter as the storm intensifies: dull hum in green, harsh and open in red
+      stormFilter.frequency.setTargetAtTime(250 + 5000 * Math.pow(stormLevel, 1.5), t, 0.08);
+    }
+    hud.storm.textContent = field ? Math.round(stormLevel * 100) + '% (' + stormTier(stormLevel) + ')' : 'n/a';
     hud.loc.textContent = field ? `${fmtLat(center.lat + player.y * DEG_PER_UNIT)}, ${fmtLon(center.lon + player.x * DEG_PER_UNIT)}` : 'n/a';
 
     const dist = Math.hypot(player.x, player.y);
