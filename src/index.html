@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Earth Jukebox: Spatial Audio Prototype</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: #070b14; color: #d7e3ff; font: 15px/1.4 system-ui, sans-serif; }
+  body { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px; box-sizing: border-box; }
+  h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  #wrap { position: relative; width: min(92vw, 70vh); aspect-ratio: 1; }
+  canvas { width: 100%; height: 100%; border: 1px solid #25324d; border-radius: 8px; background: #0a1020; display: block; }
+  #start { position: absolute; inset: 0; margin: auto; width: 220px; height: 52px; font-size: 16px; border-radius: 26px;
+           border: 0; background: #4da3ff; color: #04101f; font-weight: 600; cursor: pointer; }
+  #start:focus-visible { outline: 3px solid #fff; }
+  #hud { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; font-variant-numeric: tabular-nums; }
+  small { color: #8aa0c8; text-align: center; max-width: 560px; }
+  kbd { background: #1a2640; padding: 1px 6px; border-radius: 4px; border: 1px solid #2c3c5e; }
+</style>
+</head>
+<body>
+  <h1>Earth Jukebox: spatial audio prototype</h1>
+  <div id="wrap">
+    <canvas id="c" width="720" height="720" role="img" aria-label="Top-down map. A sound source sits at the origin; your position is the blue dot."></canvas>
+    <button id="start">Start audio</button>
+  </div>
+  <div id="hud" aria-live="off">
+    <span>Position: <b id="pos">0, 0</b></span>
+    <span>Distance: <b id="dist">0.0</b></span>
+    <span>Volume: <b id="vol">100%</b></span>
+    <span>Bearing: <b id="brg">-</b></span>
+  </div>
+  <small>Use headphones. Move with <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> (or WASD). You always face up (north). The sound is at the center (0, 0): it gets quieter with distance and pans, filters and delays to show which direction it is in. Hold <kbd>Shift</kbd> to move faster, <kbd>M</kbd> to mute.</small>
+
+<script>
+(() => {
+  'use strict';
+
+  // ---------- Config ----------
+  const WORLD = 40;            // world spans -WORLD..+WORLD on both axes
+  const SPEED = 6;             // units per second
+  const REF_DISTANCE = 1.5;    // distance at which volume is 100%
+  const ROLLOFF = 1.1;         // higher = quieter faster with distance
+  const MAX_AUDIBLE = 38;      // fade fully out around here (extra tail on top of inverse law)
+
+  // ---------- State ----------
+  const player = { x: 12, y: -8, vx: 0, vy: 0 }; // start offset so direction is obvious
+  const keys = new Set();
+  let ctx = null, panner = null, master = null, muted = false;
+
+  // ---------- Audio ----------
+  function buildAudio() {
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+    master = ctx.createGain();
+    master.gain.value = 0.9;
+    master.connect(ctx.destination);
+
+    // Distance-aware, HRTF-binaural panner: gives left/right/front/back cues,
+    // interaural time + level differences and spectral filtering.
+    panner = ctx.createPanner();
+    panner.panningModel = 'HRTF';
+    panner.distanceModel = 'inverse';
+    panner.refDistance = REF_DISTANCE;
+    panner.rolloffFactor = ROLLOFF;
+    panner.maxDistance = 10000;
+    setPos(panner, 'position', 0, 0, 0);   // source at (0,0)
+
+    // Extra gentle fade so far-away positions get very quiet, not just inverse-law quiet.
+    const fade = ctx.createGain();
+    fade.gain.value = 1;
+    panner._fade = fade;
+
+    // The source material: harmonically rich drone with a slow pulse.
+    // Broadband content localizes much better than a pure sine.
+    const src = ctx.createGain();
+    src.gain.value = 0.35;
+
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 2400; lp.Q.value = 0.7;
+
+    const pulse = ctx.createGain();
+    pulse.gain.value = 0.7;
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = 0.6;
+    const lfoDepth = ctx.createGain();
+    lfoDepth.gain.value = 0.3;
+    lfo.connect(lfoDepth).connect(pulse.gain);
+    lfo.start();
+
+    // Chord: A2 + E3 + A3 + C#4, slightly detuned saws for width/richness
+    [110, 164.81, 220, 277.18].forEach((f, i) => {
+      [-6, 6].forEach(detune => {
+        const o = ctx.createOscillator();
+        o.type = i % 2 ? 'triangle' : 'sawtooth';
+        o.frequency.value = f;
+        o.detune.value = detune;
+        const g = ctx.createGain();
+        g.gain.value = 0.12 / (1 + i * 0.4);
+        o.connect(g).connect(src);
+        o.start();
+      });
+    });
+
+    // A soft rhythmic click/noise layer, which adds transients that help the brain locate direction.
+    const noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+    const d = noiseBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const noise = ctx.createBufferSource();
+    noise.buffer = noiseBuf; noise.loop = true;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = 3200; bp.Q.value = 1.2;
+    const nGain = ctx.createGain();
+    nGain.gain.value = 0;
+    const nLfo = ctx.createOscillator();
+    nLfo.type = 'square'; nLfo.frequency.value = 2.4;
+    const nDepth = ctx.createGain();
+    nDepth.gain.value = 0.035;
+    nLfo.connect(nDepth).connect(nGain.gain);
+    nLfo.start();
+    noise.connect(bp).connect(nGain).connect(src);
+    noise.start();
+
+    src.connect(lp).connect(pulse).connect(fade).connect(panner).connect(master);
+
+    // Listener faces "up" on the map (north). Map +y (north) = Web Audio -z (forward).
+    const L = ctx.listener;
+    if (L.forwardX) {
+      L.forwardX.value = 0; L.forwardY.value = 0; L.forwardZ.value = -1;
+      L.upX.value = 0; L.upY.value = 1; L.upZ.value = 0;
+    } else {
+      L.setOrientation(0, 0, -1, 0, 1, 0);
+    }
+    updateListener(true);
+  }
+
+  // Map coords (x east, y north) -> Web Audio coords (x right, z toward viewer/back)
+  function setPos(node, prop, x, y, z) {
+    if (node.positionX) {
+      node.positionX.value = x; node.positionY.value = y; node.positionZ.value = z;
+    } else {
+      node.setPosition(x, y, z);
+    }
+  }
+
+  function updateListener(immediate) {
+    if (!ctx) return;
+    const L = ctx.listener;
+    const x = player.x, z = -player.y;
+    if (L.positionX) {
+      const t = ctx.currentTime, tc = immediate ? 0.001 : 0.03; // short smoothing avoids zipper noise
+      L.positionX.setTargetAtTime(x, t, tc);
+      L.positionY.setTargetAtTime(0, t, tc);
+      L.positionZ.setTargetAtTime(z, t, tc);
+    } else {
+      L.setPosition(x, 0, z);
+    }
+    // Extra distance fade layered on top of the inverse-distance law
+    const dist = Math.hypot(player.x, player.y);
+    const f = Math.max(0, 1 - Math.max(0, dist - REF_DISTANCE) / MAX_AUDIBLE);
+    panner._fade.gain.setTargetAtTime(f * f, ctx.currentTime, 0.05);
+  }
+
+  // Volume the listener actually hears (for the HUD), mirrors the inverse model + fade
+  function volumeAt(dist) {
+    const d = Math.max(dist, REF_DISTANCE);
+    const inv = REF_DISTANCE / (REF_DISTANCE + ROLLOFF * (d - REF_DISTANCE));
+    const f = Math.max(0, 1 - Math.max(0, dist - REF_DISTANCE) / MAX_AUDIBLE);
+    return inv * f * f;
+  }
+
+  // ---------- Input ----------
+  const KEYMAP = {
+    ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
+    w: 'up', s: 'down', a: 'left', d: 'right',
+  };
+  window.addEventListener('keydown', e => {
+    const k = KEYMAP[e.key] || KEYMAP[e.key.toLowerCase?.()];
+    if (k) { keys.add(k); e.preventDefault(); }
+    if (e.key === 'Shift') keys.add('shift');
+    if (e.key.toLowerCase() === 'm' && master) {
+      muted = !muted;
+      master.gain.setTargetAtTime(muted ? 0 : 0.9, ctx.currentTime, 0.02);
+    }
+  });
+  window.addEventListener('keyup', e => {
+    const k = KEYMAP[e.key] || KEYMAP[e.key.toLowerCase?.()];
+    if (k) keys.delete(k);
+    if (e.key === 'Shift') keys.delete('shift');
+  });
+  window.addEventListener('blur', () => keys.clear());
+
+  const startBtn = document.getElementById('start');
+  startBtn.addEventListener('click', async () => {
+    if (!ctx) buildAudio();
+    await ctx.resume();
+    startBtn.remove();
+  });
+
+  // ---------- Render + loop ----------
+  const canvas = document.getElementById('c');
+  const g = canvas.getContext('2d');
+  const W = canvas.width;
+  const toPx = v => (v + WORLD) / (2 * WORLD) * W;           // world x -> px
+  const toPy = v => (WORLD - v) / (2 * WORLD) * W;           // world y (north up) -> px
+
+  const hud = {
+    pos: document.getElementById('pos'), dist: document.getElementById('dist'),
+    vol: document.getElementById('vol'), brg: document.getElementById('brg'),
+  };
+
+  function compass(dx, dy) {
+    // direction from listener to source, as clock-style description
+    if (Math.hypot(dx, dy) < 0.5) return 'here';
+    const a = (Math.atan2(dx, dy) * 180 / Math.PI + 360) % 360; // 0 = north/ahead, clockwise
+    const names = ['ahead', 'ahead-right', 'right', 'behind-right', 'behind', 'behind-left', 'left', 'ahead-left'];
+    return names[Math.round(a / 45) % 8];
+  }
+
+  function draw(t) {
+    g.clearRect(0, 0, W, W);
+
+    // grid
+    g.lineWidth = 1;
+    for (let v = -WORLD; v <= WORLD; v += 10) {
+      g.strokeStyle = v === 0 ? '#2a3a5c' : '#141d33';
+      g.beginPath(); g.moveTo(toPx(v), 0); g.lineTo(toPx(v), W); g.stroke();
+      g.beginPath(); g.moveTo(0, toPy(v)); g.lineTo(W, toPy(v)); g.stroke();
+    }
+
+    // source: rings pulsing outward
+    const sx = toPx(0), sy = toPy(0);
+    for (let i = 0; i < 4; i++) {
+      const ph = ((t / 2000) + i / 4) % 1;
+      g.strokeStyle = `rgba(255,170,60,${0.5 * (1 - ph)})`;
+      g.lineWidth = 2;
+      g.beginPath(); g.arc(sx, sy, 8 + ph * 140, 0, Math.PI * 2); g.stroke();
+    }
+    g.fillStyle = '#ffb03c';
+    g.beginPath(); g.arc(sx, sy, 9, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#ffd9a0'; g.font = '14px system-ui'; g.fillText('(0,0)', sx + 14, sy - 12);
+
+    // line from player to source
+    const px = toPx(player.x), py = toPy(player.y);
+    g.strokeStyle = 'rgba(255,176,60,0.25)'; g.setLineDash([6, 6]); g.lineWidth = 1;
+    g.beginPath(); g.moveTo(px, py); g.lineTo(sx, sy); g.stroke(); g.setLineDash([]);
+
+    // player: dot + facing wedge (always north)
+    g.fillStyle = 'rgba(77,163,255,0.25)';
+    g.beginPath(); g.moveTo(px, py); g.arc(px, py, 38, -Math.PI * 0.75, -Math.PI * 0.25); g.closePath(); g.fill();
+    g.fillStyle = '#4da3ff';
+    g.beginPath(); g.arc(px, py, 8, 0, Math.PI * 2); g.fill();
+  }
+
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+
+    let ax = (keys.has('right') ? 1 : 0) - (keys.has('left') ? 1 : 0);
+    let ay = (keys.has('up') ? 1 : 0) - (keys.has('down') ? 1 : 0);
+    const len = Math.hypot(ax, ay) || 1;
+    const sp = SPEED * (keys.has('shift') ? 2.2 : 1);
+    player.x = Math.max(-WORLD, Math.min(WORLD, player.x + (ax / len) * sp * dt));
+    player.y = Math.max(-WORLD, Math.min(WORLD, player.y + (ay / len) * sp * dt));
+
+    if (ax || ay) updateListener(false);
+
+    const dist = Math.hypot(player.x, player.y);
+    hud.pos.textContent = `${player.x.toFixed(1)}, ${player.y.toFixed(1)}`;
+    hud.dist.textContent = dist.toFixed(1);
+    hud.vol.textContent = Math.round(volumeAt(dist) * 100) + '%';
+    hud.brg.textContent = compass(-player.x, -player.y);
+
+    draw(now);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
