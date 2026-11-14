@@ -15,6 +15,10 @@
            border: 0; background: #4da3ff; color: #04101f; font-weight: 600; cursor: pointer; }
   #start:focus-visible { outline: 3px solid #fff; }
   #hud { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; font-variant-numeric: tabular-nums; }
+  #sound { display: flex; gap: 8px; align-items: center; }
+  #sound button { background: #121c33; color: #d7e3ff; border: 1px solid #2c3c5e; padding: 6px 14px; border-radius: 16px; cursor: pointer; font: inherit; }
+  #sound button[aria-pressed="true"] { background: #4da3ff; color: #04101f; border-color: #4da3ff; font-weight: 600; }
+  #sound button:focus-visible { outline: 3px solid #fff; }
   small { color: #8aa0c8; text-align: center; max-width: 560px; }
   kbd { background: #1a2640; padding: 1px 6px; border-radius: 4px; border: 1px solid #2c3c5e; }
 </style>
@@ -30,6 +34,11 @@
     <span>Distance: <b id="dist">0.0</b></span>
     <span>Volume: <b id="vol">100%</b></span>
     <span>Bearing: <b id="brg">-</b></span>
+  </div>
+  <div id="sound" role="group" aria-label="Sound">
+    <span>Sound:</span>
+    <button type="button" data-mode="synth" aria-pressed="true">Synth <kbd>1</kbd></button>
+    <button type="button" data-mode="808" aria-pressed="false">808 bass <kbd>2</kbd></button>
   </div>
   <small>Use headphones. Move with <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> (or WASD). You always face up (north). The sound is at the center (0, 0): it gets quieter with distance and pans, filters and delays to show which direction it is in. Hold <kbd>Shift</kbd> to move faster, <kbd>M</kbd> to mute.</small>
 
@@ -48,6 +57,8 @@
   const player = { x: 12, y: -8, vx: 0, vy: 0 }; // start offset so direction is obvious
   const keys = new Set();
   let ctx = null, panner = null, master = null, muted = false;
+  let mode = 'synth';            // 'synth' (default) or '808'
+  let bus = null, synthOut = null, bassOut = null;
 
   // ---------- Audio ----------
   function buildAudio() {
@@ -117,7 +128,14 @@
     noise.connect(bp).connect(nGain).connect(src);
     noise.start();
 
-    src.connect(lp).connect(pulse).connect(panner).connect(master);
+    // Both sounds feed one bus -> panner, so spatialization is identical for each.
+    bus = ctx.createGain();
+    bus.connect(panner).connect(master);
+    synthOut = ctx.createGain();
+    src.connect(lp).connect(pulse).connect(synthOut).connect(bus);
+
+    build808();
+    applyMode(true);
 
     // Listener faces "up" on the map (north). Map +y (north) = Web Audio -z (forward).
     const L = ctx.listener;
@@ -129,6 +147,78 @@
     }
     updateListener(true);
   }
+
+  // ---------- 808 bass ----------
+  // Sine with a fast pitch drop, soft-clipped so the harmonics are audible on small speakers
+  // and easier to localize, plus a hi-hat for transients. Step-sequenced with a lookahead clock.
+  const BPM = 130, STEP = 60 / BPM / 4;                 // 16th notes
+  const BASS_PATTERN = [                                // [step, midi-ish freq in Hz, length in s]
+    [0, 55.0, 0.9], [3, 55.0, 0.3], [6, 65.41, 0.5], [8, 49.0, 0.9],
+    [11, 49.0, 0.3], [12, 55.0, 0.5], [14, 73.42, 0.3],
+  ];
+  let nextStep = 0, stepTime = 0, sched = null;
+
+  function build808() {
+    bassOut = ctx.createGain();
+    bassOut.connect(bus);
+    const shaper = ctx.createWaveShaper();
+    const curve = new Float32Array(1024);
+    for (let i = 0; i < 1024; i++) { const x = i / 512 - 1; curve[i] = Math.tanh(2.6 * x); }
+    shaper.curve = curve; shaper.oversample = '4x';
+    shaper.connect(bassOut);
+    ctx._shaper = shaper;
+    ctx._hatBuf = (() => {
+      const b = ctx.createBuffer(1, ctx.sampleRate * 0.1, ctx.sampleRate), d = b.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 3);
+      return b;
+    })();
+  }
+
+  function hit808(t, freq, len) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(freq * 3, t);
+    o.frequency.exponentialRampToValueAtTime(freq, t + 0.06);   // the "boom" pitch drop
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.9, t + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    o.connect(g).connect(ctx._shaper);
+    o.start(t); o.stop(t + len + 0.05);
+  }
+
+  function hat(t, vol) {
+    const n = ctx.createBufferSource(), hp = ctx.createBiquadFilter(), g = ctx.createGain();
+    n.buffer = ctx._hatBuf; hp.type = 'highpass'; hp.frequency.value = 6500; g.gain.value = vol;
+    n.connect(hp).connect(g).connect(bassOut);
+    n.start(t);
+  }
+
+  function schedule() {
+    if (!ctx || mode !== '808') { if (ctx) { nextStep = 0; stepTime = ctx.currentTime + 0.05; } return; }
+    while (stepTime < ctx.currentTime + 0.15) {
+      const s = nextStep % 16;
+      BASS_PATTERN.forEach(([st, f, l]) => { if (st === s) hit808(stepTime, f, l); });
+      if (s % 2 === 0) hat(stepTime, s % 4 === 2 ? 0.18 : 0.08);
+      nextStep++; stepTime += STEP;
+    }
+  }
+
+  function applyMode(initial) {
+    const t = ctx.currentTime;
+    synthOut.gain.setTargetAtTime(mode === 'synth' ? 1 : 0, t, 0.05);
+    bassOut.gain.setTargetAtTime(mode === '808' ? 1.1 : 0, t, 0.05);
+    nextStep = 0; stepTime = t + 0.05;
+    if (!sched) sched = setInterval(schedule, 40);
+  }
+
+  function setMode(m) {
+    mode = m;
+    document.querySelectorAll('#sound button').forEach(b =>
+      b.setAttribute('aria-pressed', String(b.dataset.mode === m)));
+    if (ctx) applyMode();
+  }
+  document.querySelectorAll('#sound button').forEach(b =>
+    b.addEventListener('click', () => { setMode(b.dataset.mode); b.blur(); }));
 
   // Map coords (x east, y north) -> Web Audio coords (x right, z toward viewer/back)
   function setPos(node, prop, x, y, z) {
@@ -168,6 +258,8 @@
     const k = KEYMAP[e.key] || KEYMAP[e.key.toLowerCase?.()];
     if (k) { keys.add(k); e.preventDefault(); }
     if (e.key === 'Shift') keys.add('shift');
+    if (e.key === '1') setMode('synth');
+    if (e.key === '2') setMode('808');
     if (e.key.toLowerCase() === 'm' && master) {
       muted = !muted;
       master.gain.setTargetAtTime(muted ? 0 : 0.9, ctx.currentTime, 0.02);
