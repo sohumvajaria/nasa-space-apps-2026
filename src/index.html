@@ -575,7 +575,7 @@
       const o = ctx.createOscillator(), g = ctx.createGain();
       o.type = 'sine'; o.frequency.value = freq * ratio;
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(amp * gain, t + 0.03);    // soft attack, no click
+      g.gain.exponentialRampToValueAtTime(amp * gain, t + 0.12);    // light, slow-blooming attack
       g.gain.exponentialRampToValueAtTime(0.0001, t + len * decay);
       o.connect(g).connect(chimeIn);
       o.start(t); o.stop(t + len * decay + 0.05);
@@ -586,8 +586,8 @@
     if (!ctx || mode !== 'chime') { if (ctx) { nextBeat = 0; beatTime = ctx.currentTime + 0.05; } return; }
     while (beatTime < ctx.currentTime + 0.15) {
       const accent = nextBeat % 4 === 0;
-      strike(beatTime, CHIME_ROOT, accent ? 0.5 : 0.34, 1.6);
-      if (stormLevel > 0.03) strike(beatTime, CHIME_ROOT * stormRatio(), 0.45 * stormLevel + 0.04, 1.6);   // layer note
+      strike(beatTime, CHIME_ROOT, accent ? 0.4 : 0.28, 3.4);
+      if (stormLevel > 0.03) strike(beatTime, CHIME_ROOT * stormRatio(), 0.4 * stormLevel + 0.04, 3.4);   // layer note
       nextBeat++; beatTime += BEAT;
     }
   }
