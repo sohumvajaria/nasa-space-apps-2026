@@ -3,72 +3,77 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Earth Jukebox: World</title>
+<title>Earth Jukebox Navigator: explore the whole world by ear</title>
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="site.css">
+<style>
+  :root { color-scheme: dark; }
+  html, body { margin: 0; background: #070b14; color: #d7e3ff; font: 15px/1.45 system-ui, sans-serif; }
+  body { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 16px; box-sizing: border-box; }
+  h1 { font-size: 20px; margin: 0; font-weight: 650; }
+  #map { position: relative; width: min(96vw, 1100px); aspect-ratio: 2 / 1; border-radius: 8px; }
+  #map:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+  canvas { width: 100%; height: 100%; border: 1px solid #25324d; border-radius: 8px; background: #0a1020; display: block; }
+  #start { position: absolute; inset: 0; margin: auto; width: 240px; height: 56px; font-size: 17px; border-radius: 28px;
+           border: 0; background: #4da3ff; color: #04101f; font-weight: 650; cursor: pointer; }
+  #start:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+  #hud { display: flex; gap: 8px 20px; flex-wrap: wrap; justify-content: center; font-variant-numeric: tabular-nums; max-width: 1100px; }
+  #hud b { color: #fff; }
+  .panel { width: min(96vw, 1100px); background: #0d1426; border: 1px solid #25324d; border-radius: 8px; padding: 10px 14px; box-sizing: border-box; }
+  #chat { max-height: 160px; overflow-y: auto; margin: 6px 0; }
+  #chat p { margin: 4px 0; }
+  #askForm { display: flex; gap: 8px; flex-wrap: wrap; }
+  #askForm label { width: 100%; }
+  #ask { flex: 1; min-width: 200px; padding: 8px 10px; border-radius: 6px; border: 1px solid #2c3c5e; background: #070b14; color: #fff; font: inherit; }
+  button { background: #121c33; color: #d7e3ff; border: 1px solid #2c3c5e; padding: 7px 14px; border-radius: 16px; cursor: pointer; font: inherit; }
+  button[aria-pressed="true"] { background: #4da3ff; color: #04101f; }
+  summary { cursor: pointer; font-weight: 600; }
+  #settingsForm { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px 24px; margin-top: 10px; }
+  #settingsForm .row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+  #settingsForm .row label { flex: 1 1 100%; }
+  #settingsForm .row input[type=checkbox] + label { flex: 1; }
+  #settingsForm input[type=range] { flex: 1; }
+  #settingsForm output { min-width: 90px; color: #9fb8ff; font-variant-numeric: tabular-nums; }
+  small, .note { color: #8aa0c8; text-align: center; max-width: 900px; }
+  kbd { background: #1a2640; padding: 1px 6px; border-radius: 4px; border: 1px solid #2c3c5e; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  table { border-collapse: collapse; margin: 6px auto; }
+  td, th { padding: 3px 10px; border-bottom: 1px solid #1d2943; text-align: left; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
 </head>
 <body>
-  <nav class="topnav" aria-label="Pages">
-    <a href="index.html">Explore a place</a>
-    <a href="navigator.html" aria-current="page">World navigator</a>
-    <a href="features.html">Features</a>
-    <a href="https://github.com/sohumvajaria/nasa-space-apps-2026">GitHub</a>
-  </nav>
-
-<main>
-  <header class="mini">
-    <p class="eyebrow">NASA Space Apps &middot; 2026</p>
-    <h1>Earth Jukebox: World</h1>
-    <p class="sub">Explore the whole planet by ear.</p>
-  </header>
-
-  <nav id="layers" class="row" aria-label="Data layer">
-    <button type="button" class="pill" data-ds="sst" aria-pressed="false">Ocean year (EIC)<kbd>6</kbd></button>
-    <button type="button" class="pill" data-ds="rain" aria-pressed="false">Rain<kbd>1</kbd></button>
-    <button type="button" class="pill" data-ds="heat" aria-pressed="false">Land heat<kbd>2</kbd></button>
-    <button type="button" class="pill" data-ds="plants" aria-pressed="false">Plants<kbd>3</kbd></button>
-    <button type="button" class="pill" data-ds="ocean" aria-pressed="false">Ocean today<kbd>4</kbd></button>
-    <button type="button" class="pill" data-ds="air" aria-pressed="false">Haze<kbd>5</kbd></button>
-  </nav>
-  <p id="layerblurb" class="blurb"></p>
+  <h1>Earth Jukebox Navigator: explore the whole world by ear</h1>
+  <p class="note"><a href="index.html" style="color:#9fb8ff">← Back to the main Earth Jukebox</a></p>
 
   <!-- role="application" lets screen readers pass the arrow keys through to the map -->
   <div id="map" role="application" tabindex="0"
        aria-label="Earth map. Arrow keys move. Space goes home to zero zero. I says where you are. H for help.">
-    <canvas id="globe" aria-hidden="true"></canvas>
-    <canvas id="c" width="1440" height="720" aria-hidden="true" hidden></canvas>
-    <div id="stick" hidden><div id="knob"></div></div>
-    <button id="start" type="button"><span class="go">Begin listening</span><span class="hint">Headphones recommended</span></button>
-  </div>
-  <p class="mapnote">Arrow keys move the cursor. On a touch screen, press and drag like a joystick. With a mouse, drag the globe to spin it and scroll to zoom.</p>
-
-  <div class="row">
-    <button type="button" class="pill" id="view" aria-pressed="true">3D globe<kbd>G</kbd></button>
-    <button type="button" class="pill" id="muteBtn" aria-pressed="false">Mute<kbd>M</kbd></button>
+    <canvas id="c" width="1440" height="720" aria-hidden="true"></canvas>
+    <button id="start">Start Earth Jukebox</button>
   </div>
 
   <!-- everything spoken also goes here, so screen readers read it -->
   <div id="live" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
   <div id="hud" aria-hidden="true">
-    <div class="primary"><span class="k">Value</span><b id="value">-</b></div>
-    <div><span class="k">Place</span><b id="place">-</b></div>
-    <div><span class="k">Position</span><b id="pos">0.0°N, 0.0°E</b></div>
-    <div><span class="k">Date</span><b id="date">-</b></div>
-    <div><span class="k">Target</span><b id="tgt">-</b></div>
-    <div><span class="k">Distance</span><b id="dist">-</b></div>
-    <div><span class="k">Direction</span><b id="dir">-</b></div>
+    <span>Position: <b id="pos">0.0°N, 0.0°E</b></span>
+    <span>Place: <b id="place">-</b></span>
+    <span>Value: <b id="value">-</b></span>
+    <span>Date: <b id="date">-</b></span>
+    <span>Target: <b id="tgt">-</b></span>
+    <span>Distance: <b id="dist">-</b></span>
+    <span>Direction: <b id="dir">-</b></span>
   </div>
-  <p id="datastat">Loading NASA data...</p>
+  <small id="datastat">Loading NASA data...</small>
 
   <section class="panel" aria-labelledby="askTitle">
-    <h2 id="askTitle">Ask the guide <kbd>/</kbd> or speak <kbd>V</kbd></h2>
+    <h2 id="askTitle" style="font-size:16px;margin:0">Ask the guide <kbd>/</kbd> or speak <kbd>V</kbd></h2>
     <div id="chat" aria-live="off"></div>
     <form id="askForm">
       <label for="ask" class="sr-only">Ask the guide</label>
-      <input id="ask" autocomplete="off" placeholder='Try: "take me to the warmest water", "go to Tokyo", "show me the rain", "why is it cold here?"'>
+      <input id="ask" autocomplete="off" placeholder='Try: "take me to the warmest water", "go to Tokyo", "turn off the chimes", "why is it cold here?"'>
       <button type="submit">Ask</button>
-      <button type="button" id="mic" aria-pressed="false">Speak</button>
+      <button type="button" id="mic" aria-pressed="false">🎤 Speak</button>
     </form>
   </section>
 
@@ -80,34 +85,27 @@
 
   <details class="panel">
     <summary>What the sounds mean, and the keys</summary>
-    <div class="tablewrap">
-      <table>
-        <tr><th>Sound</th><th>Means</th></tr>
-        <tr><td>Steady tone (pitch)</td><td>The data value where you are. Higher means more: warmer water, heavier rain, hotter ground, denser plants or thicker haze.</td></tr>
-        <tr><td>Silence and a soft thud</td><td>Land or open water where this layer has no data</td></tr>
-        <tr><td>Chime</td><td>You crossed the equator (rising) or the prime meridian (falling)</td></tr>
-        <tr><td>Metronome speed</td><td>How far the target is: faster means closer</td></tr>
-        <tr><td>Metronome direction</td><td>Which way the target is (use headphones). Higher ticks mean north, lower mean south.</td></tr>
-        <tr><td>Rising chord</td><td>You arrived at the target</td></tr>
-        <tr><td>Voice</td><td>Coordinates, place, value and date</td></tr>
-      </table>
-    </div>
+    <table>
+      <tr><th>Sound</th><th>Means</th></tr>
+      <tr><td>Steady tone (pitch)</td><td>The data value where you are. Higher = warmer water.</td></tr>
+      <tr><td>Silence and a soft thud</td><td>Land (no ocean data)</td></tr>
+      <tr><td>Chime</td><td>You crossed the equator (rising) or the prime meridian (falling)</td></tr>
+      <tr><td>Metronome speed</td><td>How far the target is: faster = closer</td></tr>
+      <tr><td>Metronome direction</td><td>Which way the target is (use headphones). Higher ticks = north, lower = south.</td></tr>
+      <tr><td>Rising chord</td><td>You arrived at the target</td></tr>
+      <tr><td>Voice</td><td>Coordinates, place, value and date</td></tr>
+    </table>
     <p class="note">
       <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> move (or WASD), hold <kbd>Shift</kbd> for faster ·
       <kbd>Space</kbd> home (0, 0) · <kbd>I</kbd> where am I · <kbd>T</kbd> target ·
       <kbd>[</kbd> <kbd>]</kbd> change date · <kbd>P</kbd> play the year here ·
-      <kbd>1</kbd>–<kbd>6</kbd> data layer · <kbd>Z</kbd> <kbd>X</kbd> <kbd>C</kbd> synth / soft pulse / pure tone ·
-      <kbd>G</kbd> globe or flat map · <kbd>M</kbd> mute ·
+      <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> synth / 808 / pure tone · <kbd>M</kbd> mute ·
       <kbd>/</kbd> ask · <kbd>V</kbd> speak · <kbd>O</kbd> settings · <kbd>H</kbd> help · <kbd>Esc</kbd> back to the map
     </p>
   </details>
 
   <small>Use headphones. The equator and the prime meridian are the two axes; (0, 0) is where they cross.</small>
-</main>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-  <script src="layers.js"></script>
-  <script src="earth.js"></script>
   <script src="places.js"></script>
   <script src="navigator.js"></script>
 </body>

@@ -1,9 +1,9 @@
-// Earth Jukebox World navigator (navigator.html): explore the whole world by ear.
-// Shares its layers (layers.js) and its 3D Earth (earth.js) with the main page (index.html).
+// Earth Jukebox Navigator (navigator.html): explore the whole world by ear.
+// A separate page from index.html for now; the two can be combined later.
 //
 // SOUND DEFINITIONS: each sound means exactly one thing.
-//   Steady tone (pitch)      = the data value right where you are (e.g. ocean temperature, rain, heat)
-//   Silence + soft thud      = land, or anywhere this layer has no data
+//   Steady tone (pitch)      = the data value right where you are (e.g. ocean temperature)
+//   Silence + soft thud      = land (no ocean data)
 //   Chime                    = you crossed the equator or the prime meridian (the two axes)
 //   Metronome speed          = how far away the target is (faster = closer)
 //   Metronome direction (3D) = which way the target is (left ear = west, right ear = east;
@@ -22,7 +22,7 @@
   const SETTINGS_SCHEMA = [
     { key: 'masterVolume', label: 'Master volume', type: 'range', min: 0, max: 1, step: 0.05, def: 0.9, words: ['master volume', 'volume', 'overall'] },
     { key: 'dataVoice', label: 'Data tone on', type: 'toggle', def: true, words: ['data tone', 'data voice', 'tone', 'data sound'] },
-    { key: 'instrument', label: 'Data tone instrument', type: 'select', def: 'synth', options: [['synth', 'Synth pad'], ['soft', 'Soft pulse'], ['sine', 'Pure tone']], words: ['instrument', 'sound style', 'timbre'] },
+    { key: 'instrument', label: 'Data tone instrument', type: 'select', def: 'synth', options: [['synth', 'Synth pad'], ['808', '808 bass beat'], ['sine', 'Pure tone']], words: ['instrument', 'sound style', 'timbre'] },
     { key: 'dataVolume', label: 'Data tone volume', type: 'range', min: 0, max: 1, step: 0.05, def: 0.6, words: ['data volume', 'tone volume'] },
     { key: 'musicality', label: 'Data ↔ Music (0 = exact data pitch, 1 = musical scale + harmony)', type: 'range', min: 0, max: 1, step: 0.05, def: 0.7, words: ['musicality', 'music', 'data music', 'musical'] },
     { key: 'scale', label: 'Musical scale', type: 'select', def: 'pentatonic', options: [['pentatonic', 'Pentatonic (always pleasant)'], ['major', 'Major (bright)'], ['minor', 'Minor (dark)'], ['chromatic', 'Chromatic (every note)']], words: ['scale', 'key'] },
@@ -35,13 +35,13 @@
     { key: 'metroSound', label: 'Metronome sound', type: 'select', def: 'wood', options: [['wood', 'Wood block'], ['click', 'Click'], ['beep', 'Beep']], words: ['metronome sound', 'tick sound', 'beat sound'] },
     { key: 'northSouthPitch', label: 'Higher ticks when target is north', type: 'toggle', def: true, words: ['north south', 'north-south', 'pitch cue'] },
     { key: 'chimes', label: 'Chime when crossing the equator or prime meridian', type: 'toggle', def: true, words: ['chime', 'chimes', 'axis', 'equator sound'] },
-    { key: 'landThud', label: 'Thud when moving onto land or where there is no data', type: 'toggle', def: true, words: ['thud', 'land sound', 'bump'] },
+    { key: 'landThud', label: 'Thud when moving onto land', type: 'toggle', def: true, words: ['thud', 'land sound', 'bump'] },
     { key: 'speech', label: 'Built-in voice (turn off if you use a screen reader)', type: 'toggle', def: true, words: ['voice', 'speech', 'talking', 'speak'] },
     { key: 'speechRate', label: 'Voice speed', type: 'range', min: 0.6, max: 2, step: 0.1, def: 1.1, words: ['voice speed', 'speech rate', 'talk speed', 'speaking speed'] },
     { key: 'autoAnnounce', label: 'Speak your location when you stop moving', type: 'toggle', def: true, words: ['auto announce', 'announce', 'announcements'] },
     { key: 'speed', label: 'Movement speed (degrees per second)', type: 'range', min: 2, max: 40, step: 1, def: 12, words: ['movement speed', 'move speed', 'walking speed', 'speed'] },
     { key: 'assistant', label: 'AI assistant (Claude) for questions', type: 'toggle', def: true, words: ['assistant', 'ai', 'claude'] },
-    { key: 'dataset', label: 'Data layer', type: 'select', def: 'auto', options: [['auto', 'Automatic (EIC ocean year)'], ['sst', 'Ocean year (NASA EIC)'], ['rain', 'Rain (IMERG, daily)'], ['heat', 'Land heat (MODIS, daily)'], ['plants', 'Plants (MODIS NDVI)'], ['ocean', 'Ocean today (MUR, daily)'], ['air', 'Haze (MODIS aerosol)']], words: ['data layer', 'dataset', 'data set', 'layer'] },
+    { key: 'dataset', label: 'Data layer', type: 'select', def: 'auto', options: [['auto', 'Automatic (EIC ocean temperature if available)'], ['sst', 'EIC sea surface temperature'], ['imerg', 'IMERG rainfall (live, backup)']], words: ['data layer', 'dataset', 'data set', 'layer'] },
   ];
   const SCHEMA = Object.fromEntries(SETTINGS_SCHEMA.map(s => [s.key, s]));
   const STORE = 'earthJukeboxSettings.v1';
@@ -64,7 +64,7 @@
     }
     if (s.type === 'select') {
       const v = String(value).toLowerCase();
-      const hit = s.options.find(([val]) => val.toLowerCase() === v) || s.options.find(([val, label]) => label.toLowerCase().includes(v));   // exact value first, so 'ocean' is not mistaken for 'auto'
+      const hit = s.options.find(([val, label]) => val.toLowerCase() === v || label.toLowerCase().includes(v));
       return hit ? hit[0] : undefined;
     }
   }
@@ -175,73 +175,40 @@
   // Each layer answers: valueAt(lat, lon) -> { norm 0..1, land, spoken, short }
   // =====================================================================
   const layer = {
-    kind: null, key: null, ready: false, frame: 0, title: '', source: '', units: '',
+    kind: null, ready: false, frame: 0, title: '', source: '', units: '',
     grid: null, frames: [], palette: null, w: 0, h: 0, img: null,
-    valueAt: () => ({ norm: 0, land: false, isLand: false, spoken: 'no data', short: '-' }),
+    valueAt: () => ({ norm: 0, land: false, spoken: 'no data', short: '-' }),
     dateText: () => '',
-    setFrame: () => {},
   };
-  const EJ = window.EJ;
-  const GIBS = 'https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi';
-  let loadToken = 0;
-
-  const BLURBS = {
-    sst: 'A year of ocean surface temperatures from NASA\'s Earth Information Center, March 2007 to February 2008. The steady tone rises with warmer water. Land is silent.',
-    rain: 'Rain rate from the GPM IMERG satellites, the latest day. The steady tone rises with the rain: a soft hum in drizzle, high and bright in a storm.',
-    heat: 'How hot the ground is (MODIS Terra, daily). The steady tone rises with the heat. The oceans are silent.',
-    plants: 'How green and leafy the land is (MODIS vegetation index). The steady tone rises with denser plants. Water and gaps are silent.',
-    ocean: 'Sea surface temperature today (GHRSST MUR). The steady tone rises with warmer water. Land is silent.',
-    air: 'Smoke, dust and haze in the air (MODIS aerosol optical depth). The steady tone rises with thicker haze. Gaps in the satellite view are silent.',
-  };
-  // what "no data" means on each layer, and whether that spot is land
-  const MISSING = {
-    heat: { text: 'Ocean, no land temperature here', land: false },
-    plants: { text: 'Water or no reading, no vegetation data', land: false },
-    ocean: { text: 'Land, no ocean data', land: true },
-    air: { text: 'No haze reading here, clouds or a gap', land: false },
-  };
-  const PEAK_NAMES = { rain: 'the heaviest rain', heat: 'the hottest ground', plants: 'the lushest plants', ocean: 'the warmest water', air: 'the thickest haze', sst: 'the warmest water' };
-
-  function syncLayerUI() {
-    document.querySelectorAll('#layers button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.ds === layer.key)));
-    const bl = document.getElementById('layerblurb'); if (bl) bl.textContent = BLURBS[layer.key] || '';
-  }
 
   async function loadLayer() {
-    const token = ++loadToken;
-    layer.ready = false; stopPlay();
-    layer.raw = () => 0;                                                        // neutral until the new data is in, so nothing reads stale grids
-    layer.valueAt = () => ({ norm: 0, land: false, isLand: false, spoken: 'loading', short: 'loading', value: null });
+    layer.ready = false;
     const stat = document.getElementById('datastat');
     stat.textContent = 'Loading NASA data...';
     const want = settings.dataset;
     if (want === 'sst' || want === 'auto') {
-      try { await loadSST(token); return; } catch (e) {
+      try { await loadSST(); return; } catch (e) {
         console.warn('EIC SST layer not available:', e);
-        if (token !== loadToken) return;
-        if (want === 'sst') { stat.textContent = 'The EIC ocean temperature file (data/sst.json) was not found. Run tools/preprocess_sst.py first.'; return; }
+        if (want === 'sst') { stat.textContent = 'EIC ocean temperature file (data/sst.json) not found. Run tools/preprocess_sst.py first.'; return; }
       }
     }
-    const key = EJ.LAYERS[want] ? want : 'rain';
-    try { await loadGibs(key, token); } catch (e) {
-      if (token !== loadToken) return;
+    try { await loadIMERG(); } catch (e) {
       stat.textContent = 'Could not load NASA data right now.';
       console.warn(e);
     }
   }
 
   // ---- EIC sea surface temperature (made by tools/preprocess_sst.py from NASA SVS #3912)
-  async function loadSST(token) {
+  async function loadSST() {
     const r = await fetch('data/sst.json', { cache: 'no-cache' });
     if (!r.ok) throw new Error('data/sst.json: HTTP ' + r.status);
     const j = await r.json();
-    if (token !== loadToken) return;
     const g = j.meta.grid;
     Object.assign(layer, {
-      kind: 'sst', key: 'sst', title: j.meta.title, source: j.meta.source, units: j.meta.units,
+      kind: 'sst', title: j.meta.title, source: j.meta.source, units: j.meta.units,
       w: g.w, h: g.h, deg: g.deg, latTop: g.lat_top, lonLeft: g.lon_left,
       vmin: j.meta.vmin, vmax: j.meta.vmax, palette: j.palette,
-      frames: j.frames, frame: 0, description: j.meta.description, img: null, field: null, peakName: PEAK_NAMES.sst,
+      frames: j.frames, frame: 0, description: j.meta.description,
     });
     layer.grid = layer.frames[0].grid;
     layer.cellAt = (lat, lon) => {
@@ -252,9 +219,9 @@
     layer.raw = (lat, lon) => { const [r, c] = layer.cellAt(lat, lon); return layer.grid[r][c]; };
     layer.valueAt = (lat, lon) => {
       const v = layer.raw(lat, lon);
-      if (v === null || v === undefined) return { norm: 0, land: true, isLand: true, spoken: 'land, no ocean data', short: 'land', value: null };
+      if (v === null || v === undefined) return { norm: 0, land: true, spoken: 'land, no ocean data', short: 'land', value: null };
       const norm = (v - layer.vmin) / (layer.vmax - layer.vmin);
-      return { norm: Math.max(0, Math.min(1, norm)), land: false, isLand: false, value: v,
+      return { norm: Math.max(0, Math.min(1, norm)), land: false, value: v,
         spoken: `${v.toFixed(0)} degrees Celsius`, short: `${v.toFixed(1)} °C` };
     };
     layer.dateText = () => {
@@ -262,101 +229,69 @@
       return isNaN(d) ? String(layer.frames[layer.frame].date) :
         d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
     };
-    layer.setFrame = async i => {
+    layer.setFrame = i => {
       layer.frame = (i + layer.frames.length) % layer.frames.length;
       layer.grid = layer.frames[layer.frame].grid;
       renderLayer();
     };
     layer.ready = true;
-    renderLayer(); syncLayerUI();
+    renderLayer();
     document.getElementById('datastat').textContent =
       `Data: ${layer.title}, NASA Earth Information Center visualization (SVS #3912), ${layer.frames.length} dates from ${layer.dateText()}. ` +
       (layer.frames.length > 1 ? 'Press [ and ] to change the date, P to play the year at your spot.' : '');
   }
 
-  // ---- the daily GIBS layers (rain, land heat, plants, ocean today, haze), with the main page's calibrated colors
-  const GW = 1024, GH = 512, GDAYS = 30;
-  const LATEST = Date.parse('2026-11-13T00:00:00Z');                 // newest day these layers have
-  const dayISO = i => new Date(LATEST + (i - (GDAYS - 1)) * 864e5).toISOString().slice(0, 10);   // frame GDAYS-1 = latest
-  const gibsCache = new Map();
-  function boxBlurField(src, w, h, r) {
-    const I = new Float64Array((w + 1) * (h + 1));
-    for (let y = 0; y < h; y++) { let row = 0; for (let x = 0; x < w; x++) { row += src[y * w + x]; I[(y + 1) * (w + 1) + x + 1] = I[y * (w + 1) + x + 1] + row; } }
-    const out = new Float32Array(w * h);
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-      const x0 = Math.max(0, x - r), x1 = Math.min(w, x + r + 1), y0 = Math.max(0, y - r), y1 = Math.min(h, y + r + 1);
-      out[y * w + x] = (I[y1 * (w + 1) + x1] - I[y0 * (w + 1) + x1] - I[y1 * (w + 1) + x0] + I[y0 * (w + 1) + x0]) / ((x1 - x0) * (y1 - y0));
-    }
-    return out;
+  // ---- IMERG precipitation via NASA GIBS (the team's original prototype layer, kept as a backup)
+  const GIBS = 'https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi';
+  const IMERG_TIME = '2026-11-13T17:00:00Z';
+  function imergIntensity(r, g, b) {   // legend colors -> 0..1 (from the original prototype)
+    r /= 255; g /= 255; b /= 255;
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+    let h = 0;
+    if (d) h = mx === r ? ((g - b) / d + 6) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    h *= 60;
+    if (h >= 170) return Math.max(0, Math.min(0.2, 0.2 * (230 - h) / 60));
+    if (h >= 76) return 0.2 + 0.35 * Math.max(0, Math.min(1, (158 - h) / 82));
+    const base = 0.55 + 0.30 * (76 - h) / 76;
+    return h < 10 ? Math.min(1, 0.85 + 0.15 * Math.max(0, Math.min(1, (1 - mx) / 0.41))) : base;
   }
-  function gibsFrame(key, date) {
-    const id = key + '|' + date;
-    if (gibsCache.has(id)) return gibsCache.get(id);
-    const L = EJ.LAYERS[key];
-    const url = `${GIBS}?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&LAYERS=${L.id}&SRS=EPSG:4326&BBOX=-180,-90,180,90&WIDTH=${GW}&HEIGHT=${GH}` +
-      `&FORMAT=image/png&TRANSPARENT=TRUE&TIME=${date}`;
-    const p = new Promise((res, rej) => {
-      const img = new Image(); img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        try {
-          const c = document.createElement('canvas'); c.width = GW; c.height = GH;
-          const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(img, 0, 0);
-          const d = x.getImageData(0, 0, GW, GH).data, R = EJ.rampFor(key), f = new Float32Array(GW * GH);
-          for (let i = 0; i < f.length; i++) f[i] = d[4 * i + 3] < 20 ? 0 : Math.max(0.03, EJ.levelOf(EJ.rampPos(R, d[4 * i], d[4 * i + 1], d[4 * i + 2]), L.anchors));
-          res({ img, field: boxBlurField(f, GW, GH, 1) });
-        } catch (e) { rej(e); }
-      };
-      img.onerror = () => rej(new Error('GIBS image failed'));
-      img.src = url;
+  async function loadIMERG() {
+    const W = 720, H = 360;
+    const url = `${GIBS}?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&LAYERS=IMERG_Precipitation_Rate&SRS=EPSG:4326` +
+      `&BBOX=-180,-90,180,90&WIDTH=${W}&HEIGHT=${H}&FORMAT=image/png&TRANSPARENT=TRUE&TIME=${IMERG_TIME}`;
+    const img = await new Promise((res, rej) => {
+      const i = new Image(); i.crossOrigin = 'anonymous';
+      i.onload = () => res(i); i.onerror = () => rej(new Error('GIBS image failed')); i.src = url;
     });
-    gibsCache.set(id, p);
-    p.catch(() => gibsCache.delete(id));
-    return p;
-  }
-  function applyGibsFrame(key, f) {
-    const L = EJ.LAYERS[key], miss = MISSING[key] || null;
-    layer.img = f.img; layer.field = f.field;
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(img, 0, 0);
+    const d = x.getImageData(0, 0, W, H).data, field = new Float32Array(W * H);
+    for (let i = 0; i < field.length; i++) field[i] = d[4 * i + 3] < 20 ? 0 : Math.max(0.03, imergIntensity(d[4 * i], d[4 * i + 1], d[4 * i + 2]));
+    const tier = v => v < 0.03 ? 'dry' : v < 0.12 ? 'light rain' : v < 0.3 ? 'moderate rain' : v < 0.55 ? 'heavy rain' : v < 0.85 ? 'very heavy rain' : 'extreme rain';
+    Object.assign(layer, {
+      kind: 'imerg', title: 'IMERG precipitation rate', units: '', img, w: W, h: H, frames: [], frame: 0,
+      source: 'NASA IMERG via GIBS', description: 'Rainfall rate around the world at one moment in time.',
+    });
     layer.raw = (lat, lon) => {
-      const px = Math.min(GW - 1, Math.max(0, Math.floor((wrapLon(lon) + 180) / 360 * GW)));
-      const py = Math.min(GH - 1, Math.max(0, Math.floor((90 - lat) / 180 * GH)));
-      return layer.field[py * GW + px];
+      const px = Math.min(W - 1, Math.max(0, Math.floor((wrapLon(lon) + 180) / 360 * W)));
+      const py = Math.min(H - 1, Math.max(0, Math.floor((90 - lat) / 180 * H)));
+      return field[py * W + px];
     };
     layer.valueAt = (lat, lon) => {
-      const v = Math.min(1, layer.raw(lat, lon));
-      if (v < 0.03 && miss) return { norm: 0, land: true, isLand: miss.land, spoken: miss.text, short: 'no data', value: null };
-      const t = EJ.tierIndex(v);
-      return { norm: v, land: false, isLand: false, value: v, spoken: L.say[t], short: `${Math.round(v * 100)}% (${L.tiers[t]})` };
+      const v = Math.min(1, Math.pow(layer.raw(lat, lon) / 0.9, 2));
+      return { norm: v, land: false, value: v, spoken: tier(v), short: `${Math.round(v * 100)}% (${tier(v)})` };
     };
-    renderLayer();
-  }
-  async function loadGibs(key, token) {
-    const L = EJ.LAYERS[key];
-    Object.assign(layer, {
-      kind: 'gibs', key, title: L.dataset, source: 'NASA GIBS: ' + L.id, units: '', w: GW, h: GH, grid: null, palette: null,
-      frames: Array.from({ length: GDAYS }, (_, i) => ({ date: dayISO(i) })), frame: GDAYS - 1, peakName: PEAK_NAMES[key],
-      description: BLURBS[key],
-    });
-    layer.dateText = () => new Date(layer.frames[layer.frame].date + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
-    layer.setFrame = async i => {
-      const idx = Math.max(0, Math.min(GDAYS - 1, i));
-      if (idx === layer.frame && layer.ready) return;
-      layer.frame = idx;
-      const f = await gibsFrame(key, layer.frames[idx].date);
-      if (layer.key === key && layer.frame === idx) applyGibsFrame(key, f);
-    };
-    const f = await gibsFrame(key, layer.frames[layer.frame].date);
-    if (token !== loadToken) return;
-    applyGibsFrame(key, f);
+    layer.dateText = () => IMERG_TIME.slice(0, 16).replace('T', ' ') + ' UTC';
+    layer.setFrame = () => {};
     layer.ready = true;
-    renderLayer(); syncLayerUI();
+    renderLayer();
     document.getElementById('datastat').textContent =
-      `Data: NASA ${L.dataset} (GIBS), ${layer.dateText()}. Press [ and ] to step through the last ${GDAYS} days.`;
+      `Data: NASA IMERG precipitation (GIBS), ${layer.dateText()}. Backup layer: the challenge asks for EIC visuals, so add data/sst.json for the main demo.`;
   }
 
   // ---- smart targets
   function smartTarget(kind) {
     if (!layer.ready) return null;
-    if (kind === 'peak') kind = layer.kind === 'sst' ? 'warmest' : 'heaviest_rain';   // the strongest value on whatever layer is showing
     let best = null, bestScore = -Infinity;
     const here = player;
     const consider = (lat, lon, score) => {
@@ -380,18 +315,17 @@
         } else return null;
         consider(lat, lon, score);
       }
-    } else if (layer.kind === 'gibs') {
+    } else if (layer.kind === 'imerg') {
       if (kind !== 'heaviest_rain' && kind !== 'warmest') return null;
-      const maxLat = (EJ.LAYERS[layer.key].maxLat || 60);
-      for (let lat = -maxLat; lat <= maxLat; lat += 1) for (let lon = -179.5; lon < 180; lon += 1) {
-        let s = 0;   // a little smoothing so we find a real peak, not one pixel
+      for (let lat = -60; lat <= 60; lat += 1) for (let lon = -179.5; lon < 180; lon += 1) {
+        let s = 0;   // a little smoothing so we find a storm, not one pixel
         for (let a = -2; a <= 2; a++) for (let b = -2; b <= 2; b++) s += layer.raw(lat + a * 0.5, lon + b * 0.5);
         consider(lat, lon, s);
       }
     }
     if (!best) return null;
     const names = { warmest: 'the warmest water', coldest: 'the coldest water', biggest_change: 'the biggest temperature change this year', heaviest_rain: 'the heaviest rain' };
-    return { ...best, name: layer.kind === 'gibs' ? layer.peakName : (names[kind] || kind) };
+    return { ...best, name: names[kind] || kind };
   }
 
   // percentile of the value here among all ocean cells (for local explanations)
@@ -431,8 +365,8 @@
   }
   function whereText(full) {
     const v = layer.valueAt(player.lat, player.lon);
-    const place = placeName(player.lat, player.lon, v.isLand);
-    let s = v.land && layer.kind === 'sst' ? `${place[0].toUpperCase() + place.slice(1)}, no ocean data.` : `${place[0].toUpperCase() + place.slice(1)}. ${v.spoken}.`;
+    const place = placeName(player.lat, player.lon, v.land);
+    let s = v.land ? `${place[0].toUpperCase() + place.slice(1)}, no ocean data.` : `${place}. ${v.spoken}.`;
     if (full) {
       s = `${fmtLat(player.lat)}, ${fmtLon(player.lon)}. ${s}`;
       if (layer.ready) s += ` ${layer.dateText()}.`;
@@ -451,9 +385,9 @@
   // AUDIO
   // =====================================================================
   let ctx = null, master = null, muted = false;
-  let dataOut, synthOut, softOut, sineOut, oscs = [], harmony, harmonyGain, dataFilter;
+  let dataOut, synthOut, bassOut, sineOut, oscs = [], harmony, harmonyGain, dataFilter;
   let metroOut, metroPanner, nextTick = 0, scheduler = null;
-  let nextBeat = 0, beatTime = 0, dataFreq = 220;
+  let nextStep = 0, stepTime = 0, dataFreq = 220;
 
   const SCALES = {
     pentatonic: [0, 2, 4, 7, 9], major: [0, 2, 4, 5, 7, 9, 11],
@@ -504,7 +438,7 @@
     const sg = ctx.createGain(); sg.gain.value = 0.35; sine.connect(sg).connect(sineOut); sine.start();
     oscs.push({ o: sine, mult: 1 });
 
-    buildSoft();
+    build808();
 
     // ---- Metronome: one HRTF (3D) source placed in the direction of the target.
     metroPanner = ctx.createPanner();
@@ -521,30 +455,41 @@
     } else { L.setOrientation(0, 0, -1, 0, 1, 0); L.setPosition(0, 0, 0); }
 
     applySettings();
-    nextTick = ctx.currentTime + 0.1; beatTime = ctx.currentTime + 0.05;
+    nextTick = ctx.currentTime + 0.1; stepTime = ctx.currentTime + 0.05;
     scheduler = setInterval(schedule, 25);
   }
 
-  // ---- Soft pulse: a steady, gentle, round tone at the data pitch, one per beat.
-  // Pure harmonic partials, a slow-blooming attack and a long ring, mellowed by a low-pass filter.
-  const SOFT_BPM = 72, BEAT = 60 / SOFT_BPM;
-  let noiseBuf, softLp;
-  function buildSoft() {
-    softOut = ctx.createGain(); softOut.gain.value = 0; softOut.connect(dataFilter);
-    softLp = ctx.createBiquadFilter(); softLp.type = 'lowpass'; softLp.frequency.value = 1500; softLp.Q.value = 0.4; softLp.connect(softOut);
-    noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 0.05, ctx.sampleRate);      // short noise burst for the "click" metronome sound
+  // ---- 808 bass (from the original prototype), now transposed by the data value
+  const BPM = 130, STEP = 60 / BPM / 4;
+  const BASS_PATTERN = [[0, 55.0, 0.9], [3, 55.0, 0.3], [6, 65.41, 0.5], [8, 49.0, 0.9], [11, 49.0, 0.3], [12, 55.0, 0.5], [14, 73.42, 0.3]];
+  let shaper, hatBuf, noiseBuf;
+  function build808() {
+    bassOut = ctx.createGain(); bassOut.connect(dataOut);
+    shaper = ctx.createWaveShaper();
+    const curve = new Float32Array(1024);
+    for (let i = 0; i < 1024; i++) curve[i] = Math.tanh(2.6 * (i / 512 - 1));
+    shaper.curve = curve; shaper.oversample = '4x'; shaper.connect(bassOut);
+    hatBuf = ctx.createBuffer(1, ctx.sampleRate * 0.1, ctx.sampleRate);
+    const d = hatBuf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 3);
+    noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 0.05, ctx.sampleRate);
     const n = noiseBuf.getChannelData(0);
     for (let i = 0; i < n.length; i++) n[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n.length, 6);
   }
-  function strike(t, freq, amp, len) {
-    [[1, 1, 1], [2, 0.16, 0.55], [3, 0.04, 0.35]].forEach(([ratio, gain, decay]) => {
-      const o = ctx.createOscillator(), g = ctx.createGain();
-      o.type = 'sine'; o.frequency.value = freq * ratio;
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(amp * gain, t + 0.12);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + len * decay);
-      o.connect(g).connect(softLp); o.start(t); o.stop(t + len * decay + 0.05);
-    });
+  function voice808(t, freq, len, amp) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(freq * 3, t);
+    o.frequency.exponentialRampToValueAtTime(freq, t + 0.06);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(amp, t + 0.005);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    o.connect(g).connect(shaper); o.start(t); o.stop(t + len + 0.05);
+  }
+  function hat(t, vol) {
+    const n = ctx.createBufferSource(), hp = ctx.createBiquadFilter(), g = ctx.createGain();
+    n.buffer = hatBuf; hp.type = 'highpass'; hp.frequency.value = 6500; g.gain.value = vol;
+    n.connect(hp).connect(g).connect(bassOut); n.start(t);
   }
 
   // ---- one-shot sounds
@@ -609,12 +554,14 @@
       tick(nextTick, Math.cos(rad(b)));
       nextTick += 60 / metroBpm(distanceKm(player, target));
     }
-    // soft pulse
-    if (settings.instrument !== 'soft') { nextBeat = 0; beatTime = now + 0.05; return; }
-    while (beatTime < now + 0.15) {
-      const accent = nextBeat % 4 === 0;
-      strike(beatTime, dataFreq, accent ? 0.4 : 0.28, 3.4);
-      nextBeat++; beatTime += BEAT;
+    // 808 beat
+    if (settings.instrument !== '808') { nextStep = 0; stepTime = now + 0.05; return; }
+    while (stepTime < now + 0.15) {
+      const s = nextStep % 16;
+      const ratio = dataFreq / midiToHz(Math.min(settings.lowNote, settings.highNote));
+      BASS_PATTERN.forEach(([st, f, l]) => { if (st === s) voice808(stepTime, f * ratio, l, 0.9); });
+      if (s % 2 === 0) hat(stepTime, s % 4 === 2 ? 0.18 : 0.08);
+      nextStep++; stepTime += STEP;
     }
   }
 
@@ -632,12 +579,11 @@
 
   function applySettings(changed) {
     if (changed === 'dataset') { loadLayer(); return; }
-    const mb = document.getElementById('muteBtn'); if (mb) mb.setAttribute('aria-pressed', String(muted));
     if (!ctx) return;
     const t = ctx.currentTime;
     master.gain.setTargetAtTime(muted ? 0 : settings.masterVolume, t, 0.02);
     synthOut.gain.setTargetAtTime(settings.instrument === 'synth' ? 1 : 0, t, 0.05);
-    softOut.gain.setTargetAtTime(settings.instrument === 'soft' ? 1 : 0, t, 0.05);
+    bassOut.gain.setTargetAtTime(settings.instrument === '808' ? 1.1 : 0, t, 0.05);
     sineOut.gain.setTargetAtTime(settings.instrument === 'sine' ? 1 : 0, t, 0.05);
     metroOut.gain.setTargetAtTime(settings.metroVolume, t, 0.05);
     updateDataTone();
@@ -695,16 +641,9 @@
       t: () => say(targetText()),
       h: () => say(HELP),
       m: () => { muted = !muted; applySettings(); say(muted ? 'Muted.' : 'Sound on.'); },
-      z: () => setSetting('instrument', 'synth'),
-      x: () => setSetting('instrument', 'soft'),
-      c: () => setSetting('instrument', 'sine'),
-      g: () => setView(!globeOn),
-      '1': () => setSetting('dataset', 'rain'),
-      '2': () => setSetting('dataset', 'heat'),
-      '3': () => setSetting('dataset', 'plants'),
-      '4': () => setSetting('dataset', 'ocean'),
-      '5': () => setSetting('dataset', 'air'),
-      '6': () => setSetting('dataset', 'sst'),
+      '1': () => setSetting('instrument', 'synth'),
+      '2': () => setSetting('instrument', '808'),
+      '3': () => setSetting('instrument', 'sine'),
       '[': () => stepDate(-1),
       ']': () => stepDate(1),
       p: () => playYear(),
@@ -721,17 +660,15 @@
   });
   window.addEventListener('blur', () => keys.clear());
 
-  async function stepDate(dir) {
+  function stepDate(dir) {
     if (layer.frames.length < 2) { say('This data layer has only one date.'); return; }
-    const before = layer.frame;
-    await layer.setFrame(layer.frame + dir);
-    if (layer.kind === 'gibs' && layer.frame === before) { say(dir < 0 ? 'That is the earliest day available.' : 'That is the latest day available.'); return; }
+    layer.setFrame(layer.frame + dir);
     updateDataTone();
     say(`${layer.dateText()}. ${layer.valueAt(player.lat, player.lon).spoken}.`);
   }
   function playYear() {
     if (playTimer) { stopPlay(); say('Stopped.'); return; }
-    if (layer.kind !== 'sst') { say('Playing through time is only for the ocean year layer. Use the left and right brackets to step through days on this layer.'); return; }
+    if (layer.frames.length < 2) { say('This data layer has only one date.'); return; }
     say(`Playing the year at ${placeName(player.lat, player.lon, false)}. Press P to stop.`);
     playTimer = setInterval(() => { layer.setFrame(layer.frame + 1); updateDataTone(); }, 250);
   }
@@ -749,8 +686,7 @@
   });
 
   const HELP = 'Arrow keys move, hold Shift to go faster. Space goes home to zero, zero. ' +
-    'I tells you where you are, T tells you about your target. Number keys one to six pick the data layer: rain, land heat, plants, ocean today, haze, and the ocean year. ' +
-    'Left and right square brackets change the date. Z, X and C change the sound. G switches between the globe and the flat map. ' +
+    'I tells you where you are, T tells you about your target. Left and right square brackets change the date, P plays the year. ' +
     'Slash opens the assistant, V lets you speak to it. O opens settings, M mutes, Escape returns to the map. ' +
     'The steady tone is the data where you are. The ticks are your target: faster means closer, and they come from its direction.';
 
@@ -796,8 +732,7 @@
     if (/where am i|where are we|my location/.test(t)) return { reply: whereText(true) };
     if (/\b(go|take me|bring me|jump|teleport)\b.*\b(home|center|centre|origin|zero)\b|^home$/.test(t)) return { run: goHome };
     const smart = /\b(warmest|hottest)\b/.test(t) ? 'warmest' : /\b(coldest|coolest)\b/.test(t) ? 'coldest'
-      : /\b(biggest|most|largest)\b.*\bchange/.test(t) ? 'biggest_change' : /\b(heaviest|most|strongest)\b.*\b(rain|storm)|wettest|storm/.test(t) ? 'heaviest_rain'
-      : /\b(strongest|highest|peak|thickest|lushest|densest|most intense)\b/.test(t) ? 'peak' : null;
+      : /\b(biggest|most|largest)\b.*\bchange/.test(t) ? 'biggest_change' : /\b(heaviest|most|strongest)\b.*\b(rain|storm)|wettest|storm/.test(t) ? 'heaviest_rain' : null;
     if (smart && /\b(take|go|find|guide|show|where|jump|teleport|bring|navigate)\b/.test(t)) {
       const st = smartTarget(smart);
       return st ? { run: () => setTarget(st, mode) } : { reply: 'That smart target is not available for this data layer.' };
@@ -811,17 +746,7 @@
     if (/\b(quieter|softer)\b/.test(t)) return { run: () => setSetting('masterVolume', settings.masterVolume - 0.15) };
     if (/more musical|music mode/.test(t)) return { run: () => setSetting('musicality', 1) };
     if (/data mode|more exact|exact data|raw data/.test(t)) return { run: () => setSetting('musicality', 0) };
-    // data layer: "show me the rain", "switch to land heat", "use the ocean year"
-    if (/\b(show|switch|use|change|go to|play|load|display)\b/.test(t) && !/\b(soft|pulse|synth|pure tone|sine)\b/.test(t)) {
-      const ds = /\b(ocean today|daily ocean|ocean heat)\b/.test(t) ? 'ocean'
-        : /\b(eic|ocean year|sea temperature|ocean temperature|sea surface|ocean|sea)\b/.test(t) ? 'sst'
-        : /\b(rain|rainfall|precipitation)\b/.test(t) ? 'rain'
-        : /\b(land heat|land temperature|hot ground|heat)\b/.test(t) ? 'heat'
-        : /\b(plants?|vegetation|forests?|greenness|green)\b/.test(t) ? 'plants'
-        : /\b(haze|smoke|dust|aerosols?|air quality)\b/.test(t) ? 'air' : null;
-      if (ds) return { run: () => setSetting('dataset', ds) };
-    }
-    if (/\b(use|switch to|play|turn on|change to)\b.*\b(808|soft|pulse|synth|pure tone|sine)\b/.test(t)) return { run: () => setSetting('instrument', /soft|pulse|808/.test(t) ? 'soft' : t.includes('synth') ? 'synth' : 'sine') };
+    if (/\b(use|switch to|play|turn on|change to)\b.*\b(808|synth|pure tone|sine)\b/.test(t)) return { run: () => setSetting('instrument', t.includes('808') ? '808' : t.includes('synth') ? 'synth' : 'sine') };
     if (/\b(reset)\b.*\bsettings\b/.test(t)) return { run: resetSettings };
 
     // settings: "turn off the chimes", "set metronome volume to 40%", "make the voice speed 1.5"
@@ -846,10 +771,6 @@
 
   function explainLocally() {
     const v = layer.valueAt(player.lat, player.lon);
-    if (layer.kind === 'gibs') {
-      const where = placeName(player.lat, player.lon, v.isLand);
-      return v.land ? `You are ${where}. ${v.spoken}, so this layer is quiet here.` : `You are ${where}. ${v.spoken} on ${layer.dateText()}, from ${layer.title}.`;
-    }
     if (v.land) return `You are ${placeName(player.lat, player.lon, true)}. This layer only has ocean data, so it is quiet on land.`;
     const p = percentileHere();
     let s = `You are in the ${placeName(player.lat, player.lon, false)}, at ${v.spoken}.`;
@@ -864,9 +785,9 @@
     const v = layer.valueAt(player.lat, player.lon);
     return {
       position: { lat: +player.lat.toFixed(2), lon: +player.lon.toFixed(2) },
-      place: placeName(player.lat, player.lon, v.isLand),
-      data_layer: layer.title, layer_key: layer.key, data_source: layer.source, date: layer.ready ? layer.dateText() : null,
-      value_here: v.land ? v.spoken : v.short,
+      place: placeName(player.lat, player.lon, v.land),
+      data_layer: layer.title, data_source: layer.source, date: layer.ready ? layer.dateText() : null,
+      value_here: v.land ? 'land (no ocean data)' : v.short,
       percent_of_ocean_colder_than_here: percentileHere(),
       target: target ? { name: target.name, km: Math.round(distanceKm(player, target)), direction: compassWord(gridBearing(player, target)), arrived: target.arrived } : null,
       settings, settings_schema: SETTINGS_SCHEMA.map(({ key, label, type, min, max, options }) => ({ key, label, type, min, max, options: options && options.map(o => o[0]) })),
@@ -990,151 +911,70 @@
   syncSettingsForm();
 
   // =====================================================================
-  // DRAWING: a 3D globe (default) and a flat map
+  // DRAWING
   // =====================================================================
   const canvas = document.getElementById('c');
   const g = canvas.getContext('2d');
   const CW = canvas.width, CH = canvas.height;
   const X = lon => (wrapLon(lon) + 180) / 360 * CW;
   const Y = lat => (90 - lat) / 180 * CH;
-  const layerCanvas = document.createElement('canvas'); layerCanvas.width = CW; layerCanvas.height = CH;     // flat map: opaque
-  const overlayCanvas = document.createElement('canvas'); overlayCanvas.width = CW; overlayCanvas.height = CH; // globe texture: transparent where there is no data
-  const mapEl = document.getElementById('map'), globeEl = document.getElementById('globe');
-  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const layerCanvas = document.createElement('canvas'); layerCanvas.width = CW; layerCanvas.height = CH;
 
-  function colorRGB(v) {                 // smooth blend between the 32 colors of NASA's own colorbar
-    const p = layer.palette, vs = p.values;
-    if (v <= vs[0]) return p.colors[0];
-    for (let i = 1; i < vs.length; i++) {
-      if (v <= vs[i]) {
-        const t = (v - vs[i - 1]) / (vs[i] - vs[i - 1]), a = p.colors[i - 1], b = p.colors[i];
-        return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
-      }
-    }
-    return p.colors[p.colors.length - 1];
+  function colorFor(v) {
+    const p = layer.palette;
+    let best = 0;
+    for (let i = 1; i < p.values.length; i++) if (Math.abs(p.values[i] - v) < Math.abs(p.values[best] - v)) best = i;
+    return `rgb(${p.colors[best].join(',')})`;
   }
-  let sstSmall = null;
   function renderLayer() {
-    const og = overlayCanvas.getContext('2d');
-    og.clearRect(0, 0, CW, CH);
+    const lg = layerCanvas.getContext('2d');
+    lg.fillStyle = '#0d1426'; lg.fillRect(0, 0, CW, CH);
     if (layer.kind === 'sst') {
-      if (!sstSmall || sstSmall.width !== layer.w) { sstSmall = document.createElement('canvas'); sstSmall.width = layer.w; sstSmall.height = layer.h; }
-      const sg = sstSmall.getContext('2d'); sg.clearRect(0, 0, layer.w, layer.h);
+      const cw = CW / layer.w, ch = CH / layer.h;
       for (let r = 0; r < layer.h; r++) for (let c = 0; c < layer.w; c++) {
         const v = layer.grid[r][c];
-        if (v === null) continue;
-        const [R, G, B] = colorRGB(v);
-        sg.fillStyle = `rgb(${R | 0},${G | 0},${B | 0})`; sg.fillRect(c, r, 1, 1);
+        lg.fillStyle = v === null ? '#1b2238' : colorFor(v);
+        lg.fillRect(c * cw, r * ch, cw + 0.5, ch + 0.5);
       }
-      og.imageSmoothingEnabled = true; og.imageSmoothingQuality = 'high';
-      og.drawImage(sstSmall, 0, 0, CW, CH);            // stretching the small grid smooths the 5 degree blocks
-    } else if (layer.kind === 'gibs' && layer.img) {
-      og.drawImage(layer.img, 0, 0, CW, CH);
+    } else if (layer.kind === 'imerg' && layer.img) {
+      lg.globalAlpha = 0.9; lg.drawImage(layer.img, 0, 0, CW, CH); lg.globalAlpha = 1;
     }
-    const lg = layerCanvas.getContext('2d');
-    lg.fillStyle = '#0b1415'; lg.fillRect(0, 0, CW, CH);
-    lg.drawImage(overlayCanvas, 0, 0);
-    if (earth) earth.refreshOverlay();
   }
 
-  // ---- the 3D Earth (shared with the main page)
-  const earth = window.EarthGL ? EarthGL.create(globeEl, { interactive: true, zoomable: true, touchSteers: true, wobble: 0, follow: 0.09, offsetY: 0, camZ: 4.15 }) : null;
-  if (earth) {
-    earth.setGraticule(true);
-    earth.setOverlay(overlayCanvas);
-    earth.addMarker('target', { color: 0xffb03c, size: 1.15, beam: true });
-    earth.addMarker('me', { color: 0x9fe0cc, core: 0xeafff7, size: 0.85, rings: false });
-    earth.snapTo(0, 0);
-  }
-  let globeOn = !!earth, mapVisible = true;
-  const viewBtn = document.getElementById('view');
-  function setView(on) {
-    globeOn = !!on && !!earth;
-    mapEl.classList.toggle('flat', !globeOn);
-    globeEl.hidden = !globeOn; canvas.hidden = globeOn;
-    viewBtn.setAttribute('aria-pressed', String(globeOn));
-    viewBtn.firstChild.textContent = globeOn ? '3D globe' : 'Flat map';
-    if (earth) say(globeOn ? '3D globe view.' : 'Flat map view.', false);
-  }
-  if (!earth) viewBtn.hidden = true;
-  mapEl.classList.toggle('flat', !globeOn); globeEl.hidden = !globeOn; canvas.hidden = globeOn;
-  viewBtn.addEventListener('click', () => { setView(!globeOn); viewBtn.blur(); });
-  try { new IntersectionObserver(es => { mapVisible = es[0].isIntersecting; }).observe(mapEl); } catch (e) { /* always visible */ }
-
-  document.getElementById('muteBtn').addEventListener('click', e => { muted = !muted; applySettings(); say(muted ? 'Muted.' : 'Sound on.'); e.currentTarget.blur(); });
-  document.querySelectorAll('#layers button').forEach(b => b.addEventListener('click', () => { setSetting('dataset', b.dataset.ds, true); say(`${b.firstChild.textContent}.`, false); b.blur(); }));
-
-  // ---- touch steering: press on the map and drag, like a joystick (with a mouse it only steers on the flat map,
-  // because dragging the globe spins it)
-  const joy = { on: false, id: null, ox: 0, oy: 0, x: 0, y: 0, fast: false };
-  const stickEl = document.getElementById('stick'), knobEl = document.getElementById('knob'), JR = 56;
-  mapEl.addEventListener('pointerdown', e => {
-    if (e.target.closest('#start') || joy.on) return;
-    if (!(e.pointerType === 'touch' || !globeOn)) return;
-    joy.on = true; joy.id = e.pointerId; joy.ox = e.clientX; joy.oy = e.clientY;
-    const r = mapEl.getBoundingClientRect();
-    stickEl.style.left = (e.clientX - r.left) + 'px'; stickEl.style.top = (e.clientY - r.top) + 'px';
-    knobEl.style.transform = 'translate(0,0)'; stickEl.hidden = false;
-    try { mapEl.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
-    ensureAudio();
-    e.preventDefault();
-  });
-  mapEl.addEventListener('pointermove', e => {
-    if (!joy.on || e.pointerId !== joy.id) return;
-    const dx = e.clientX - joy.ox, dy = e.clientY - joy.oy, raw = Math.hypot(dx, dy) / JR, k = raw > 1 ? 1 / raw : 1;
-    joy.x = dx / JR * k; joy.y = -dy / JR * k;
-    if (Math.hypot(joy.x, joy.y) < 0.15) { joy.x = 0; joy.y = 0; }
-    joy.fast = raw > 1.5;
-    knobEl.style.transform = `translate(${dx * k}px, ${dy * k}px)`;
-  });
-  const joyEnd = e => { if (e.pointerId !== joy.id) return; joy.on = false; joy.x = 0; joy.y = 0; joy.fast = false; stickEl.hidden = true; };
-  mapEl.addEventListener('pointerup', joyEnd); mapEl.addEventListener('pointercancel', joyEnd);
-  mapEl.addEventListener('contextmenu', e => e.preventDefault());
-
-  // ---- flat map
   function draw(now) {
     g.drawImage(layerCanvas, 0, 0);
-    g.lineWidth = 1; g.font = '13px ui-sans-serif, system-ui, sans-serif';
+    // lat/lon grid every 30 degrees; the axes (equator, prime meridian) brighter
+    g.lineWidth = 1; g.font = '13px system-ui'; g.fillStyle = '#8aa0c8';
     for (let lon = -180; lon <= 180; lon += 30) {
-      g.strokeStyle = lon === 0 ? 'rgba(220,191,143,.8)' : 'rgba(233,228,214,0.10)'; g.lineWidth = lon === 0 ? 2 : 1;
+      g.strokeStyle = lon === 0 ? '#9fb8ff' : 'rgba(255,255,255,0.08)'; g.lineWidth = lon === 0 ? 2 : 1;
       g.beginPath(); g.moveTo(X(lon) - (lon === 180 ? 1 : 0), 0); g.lineTo(X(lon) - (lon === 180 ? 1 : 0), CH); g.stroke();
     }
     for (let lat = -90; lat <= 90; lat += 30) {
-      g.strokeStyle = lat === 0 ? 'rgba(220,191,143,.8)' : 'rgba(233,228,214,0.10)'; g.lineWidth = lat === 0 ? 2 : 1;
+      g.strokeStyle = lat === 0 ? '#9fb8ff' : 'rgba(255,255,255,0.08)'; g.lineWidth = lat === 0 ? 2 : 1;
       g.beginPath(); g.moveTo(0, Y(lat)); g.lineTo(CW, Y(lat)); g.stroke();
     }
-    g.fillStyle = 'rgba(233,228,214,.7)';
+    g.fillStyle = '#c9d6ff';
     g.fillText('Equator', 8, Y(0) - 6);
     g.save(); g.translate(X(0) + 6, 16); g.fillText('Prime meridian', 0, 0); g.restore();
-    if (target) {   // target: pulsing rings
+
+    // target: pulsing rings
+    if (target) {
       const tx = X(target.lon), ty = Y(target.lat);
       for (let i = 0; i < 3; i++) {
-        const ph = reduceMotion ? 0.3 + i * 0.25 : ((now / 2400) + i / 3) % 1;
-        g.strokeStyle = `rgba(255,176,60,${0.55 * (1 - ph)})`; g.lineWidth = 2;
-        g.beginPath(); g.arc(tx, ty, 5 + ph * 44, 0, Math.PI * 2); g.stroke();
+        const ph = ((now / 1800) + i / 3) % 1;
+        g.strokeStyle = `rgba(255,176,60,${0.6 * (1 - ph)})`; g.lineWidth = 2;
+        g.beginPath(); g.arc(tx, ty, 5 + ph * 40, 0, Math.PI * 2); g.stroke();
       }
       g.fillStyle = '#ffb03c'; g.beginPath(); g.arc(tx, ty, 6, 0, Math.PI * 2); g.fill();
       if (!target.arrived) {
-        g.strokeStyle = 'rgba(255,176,60,0.45)'; g.setLineDash([6, 6]); g.lineWidth = 1.5;
+        g.strokeStyle = 'rgba(255,176,60,0.4)'; g.setLineDash([6, 6]);
         g.beginPath(); g.moveTo(X(player.lon), Y(player.lat)); g.lineTo(tx, ty); g.stroke(); g.setLineDash([]);
       }
     }
+    // player
     const px = X(player.lon), py = Y(player.lat);
-    g.strokeStyle = 'rgba(214,240,228,.6)'; g.lineWidth = 1.5; g.beginPath(); g.arc(px, py, 11, 0, Math.PI * 2); g.stroke();
-    g.fillStyle = '#d6f0e4'; g.beginPath(); g.arc(px, py, 5, 0, Math.PI * 2); g.fill();
-  }
-
-  // ---- the globe: follow the cursor, show the target and the way to it, glow with the data
-  function drawGlobe(now) {
-    earth.setMarker('me', player.lat, player.lon);
-    if (target) {
-      earth.setMarker('target', target.lat, target.lon);
-      earth.setArc(target.arrived ? null : player, target.arrived ? null : target);
-    } else { earth.setMarker('target', null); earth.setArc(null, null); }
-    earth.focus(player.lat, player.lon);
-    const v = layer.valueAt(player.lat, player.lon);
-    earth.setGlow(0.65 + 1.1 * (layer.ready && !v.land ? v.norm : 0));
-    earth.render(now);
+    g.fillStyle = '#ffffff'; g.beginPath(); g.arc(px, py, 9, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#4da3ff'; g.beginPath(); g.arc(px, py, 6, 0, Math.PI * 2); g.fill();
   }
 
   // =====================================================================
@@ -1145,13 +985,11 @@
   let last = performance.now();
 
   function frame(now) {
-    requestAnimationFrame(frame);   // schedule first, so one error can never freeze the page
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
-    let ax = (keys.has('right') ? 1 : 0) - (keys.has('left') ? 1 : 0);
-    let ay = (keys.has('up') ? 1 : 0) - (keys.has('down') ? 1 : 0);
-    ax += joy.x; ay += joy.y;
+    const ax = (keys.has('right') ? 1 : 0) - (keys.has('left') ? 1 : 0);
+    const ay = (keys.has('up') ? 1 : 0) - (keys.has('down') ? 1 : 0);
     if (ax || ay) {
-      const len = Math.hypot(ax, ay), mag = Math.min(1, len), sp = settings.speed * (keys.has('shift') || joy.fast ? 3 : 1) * dt * mag;   // keys are full speed; the touch stick is analog
+      const len = Math.hypot(ax, ay), sp = settings.speed * (keys.has('shift') ? 3 : 1) * dt;
       const before = { lat: player.lat, lon: player.lon };
       player.lat = clampLat(player.lat + (ay / len) * sp);
       // moving east/west covers fewer degrees near the poles... we keep it simple: degrees per second
@@ -1175,7 +1013,7 @@
     // HUD
     const v = layer.valueAt(player.lat, player.lon);
     hud.pos.textContent = `${fmtLatShort(player.lat)}, ${fmtLonShort(player.lon)}`;
-    hud.place.textContent = layer.ready ? placeName(player.lat, player.lon, v.isLand) : '-';
+    hud.place.textContent = layer.ready ? placeName(player.lat, player.lon, v.land) : '-';
     hud.value.textContent = layer.ready ? v.short : 'loading';
     hud.date.textContent = layer.ready ? layer.dateText() : '-';
     if (target) {
@@ -1184,12 +1022,13 @@
       hud.dist.textContent = `${Math.round(d).toLocaleString()} km`;
       hud.dir.textContent = d < ARRIVE_KM ? 'here' : compassWord(gridBearing(player, target));
     }
-    if (globeOn) { if (mapVisible && !document.hidden) drawGlobe(now); } else draw(now);
+    draw(now);
+    requestAnimationFrame(frame);
   }
 
   loadLayer().then(() => { lastCell = ''; checkCell(true); });
   requestAnimationFrame(frame);
 
   // for testing in the browser console
-  window.EarthJukebox = { settings, setSetting, ask, player, layer, smartTarget, localCommand, earth, get target() { return target; } };
+  window.EarthJukebox = { settings, setSetting, ask, player, layer, smartTarget, localCommand, get target() { return target; } };
 })();
