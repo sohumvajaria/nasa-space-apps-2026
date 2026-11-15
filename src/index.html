@@ -901,6 +901,7 @@
       wrapNode.tabIndex = 0;
       wrapNode.focus();
       warmVoice();                           // get the narrator's most common phrases ready
+      setTimeout(() => { if (ttsOff) startKokoro(); }, 1500);   // no server voice: start the free on-device voice now, so it is ready when needed
     }
   }
   startBtn.addEventListener('click', ensureAudio);
@@ -1016,68 +1017,111 @@
   const KOKORO_WORKER = `
     import { KokoroTTS } from 'https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/dist/kokoro.web.js';
     let tts = null;
-    // the graphics card (WebGPU) makes speech faster than real time; without one, a smaller model runs on the CPU
+    // The message handler is registered FIRST, before anything is awaited: a module worker drops messages that arrive
+    // before its handler exists, so phrases asked for while the model is still loading would be lost.
+    // One phrase at a time (the model cannot run two at once). What you asked for now goes before the background warm-up.
+    const queue = []; let busy = false;
+    let markReady; const ready = new Promise(r => { markReady = r; });
+    async function pump() {
+      if (busy) return;
+      busy = true;
+      while (queue.length) {
+        queue.sort((a, b) => (a.warm - b.warm) || (a.id - b.id));
+        const { id, text, voice, speed } = queue.shift();
+        try {
+          await ready;
+          if (!tts) throw new Error('voice model did not load');
+          const audio = await tts.generate(text, { voice, speed });
+          const d = audio.audio; let pk = 0;
+          for (let i = 0; i < d.length; i++) pk = Math.max(pk, Math.abs(d[i]));
+          if (pk > 0) { const g = Math.min(3, 0.85 / pk); for (let i = 0; i < d.length; i++) d[i] *= g; }   // steady loudness for every phrase
+          postMessage({ type: 'audio', id, blob: await audio.toBlob() });
+        } catch (err) { postMessage({ type: 'error', id, error: String(err) }); }
+      }
+      busy = false;
+    }
+    onmessage = e => {
+      const m = e.data;
+      if (m.bump) { const j = queue.find(q => q.id === m.bump); if (j) j.warm = 0; return; }   // a warm-up phrase is wanted right now
+      queue.push({ id: m.id, text: m.text, voice: m.voice, speed: m.speed, warm: m.warm ? 1 : 0 });
+      pump();
+    };
+    // the graphics card (WebGPU) makes speech about 3x faster than real time. fp16 is a 163 MB model, half the size of fp32 and just as fast.
     const gpu = !!(self.navigator.gpu && await self.navigator.gpu.requestAdapter().catch(() => null));
-    const ready = KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', gpu ? { dtype: 'fp32', device: 'webgpu' } : { dtype: 'q8', device: 'wasm' })
+    KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', gpu ? { dtype: 'fp16', device: 'webgpu' } : { dtype: 'q8', device: 'wasm' })
       .then(t => { tts = t; postMessage({ type: 'ready' }); })
-      .catch(e => postMessage({ type: 'failed', error: String(e) }));
-    onmessage = async e => {
-      const { id, text, voice, speed } = e.data;
-      try {
-        await ready;
-        if (!tts) throw new Error('voice model did not load');
-        const audio = await tts.generate(text, { voice, speed });
-        postMessage({ type: 'audio', id, blob: await audio.toBlob() });
-      } catch (err) { postMessage({ type: 'error', id, error: String(err) }); }
-    };`;
+      .catch(e => postMessage({ type: 'failed', error: String(e) }))
+      .finally(() => markReady());
+  `;
   let kokoroWorker = null, kokoroSeq = 0;
   const kokoroJobs = new Map();              // job id -> {resolve, reject}
+  const kokoroJobIds = new Map();            // text -> id of the job still being made
   function startKokoro() {
     if (kokoroWorker || kokoroState === 'failed') return;
     if (navigator.connection && navigator.connection.saveData) { kokoroState = 'failed'; return; }   // respect data saver
+    const nc = navigator.connection || {};
+    // Without WebGPU the model runs on the CPU, about as slow as real time, so the browser voice is the better choice.
+    if (!navigator.gpu || nc.type === 'cellular' || /^(slow-2g|2g|3g)$/.test(nc.effectiveType || '')) { kokoroState = 'failed'; applyVoiceUI(); return; }
     try {
       kokoroWorker = new Worker(URL.createObjectURL(new Blob([KOKORO_WORKER], { type: 'text/javascript' })), { type: 'module' });
     } catch (e) { kokoroState = 'failed'; return; }
     kokoroState = 'loading'; applyVoiceUI();
     kokoroWorker.onmessage = e => {
       const m = e.data;
-      if (m.type === 'ready') { kokoroState = 'ready'; applyVoiceUI(); }
+      if (m.type === 'ready') { kokoroState = 'ready'; applyVoiceUI(); warmKokoro(); }
       else if (m.type === 'failed') {
         kokoroState = 'failed'; applyVoiceUI();
         kokoroJobs.forEach(j => j.reject(new Error(m.error))); kokoroJobs.clear();
       } else {
         const j = kokoroJobs.get(m.id); if (!j) return;
         kokoroJobs.delete(m.id);
-        if (m.type === 'audio') j.resolve(URL.createObjectURL(m.blob)); else j.reject(new Error(m.error));
+        kokoroJobIds.forEach((jid, t) => { if (jid === m.id) kokoroJobIds.delete(t); });
+        if (m.type === 'audio') j.resolve(URL.createObjectURL(m.blob)); else { console.warn('Kokoro could not make a phrase:', m.error); j.reject(new Error(m.error)); }
       }
     };
     kokoroWorker.onerror = () => { kokoroState = 'failed'; applyVoiceUI(); kokoroJobs.forEach(j => j.reject(new Error('worker'))); kokoroJobs.clear(); };
   }
-  function kokoroVoice(text) {
+  function kokoroVoice(text, warm) {
     startKokoro();
     if (kokoroState === 'failed') return Promise.reject(new Error('no on-device voice'));
     return new Promise((resolve, reject) => {
       const id = ++kokoroSeq;
-      kokoroJobs.set(id, { resolve, reject });
-      kokoroWorker.postMessage({ id, text, voice: KOKORO_VOICE, speed: KOKORO_SPEED });
+      kokoroJobs.set(id, { resolve, reject }); kokoroJobIds.set(text, id);
+      kokoroWorker.postMessage({ id, text, voice: KOKORO_VOICE, speed: KOKORO_SPEED, warm: !!warm });
     });
   }
   const kokoroCache = new Map();             // text -> Promise of an audio URL, made on this device
-  function kokoroUrl(text) {
-    if (!kokoroCache.has(text)) { const pr = kokoroVoice(text); pr.catch(() => kokoroCache.delete(text)); kokoroCache.set(text, pr); }
+  function kokoroUrl(text, warm) {
+    if (!kokoroCache.has(text)) { const pr = kokoroVoice(text, warm); pr.catch(() => kokoroCache.delete(text)); kokoroCache.set(text, pr); }
+    else if (!warm && kokoroJobIds.has(text) && kokoroWorker) kokoroWorker.postMessage({ bump: kokoroJobIds.get(text) });   // it was queued as warm-up: move it up
     return kokoroCache.get(text);
+  }
+  const kokoroSentences = t => (t.match(/[^.!?]+[.!?]*\s*/g) || [t]).map(x => x.trim()).filter(Boolean);
+  function warmKokoro() {                    // make the phrases you hear most ahead of time, so they start instantly
+    const phrases = LAYER_ORDER.map(k => k === 'all' ? 'Earth Orchestra.' : `Layer ${LAYER_ORDER.indexOf(k) + 1} of 6: ${LABEL[k]}, played by the ${ORCHESTRA[k].name}.`);
+    phrases.forEach(p => kokoroSentences(p).forEach(x => kokoroUrl(x, true).catch(() => {})));
   }
   function kokoroSpeak(text, id) {           // no server voice: the free on-device voice, or the browser's if it is not ready in time
     if (kokoroState === 'failed') { builtinSpeak(text, id); return; }
-    const slow = setTimeout(() => { if (id === speechId) builtinSpeak(text, ++speechId); }, kokoroState === 'ready' ? 4000 : 2500);
-    kokoroUrl(text).then(url => {
-      clearTimeout(slow);
+    const parts = kokoroSentences(text);
+    parts.forEach(x => kokoroUrl(x).catch(() => {}));    // start making every sentence now; the first one plays as soon as it is done
+    let started = false;
+    const giveUp = () => { clearTimeout(slow); if (id === speechId && !started) builtinSpeak(text, ++speechId); };
+    // too slow right now: the browser voice steps in. A phrase already being made (warm-up) is worth a little longer wait.
+    const slow = setTimeout(giveUp, kokoroState !== 'ready' ? 2500 : kokoroJobIds.has(parts[0]) ? 2400 : 1600);
+    const playNext = i => {
       if (id !== speechId) return;           // something newer was said meanwhile
-      const a = new Audio(url); ttsAudio = a;
-      a.onended = a.onerror = () => { if (id === speechId) { duck(false); ttsAudio = null; } };
-      duck(true);
-      a.play().catch(() => { if (id === speechId) builtinSpeak(text, id); });
-    }).catch(() => { clearTimeout(slow); if (id === speechId) builtinSpeak(text, id); });
+      if (i >= parts.length) { duck(false); ttsAudio = null; return; }
+      kokoroUrl(parts[i]).then(url => {
+        if (id !== speechId) return;
+        const a = new Audio(url); ttsAudio = a;
+        a.onplaying = () => { if (!started) { started = true; clearTimeout(slow); duck(true); } };
+        a.onended = () => playNext(i + 1);
+        a.onerror = () => { if (!started) giveUp(); else if (id === speechId) { duck(false); ttsAudio = null; } };
+        a.play().catch(giveUp);
+      }).catch(() => { if (!started) giveUp(); else if (id === speechId) duck(false); });
+    };
+    playNext(0);
   }
   let bestVoice = null;
   function pickVoice() {                     // the most natural English voice this browser has

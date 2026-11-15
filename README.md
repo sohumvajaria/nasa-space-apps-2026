@@ -45,3 +45,7 @@ Built for the [NASA International Space Apps Challenge](https://www.spaceappscha
 
 ## License
 MIT — see [LICENSE](LICENSE).
+
+## Voice
+
+Spoken announcements use Kokoro-82M (hexgrad, Apache 2.0), an open-source text-to-speech model that runs in the browser on WebGPU: free, no key, text never leaves the device. About 160 MB, downloaded once and cached. Falls back to the browser voice where WebGPU is unavailable. An optional server voice can be enabled with an API key (api/tts.js).
