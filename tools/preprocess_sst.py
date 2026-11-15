@@ -66,7 +66,7 @@ def list_frame_names():
     """The frames folder is a web page listing file names; pull the image names out of it."""
     req = urllib.request.Request(FRAMES_URL, headers={"User-Agent": "EarthJukebox/1.0"})
     html = urllib.request.urlopen(req, timeout=60).read().decode("utf-8", "ignore")
-    names = sorted(set(re.findall(r'href="([^"/?]+\.(?:png|jpg|tif))"', html, re.I)))
+    names = sorted(set(re.findall(r'href="(?:[^"?]*/)?([^"/?]+\.(?:png|jpg|tif))"', html, re.I)))   # links look like /vis/.../name.tif
     if not names:
         sys.exit("Could not find frame files at " + FRAMES_URL + " - open it in a browser to check.")
     return names
@@ -102,32 +102,50 @@ def read_colorbar(path):
 
 
 # ---------------------------------------------------------------- 3 + 4. decode a frame
-def decode_frame(path, colors, values, knn, max_dist=45.0):
-    """Turn one frame into a GRID_H x GRID_W array of temperatures (NaN = no ocean data)."""
+def hue_of(rgb):
+    """Hue in degrees (0-360) for an array of RGB colors (0-255), plus saturation and brightness (0-1)."""
+    c = rgb.astype(np.float32) / 255.0
+    r, g, b = c[..., 0], c[..., 1], c[..., 2]
+    mx, mn = c.max(axis=-1), c.min(axis=-1)
+    d = mx - mn
+    safe = np.where(d == 0, 1, d)
+    h = np.where(mx == r, ((g - b) / safe) % 6, np.where(mx == g, (b - r) / safe + 2, (r - g) / safe + 4)) * 60.0
+    h = np.where(d == 0, 0.0, h)
+    sat = np.where(mx == 0, 0.0, d / np.where(mx == 0, 1, mx))
+    return h, sat, mx
+
+
+def decode_frame(path, colors, values, knn=None):
+    """
+    Turn one frame into a GRID_H x GRID_W array of temperatures (NaN = no ocean data).
+
+    These frames draw the ocean as thin glowing current streaks on a dark background, so many
+    streak pixels are DIM versions of the right color. Matching exact colors (which is what
+    the first version did) threw away most of the ocean. The hue (the position on the rainbow)
+    survives the dimming, so we read the temperature from the hue instead.
+    """
     img = np.asarray(Image.open(path).convert("RGB"))
     h, w, _ = img.shape
-    flat = img.reshape(-1, 3).astype(np.int32)
 
-    # Speed trick: many pixels share the same color, so look up each unique color once.
-    packed = (flat[:, 0] << 16) | (flat[:, 1] << 8) | flat[:, 2]
-    uniq, inverse = np.unique(packed, return_inverse=True)
-    uniq_rgb = np.stack([(uniq >> 16) & 255, (uniq >> 8) & 255, uniq & 255], axis=1)
+    # colorbar: hue -> temperature (blue ~ 0 degC ... red ~ 32 degC), as a sorted lookup table
+    bar_h, _, _ = hue_of(colors)
+    order = np.argsort(bar_h)
+    lut_h, lut_t = bar_h[order], values[order]
 
-    dist, idx = knn.kneighbors(uniq_rgb.astype(float))
-    temp_u = values[idx[:, 0]]
-    too_far = dist[:, 0] > max_dist                  # color isn't on the ruler (text, land, blur)
-    too_dark = uniq_rgb.max(axis=1) < 35              # black background / land
-    temp_u[too_far | too_dark] = np.nan
-    temps = temp_u[inverse.ravel()]
+    px_h, px_s, px_v = hue_of(img)
+    valid = (px_s > 0.45) & (px_v > 0.08)             # colored (not grey land, not black background)
+    temps = np.interp(px_h, lut_h, lut_t)
+    temps[~valid] = np.nan
 
     # Average pixels into boxes. Row 0 of the image = 90N, column 0 = 180W.
     ys, xs = np.divmod(np.arange(h * w), w)
     box = (ys * GRID_H // h) * GRID_W + (xs * GRID_W // w)
-    ok = ~np.isnan(temps)
-    total = np.bincount(box[ok], weights=temps[ok], minlength=GRID_W * GRID_H)
+    t = temps.ravel()
+    ok = ~np.isnan(t)
+    total = np.bincount(box[ok], weights=t[ok], minlength=GRID_W * GRID_H)
     count = np.bincount(box[ok], minlength=GRID_W * GRID_H)
-    # A box needs a reasonable number of colored pixels to count as ocean.
-    min_px = max(5, int(0.02 * (h / GRID_H) * (w / GRID_W)))
+    # A box needs a fair share of colored pixels to count as ocean (land boxes have almost none).
+    min_px = max(5, int(0.06 * (h / GRID_H) * (w / GRID_W)))
     with np.errstate(invalid="ignore", divide="ignore"):
         grid = np.where(count >= min_px, total / count, np.nan)
     return grid.reshape(GRID_H, GRID_W)
