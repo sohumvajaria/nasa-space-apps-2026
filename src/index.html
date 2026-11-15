@@ -1016,7 +1016,9 @@
   const KOKORO_WORKER = `
     import { KokoroTTS } from 'https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/dist/kokoro.web.js';
     let tts = null;
-    const ready = KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', { dtype: 'q8', device: 'wasm' })
+    // the graphics card (WebGPU) makes speech faster than real time; without one, a smaller model runs on the CPU
+    const gpu = !!(self.navigator.gpu && await self.navigator.gpu.requestAdapter().catch(() => null));
+    const ready = KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', gpu ? { dtype: 'fp32', device: 'webgpu' } : { dtype: 'q8', device: 'wasm' })
       .then(t => { tts = t; postMessage({ type: 'ready' }); })
       .catch(e => postMessage({ type: 'failed', error: String(e) }));
     onmessage = async e => {
