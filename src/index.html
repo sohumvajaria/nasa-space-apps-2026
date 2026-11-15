@@ -163,10 +163,6 @@
     <div><span class="k">Location</span><b id="loc">-</b></div>
   </section>
 
-  <div id="sound" role="group" aria-label="Sound">
-    <button type="button" data-mode="synth" aria-pressed="true">Synth<kbd>Z</kbd></button>
-    <button type="button" data-mode="chime" aria-pressed="false">Soft<kbd>X</kbd></button>
-  </div>
 
   <div class="row">
     <button type="button" class="pill" id="speak">Hear summary<kbd>H</kbd></button>
@@ -200,7 +196,7 @@
 
   <details>
     <summary>How to listen</summary>
-    <p>Use headphones. Move with <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> (or WASD). You always face up (north). The sound is at the center (0, 0): it gets quieter with distance and pans, filters and delays to show which direction it is in. Pick a layer above (rain, land heat, plants, ocean heat or haze). Each layer adds its own <b>second note</b> to the center note, and the more intense the data is where you stand, the louder and brighter that note gets: faint at the low end, clear in the middle, full and harsh at the top. Press <kbd>H</kbd> to hear a short spoken summary, use the sound key to preview each level. Switch layers with <kbd>1</kbd> to <kbd>5</kbd> (rain, land heat, plants, ocean heat, haze), and sounds with <kbd>Z</kbd> (synth) and <kbd>X</kbd> (soft pulse). <kbd>V</kbd> switches between the 3D terrain and the flat map. Hold <kbd>Shift</kbd> to move faster, <kbd>M</kbd> to mute.</p>
+    <p>Use headphones. Move with <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> (or WASD). You always face up (north). A <b>soft pulse</b> beats steadily at the center (0, 0): it gets quieter with distance and pans to show which side it is on, so you can always find your way back. A <b>synth note</b> plays the data under you: each layer (rain, land heat, plants, ocean heat or haze) has its own note above the pulse, and the more intense the data where you stand, the louder and brighter it gets, from faint at the low end to full and bright at the top. Press <kbd>H</kbd> to hear a short spoken summary, and use the sound key to preview each level. Switch layers with <kbd>1</kbd> to <kbd>5</kbd>. <kbd>V</kbd> switches between the 3D terrain and the flat map. Hold <kbd>Shift</kbd> to move faster, <kbd>M</kbd> to mute.</p>
   </details>
 </main>
 
@@ -460,13 +456,16 @@
   const stormTier = v => curLayer().tiers[tierIndex(v)];
 
   let ctx = null, panner = null, master = null, muted = false;
-  let stormGain = null, stormFilter = null, stormTrem = null, stormLfo = null, stormLfoDepth = null;
-  const stormOscs = [];            // {o, mult}: the layer voice, retuned per layer
-  let mode = 'synth';            // 'synth' (default) or 'chime' (the soft pulse)
-  let bus = null, synthOut = null, chimeOut = null, chimeIn = null;
-
+  let stormGain = null, stormFilter = null, dataOut = null;
+  const stormOscs = [];            // {o, mult}: the data synth, retuned per layer
+  let bus = null, chimeOut = null, chimeIn = null;
 
   // ---------- Audio ----------
+  // Two sounds, one job each:
+  //   CENTER PULSE  a soft, round tone on a steady beat, placed at the center (0, 0) in 3D.
+  //                 It tells you WHERE the center is: it pans to its side and fades with distance.
+  //   DATA SYNTH    a steady synth note at the layer's interval above the pulse, not placed in 3D.
+  //                 It tells you WHAT is under you: louder and brighter where the data is more intense.
   function buildAudio() {
     ctx = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -474,7 +473,7 @@
     master.gain.value = 0.9;
     master.connect(ctx.destination);
 
-    // Distance-aware, HRTF-binaural panner: gives left/right/front/back cues,
+    // Distance-aware, HRTF-binaural panner for the center pulse: left/right/front/back cues,
     // interaural time + level differences and spectral filtering.
     panner = ctx.createPanner();
     panner.panningModel = 'HRTF';
@@ -483,85 +482,33 @@
     panner.rolloffFactor = ROLLOFF;
     panner.maxDistance = MAX_DISTANCE;
     setPos(panner, 'position', 0, 0, 0);   // source at (0,0)
+    bus = ctx.createGain();
+    bus.connect(panner).connect(master);
+    buildChime();
 
-    // The source material: harmonically rich drone with a slow pulse.
-    // Broadband content localizes much better than a pure sine.
-    const src = ctx.createGain();
-    src.gain.value = 0.35;
-
-    const lp = ctx.createBiquadFilter();
-    lp.type = 'lowpass'; lp.frequency.value = 2400; lp.Q.value = 0.7;
-
-    const pulse = ctx.createGain();
-    pulse.gain.value = 0.7;
-    const lfo = ctx.createOscillator();
-    lfo.frequency.value = 0.6;
-    const lfoDepth = ctx.createGain();
-    lfoDepth.gain.value = 0.3;
-    lfo.connect(lfoDepth).connect(pulse.gain);
-    lfo.start();
-
-    // Chord: A2 + E3 + A3 + C#4, slightly detuned saws for width/richness
-    [110, 164.81, 220, 277.18].forEach((f, i) => {
-      [-6, 6].forEach(detune => {
-        const o = ctx.createOscillator();
-        o.type = i % 2 ? 'triangle' : 'sawtooth';
-        o.frequency.value = f;
-        o.detune.value = detune;
-        const g = ctx.createGain();
-        g.gain.value = 0.12 / (1 + i * 0.4);
-        o.connect(g).connect(src);
-        o.start();
-      });
-    });
-
-    // Layer voice: a second note above the root (interval, waveform, shimmer and brightness depend on
-    // the layer). Silent until you move into intense data, then louder and brighter with intensity.
+    // Data synth: the old "Synth" tone (two slightly detuned saws plus a triangle an octave up, through a
+    // low-pass filter), now steady with no pulsing, since it no longer has to help you locate anything.
+    // It goes straight to the output (no panner), so it does not fade or pan as you walk.
+    dataOut = ctx.createGain();
+    dataOut.gain.value = 0.28;
+    dataOut.connect(master);
     stormGain = ctx.createGain();
     stormGain.gain.value = 0;
-    [[1, -6], [1, 6], [2, 0]].forEach(([mult, detune]) => {
+    [['sawtooth', 1, -6], ['sawtooth', 1, 6], ['triangle', 2, 0]].forEach(([type, mult, detune]) => {
       const o = ctx.createOscillator();
-      o.detune.value = detune;
+      o.type = type; o.detune.value = detune;
       const g = ctx.createGain(); g.gain.value = 0.2;
       o.connect(g).connect(stormGain);
       o.start();
-      stormOscs.push({ o, mult, third: mult === 2 });
+      stormOscs.push({ o, mult });
     });
     stormFilter = ctx.createBiquadFilter();
-    stormFilter.type = 'lowpass'; stormFilter.frequency.value = 250; stormFilter.Q.value = 1.2;
-    stormTrem = ctx.createGain(); stormTrem.gain.value = 1;
-    stormLfo = ctx.createOscillator(); stormLfoDepth = ctx.createGain(); stormLfoDepth.gain.value = 0;
-    stormLfo.connect(stormLfoDepth).connect(stormTrem.gain); stormLfo.start();
-    stormGain.connect(stormFilter).connect(stormTrem).connect(src);
+    stormFilter.type = 'lowpass'; stormFilter.frequency.value = 250; stormFilter.Q.value = 0.7;
+    stormGain.connect(stormFilter).connect(dataOut);
     applyLayerVoice(true);
 
-    // A soft rhythmic click/noise layer, which adds transients that help the brain locate direction.
-    const noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
-    const d = noiseBuf.getChannelData(0);
-    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-    const noise = ctx.createBufferSource();
-    noise.buffer = noiseBuf; noise.loop = true;
-    const bp = ctx.createBiquadFilter();
-    bp.type = 'bandpass'; bp.frequency.value = 3200; bp.Q.value = 1.2;
-    const nGain = ctx.createGain();
-    nGain.gain.value = 0;
-    const nLfo = ctx.createOscillator();
-    nLfo.type = 'square'; nLfo.frequency.value = 2.4;
-    const nDepth = ctx.createGain();
-    nDepth.gain.value = 0.035;
-    nLfo.connect(nDepth).connect(nGain.gain);
-    nLfo.start();
-    noise.connect(bp).connect(nGain).connect(src);
-    noise.start();
-
-    // Both sounds feed one bus -> panner, so spatialization is identical for each.
-    bus = ctx.createGain();
-    bus.connect(panner).connect(master);
-    synthOut = ctx.createGain();
-    src.connect(lp).connect(pulse).connect(synthOut).connect(bus);
-
-    buildChime();
-    applyMode(true);
+    nextBeat = 0; beatTime = ctx.currentTime + 0.05;
+    if (!sched) sched = setInterval(schedule, 40);
 
     // Listener faces "up" on the map (north). Map +y (north) = Web Audio -z (forward).
     const L = ctx.listener;
@@ -574,41 +521,36 @@
     updateListener(true);
   }
 
-  // ---------- Soft pulse ----------
-  // A steady, gentle, round pulse: one warm tone per beat. Pure harmonic partials (no metallic ones), a
-  // slow-ish attack so there is no sharp edge, and a low-pass filter to keep it mellow. The first beat of
-  // each bar is slightly fuller. The layer's second note sounds alongside it, louder as the data intensifies.
+  // ---------- Center pulse ----------
+  // A steady, gentle, round pulse: one warm tone per beat, like a soft metronome. Pure harmonic partials,
+  // a smooth (linear) fade-in so there is no sharp edge, and a low-pass filter to keep it mellow.
+  // The first beat of each bar is slightly fuller.
   const BPM = 72, BEAT = 60 / BPM;
   const CHIME_ROOT = 220;                               // A3
+  const ATTACK = 0.2;                                   // seconds to fade in (was 0.12 with a steeper curve)
   let nextBeat = 0, beatTime = 0, sched = null;
 
   function buildChime() {
     chimeOut = ctx.createGain();
-    chimeOut.gain.value = 0;
+    chimeOut.gain.value = 1;
     chimeOut.connect(bus);
     chimeIn = ctx.createBiquadFilter();                 // mellows everything that feeds it
-    chimeIn.type = 'lowpass'; chimeIn.frequency.value = 1400; chimeIn.Q.value = 0.4;
+    chimeIn.type = 'lowpass'; chimeIn.frequency.value = 1100; chimeIn.Q.value = 0.4;
     chimeIn.connect(chimeOut);
   }
 
-  function applyLayerVoice(immediate) {
+  function applyLayerVoice(immediate) {      // each layer keeps its own interval above the pulse
     if (!ctx || !stormOscs.length) return;
-    const L = curLayer(), t = ctx.currentTime, tc = immediate ? 0.001 : 0.06, root = 110 * stormRatio();
-    stormOscs.forEach(v => {
-      v.o.type = v.third ? 'triangle' : L.wave;
-      v.o.frequency.setTargetAtTime(root * v.mult, t, tc);
-    });
-    stormTrem.gain.setTargetAtTime(1 - L.tremDepth / 2, t, 0.1);
-    stormLfoDepth.gain.setTargetAtTime(L.tremDepth / 2, t, 0.1);
-    stormLfo.frequency.setTargetAtTime(Math.max(0.05, L.trem), t, 0.1);
+    const t = ctx.currentTime, tc = immediate ? 0.001 : 0.06, root = 110 * stormRatio();
+    stormOscs.forEach(v => v.o.frequency.setTargetAtTime(root * v.mult, t, tc));
   }
 
   function strike(t, freq, amp, len) {       // one soft, round tone
-    [[1, 1, 1], [2, 0.16, 0.55], [3, 0.04, 0.35]].forEach(([ratio, gain, decay]) => {
+    [[1, 1, 1], [2, 0.1, 0.5], [3, 0.02, 0.3]].forEach(([ratio, gain, decay]) => {
       const o = ctx.createOscillator(), g = ctx.createGain();
       o.type = 'sine'; o.frequency.value = freq * ratio;
-      g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(amp * gain, t + 0.12);    // light, slow-blooming attack
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(amp * gain, t + ATTACK);       // even fade-in: no click, no sudden bloom
       g.gain.exponentialRampToValueAtTime(0.0001, t + len * decay);
       o.connect(g).connect(chimeIn);
       o.start(t); o.stop(t + len * decay + 0.05);
@@ -616,31 +558,13 @@
   }
 
   function schedule() {
-    if (!ctx || mode !== 'chime') { if (ctx) { nextBeat = 0; beatTime = ctx.currentTime + 0.05; } return; }
+    if (!ctx) return;
     while (beatTime < ctx.currentTime + 0.15) {
       const accent = nextBeat % 4 === 0;
       strike(beatTime, CHIME_ROOT, accent ? 0.4 : 0.28, 3.4);
-      if (stormLevel > 0.03) strike(beatTime, CHIME_ROOT * stormRatio(), 0.4 * stormLevel + 0.04, 3.4);   // layer note
       nextBeat++; beatTime += BEAT;
     }
   }
-
-  function applyMode(initial) {
-    const t = ctx.currentTime;
-    synthOut.gain.setTargetAtTime(mode === 'synth' ? 1 : 0, t, 0.05);
-    chimeOut.gain.setTargetAtTime(mode === 'chime' ? 1 : 0, t, 0.05);
-    nextBeat = 0; beatTime = t + 0.05;
-    if (!sched) sched = setInterval(schedule, 40);
-  }
-
-  function setMode(m) {
-    mode = m;
-    document.querySelectorAll('#sound button').forEach(b =>
-      b.setAttribute('aria-pressed', String(b.dataset.mode === m)));
-    if (ctx) applyMode();
-  }
-  document.querySelectorAll('#sound button').forEach(b =>
-    b.addEventListener('click', () => { setMode(b.dataset.mode); b.blur(); }));
 
   // Map coords (x east, y north) -> Web Audio coords (x right, z toward viewer/back)
   function setPos(node, prop, x, y, z) {
@@ -685,8 +609,6 @@
     if (e.key.toLowerCase() === 'v') setView(!view3d);
     const li = ['1', '2', '3', '4', '5'].indexOf(e.key);
     if (li >= 0) switchLayer(Object.keys(LAYERS)[li]);
-    if (e.key.toLowerCase() === 'z') setMode('synth');
-    if (e.key.toLowerCase() === 'x') setMode('chime');
     if (e.key.toLowerCase() === 'm') toggleMute();
   });
   window.addEventListener('keyup', e => {
