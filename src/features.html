@@ -74,23 +74,23 @@
       <li>Pick a layer: rain, land heat, plants, ocean heat or haze.</li>
       <li>A soft pulse beats from Null Island (0, 0), where the equator meets the prime meridian, shown as a glowing orb on a map of the whole world. You start a little way off. Walk toward it with the arrow keys, or walk anywhere else on Earth.</li>
       <li>It gets louder as you get closer, and you hear which side it is on.</li>
-      <li>A violin joins in where the data is intense. The stronger the rain, heat, haze or greenness under you, the louder and brighter it plays.</li>
+      <li>An instrument joins in where the data is intense: violin for rain, cello for land heat, flute for plants, harp for ocean heat and French horn for haze. The stronger the data under you, the louder and brighter it plays. Press 6 for the Earth Orchestra: all five at once.</li>
     </ol>
   </section>
 
   <section aria-labelledby="layers">
     <span class="k">Data</span>
     <h2 id="layers">Five map layers</h2>
-    <p>Each layer is a different part of the planet, from a different NASA dataset. Each has its own violin note, so you can tell them apart by ear. Layers are served live by <a href="https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/gibs-api">NASA GIBS</a>.</p>
+    <p>Each layer is a different part of the planet, from a different NASA dataset. Each has its own instrument, so you can tell them apart by ear. Layers are served live by <a href="https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/gibs-api">NASA GIBS</a>.</p>
     <div class="tablewrap">
       <table>
         <thead><tr><th>Layer</th><th>NASA dataset</th><th>What you hear</th><th>Levels</th></tr></thead>
         <tbody>
-          <tr><td>Rain</td><td>GPM IMERG precipitation rate</td><td>A minor sixth above the center pulse. Louder and brighter in heavier rain.</td><td>dry, light, moderate, heavy, extreme</td></tr>
-          <tr><td>Land heat</td><td>MODIS Terra land surface temperature</td><td>A perfect fifth, brighter on hotter ground. Oceans are silent.</td><td>cold, mild, hot, scorching</td></tr>
-          <tr><td>Plants</td><td>MODIS Terra vegetation index (NDVI)</td><td>A major third, fuller over dense forest.</td><td>sparse, moderate, lush, dense</td></tr>
-          <tr><td>Ocean heat</td><td>GHRSST MUR sea surface temperature</td><td>A perfect fourth that warms up as the water does. Land is silent.</td><td>cold, cool, warm, very warm</td></tr>
-          <tr><td>Haze</td><td>MODIS Terra aerosol optical depth</td><td>A tense tritone, louder and harsher in thick smoke or dust.</td><td>clear, light haze, moderate haze, heavy haze, thick smoke</td></tr>
+          <tr><td>Rain</td><td>GPM IMERG precipitation rate</td><td>Violin. Louder and brighter in heavier rain.</td><td>dry, light, moderate, heavy, extreme</td></tr>
+          <tr><td>Land heat</td><td>MODIS Terra land surface temperature</td><td>Cello. Fuller and brighter on hotter ground. Oceans are silent.</td><td>cold, mild, hot, scorching</td></tr>
+          <tr><td>Plants</td><td>MODIS Terra vegetation index (NDVI)</td><td>Flute. Fuller over dense forest.</td><td>sparse, moderate, lush, dense</td></tr>
+          <tr><td>Ocean heat</td><td>GHRSST MUR sea surface temperature</td><td>Harp. Its rippling notes grow louder as the water warms. Land is silent.</td><td>cold, cool, warm, very warm</td></tr>
+          <tr><td>Haze</td><td>MODIS Terra aerosol optical depth</td><td>French horn. Louder and brassier in thick smoke or dust.</td><td>clear, light haze, moderate haze, heavy haze, thick smoke</td></tr>
         </tbody>
       </table>
     </div>
@@ -103,7 +103,9 @@
     <ul class="feat">
       <li><strong>Spatial audio</strong>Binaural 3D sound (HRTF) from the browser's Web Audio engine. Use headphones and you can tell left from right, and ahead from behind.</li>
       <li><strong>Distance as volume</strong>Volume falls off smoothly with distance and never drops to silence, so you can always follow the pulse back to Null Island, from anywhere on Earth.</li>
-      <li><strong>Two sounds, one job each</strong>A soft pulse at Null Island tells you where the center is: one warm, round tone per beat, a touch fuller on the first beat of each bar, with a gentle fade-in. A violin tells you what is under you: each layer has its own note, played louder and brighter as the data gets more intense. The violin does not pan or fade as you walk, so its loudness only ever means the data.</li>
+      <li><strong>The Earth Orchestra</strong>Press <kbd>6</kbd> and all five layers play at once, each on its own instrument. Every instrument plays a note of the same A major chord, so any mix sounds like music: walk across the planet and hear its chord change, from a lone harp over the open ocean to violin, cello, flute and horn over a hot, green, stormy, hazy coast.</li>
+      <li><strong>Two jobs, never mixed</strong>A soft pulse at Null Island (0, 0) tells you where the center is: one warm, round tone per beat that pans and fades with distance. The instruments tell you what is under you, louder and brighter as the data gets more intense. They do not pan or fade as you walk, so their loudness only ever means the data.</li>
+      <li><strong>Always know your layer</strong>Every switch is announced ("Layer 2 of 6: Land heat, played by the cello") and plays that instrument's note, like a sound logo. Press <kbd>L</kbd> any time to hear it again.</li>
       <li><strong>Intensity is loudness and brightness</strong>The layer's note gets louder and its tone opens up as the data intensifies, so strong areas sound sharper as well as louder.</li>
       <li><strong>Sound key</strong>Buttons that play each level on demand (for example light, moderate, heavy, extreme), so you can learn what the sounds mean before you explore.</li>
     </ul>
@@ -115,7 +117,7 @@
     <ul class="feat">
       <li><strong>Walk the map</strong>Arrow keys or WASD, with Shift to move faster. On a phone or tablet, press anywhere on the map and drag like a joystick: pull a little to walk, farther to go faster. You always face north.</li>
       <li><strong>Vibration</strong>On phones that support it, the device buzzes when you walk into stronger data, with a stronger pattern for stronger levels. It can be switched off.</li>
-      <li><strong>Spoken summary on demand</strong>Press <kbd>H</kbd> for a short spoken line such as "Heavy rain. Null Island ahead left, about 1,600 kilometers away." It is short on purpose, so you only hear it when you ask. The text is also kept in the page for screen readers.</li>
+      <li><strong>Spoken summary on demand</strong>Press <kbd>H</kbd> for a short spoken line such as "Heavy rain. You're over the Atlantic Ocean, off the coast of Angola." It names the country and continent, or the sea, using public-domain Natural Earth outlines that load with the page, so it works without any extra service. It is short on purpose, so you only hear it when you ask. The text is also kept in the page for screen readers.</li>
       <li><strong>Plain-word levels</strong>Levels use words like light, heavy and scorching instead of color names, so they mean something whether or not you have ever seen color.</li>
       <li><strong>3D globe</strong>The page opens on a real 3D Earth built from NASA imagery: relief, city lights at night and the active data layer on top. A glowing dot shows where you are on the planet, and the globe turns to follow you as you walk. Drag to spin it; it settles back on Null Island. The glow around the planet swells as the data under you gets more intense.</li>
       <li><strong>3D terrain view</strong>The 3D view is a landscape where intensity becomes height, so a storm is a mountain, and it follows you across the whole planet. The flat map shows the entire world at once, with NASA relief under the data. A glowing beam marks the sound source and the camera follows you from behind, facing north, the same direction the sound is oriented. Press <kbd>V</kbd> to switch to the flat map.</li>
@@ -145,8 +147,9 @@
           <tr><td><kbd>&larr;</kbd> <kbd>&uarr;</kbd> <kbd>&darr;</kbd> <kbd>&rarr;</kbd> or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></td><td>Move on the map</td></tr>
           <tr><td><kbd>Shift</kbd></td><td>Move faster</td></tr>
           <tr><td>Press and drag on the map</td><td>Move (touch or mouse)</td></tr>
-          <tr><td><kbd>H</kbd></td><td>Hear a spoken summary</td></tr>
-          <tr><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> <kbd>5</kbd></td><td>Switch layer: rain, land heat, plants, ocean heat, haze</td></tr>
+          <tr><td><kbd>H</kbd></td><td>Hear where you are and what is playing</td></tr>
+          <tr><td><kbd>L</kbd></td><td>Hear which layer you are on</td></tr>
+          <tr><td><kbd>1</kbd> to <kbd>6</kbd></td><td>Switch layer: rain, land heat, plants, ocean heat, haze, Earth Orchestra</td></tr>
           <tr><td><kbd>V</kbd></td><td>3D terrain / flat map</td></tr>
           <tr><td><kbd>M</kbd></td><td>Mute</td></tr>
           <tr><td><kbd>Tab</kbd></td><td>Reach the layer buttons, sound key and date slider. With the slider focused, the arrow keys change the date.</td></tr>
