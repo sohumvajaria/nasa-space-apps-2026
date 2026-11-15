@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Earth Jukebox · How to listen (intro)</title>
+<!-- [CLAUDE ADDITION] Standalone player for the 30-second intro tutorial (the same scene the app plays on first visit).
+     Made with AI assistance (Claude). Use it to watch, scrub or screen-record the intro. -->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500&family=Inter:wght@500&display=swap" rel="stylesheet">
+<style>
+  :root { --bg: #030304; --bar: #101217; --line: #2a2e36; --ink: #eef1f6; --mute: #9aa3b2; --accent: #ffd36a; color-scheme: dark; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font: 14px/1.4 "Inter", system-ui, sans-serif; }
+  body { display: flex; flex-direction: column; }
+  #stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+  canvas { width: 100%; height: 100%; object-fit: contain; display: block; }
+  #bar { display: flex; gap: 12px; align-items: center; padding: 10px 16px; background: var(--bar); border-top: 1px solid var(--line); }
+  button { font: inherit; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+  button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+  button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  #scrub { flex: 1; accent-color: var(--accent); }
+  #time { font-variant-numeric: tabular-nums; color: var(--mute); min-width: 92px; text-align: right; }
+  #mark { color: var(--mute); font-size: 12px; }
+  #status { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--mute); pointer-events: none; }
+  #live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js" } }</script>
+</head>
+<body>
+<div id="stage"><canvas id="c" width="1920" height="1080" role="img" aria-label="Earth Jukebox intro: a wall of steel pins shaped like the world map"></canvas></div>
+<div id="status">Loading the intro...</div>
+<div id="bar">
+  <button id="play" type="button">Play</button>
+  <input id="scrub" type="range" min="0" max="30" step="0.01" value="0" aria-label="Time">
+  <span id="time">0.0 / 30.0 s</span>
+  <button id="sound" type="button" aria-pressed="true">Sound: on</button>
+  <button id="loop" type="button" aria-pressed="true">Loop: on</button>
+  <span id="mark">Made with AI assistance</span>
+</div>
+<div id="live" aria-live="polite"></div>
+<script type="module">
+  import * as THREE from 'three';
+  window.THREE = THREE;                                 // the kits and the scene expect a global THREE
+  const load = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+  const status = document.getElementById('status');
+  try {
+    await load('intro/stage.js'); await load('intro/sound.js'); await load('geo.js'); await load('intro/style.js');
+  } catch (e) { status.textContent = 'The intro could not load.'; throw e; }
+  const style = STYLES[STYLES.length - 1];
+  const small = innerWidth < 900;
+  const canvas = document.getElementById('c');
+  const S = await K.run(canvas, style, { samples: small ? 1 : 2, width: small ? 1280 : 1920, height: small ? 720 : 1080 });
+  window.seek = t => S.seek(t); window.DURATION = style.duration;
+  status.remove();
+
+  const D = style.duration, playBtn = document.getElementById('play'), scrub = document.getElementById('scrub'), timeEl = document.getElementById('time');
+  const soundBtn = document.getElementById('sound'), loopBtn = document.getElementById('loop'), live = document.getElementById('live');
+  let playing = false, loop = true, soundOn = true, t = 0, last = performance.now(), stopSound = null, lastBeat = -1, sharp = null;
+  const startSound = () => { stopSound?.(); stopSound = soundOn ? SOUND.live(k => style.sound(k), t, { voiceover: false }) : null; };
+  const stopNow = () => { stopSound?.(); stopSound = null; };
+  const show = (n) => { S.seek(t, n); scrub.value = t; timeEl.textContent = `${t.toFixed(1)} / ${D.toFixed(1)} s`; };
+  const beatAt = x => style.beats.reduce((i, b, k) => (x >= b.at ? k : i), 0);
+  const sharpen = () => { clearTimeout(sharp); sharp = setTimeout(() => { if (!playing) show(12); }, 250); };   // a paused frame gets the full look
+
+  function setPlaying(p) {
+    playing = p; playBtn.textContent = p ? 'Pause' : 'Play';
+    if (p) { if (t >= D) t = 0; last = performance.now(); startSound(); } else { stopNow(); sharpen(); }
+  }
+  playBtn.addEventListener('click', () => setPlaying(!playing));
+  scrub.addEventListener('input', () => { t = +scrub.value; stopNow(); show(); if (playing) startSound(); else sharpen(); });
+  soundBtn.addEventListener('click', () => { soundOn = !soundOn; soundBtn.setAttribute('aria-pressed', soundOn); soundBtn.textContent = 'Sound: ' + (soundOn ? 'on' : 'off'); if (playing) startSound(); else stopNow(); });
+  loopBtn.addEventListener('click', () => { loop = !loop; loopBtn.setAttribute('aria-pressed', loop); loopBtn.textContent = 'Loop: ' + (loop ? 'on' : 'off'); });
+  window.addEventListener('keydown', e => { if (e.key === ' ' && e.target === document.body) { e.preventDefault(); setPlaying(!playing); } });
+
+  show(12);                                             // browsers allow sound only after a click: wait for Play
+  function frame(now) {
+    if (playing) {
+      t += Math.min(0.1, (now - last) / 1000);
+      if (t >= D) { if (loop) { t = 0; startSound(); } else { t = D; setPlaying(false); } }
+      const b = beatAt(t);
+      if (b !== lastBeat) { lastBeat = b; live.textContent = style.beats[b].speak; }   // captions for screen readers
+      show();
+    }
+    last = now;
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+</script>
+</body>
+</html>

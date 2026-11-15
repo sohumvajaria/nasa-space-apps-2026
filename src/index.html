@@ -70,6 +70,15 @@
   #start:focus-visible { outline: 2px solid var(--accent); outline-offset: -6px; }
   /* [CLAUDE FIX] the map is focusable after "Begin listening", so screen readers hand it the arrow keys */
   #wrap:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 30px; }
+  /* [CLAUDE ADDITION] the intro tutorial: a full-screen stage over the app, with a skip button */
+  #intro { position: fixed; inset: 0; z-index: 50; background: #030304; display: flex; align-items: center; justify-content: center; }
+  #intro[hidden] { display: none; }
+  #introcanvas { width: 100%; height: 100%; object-fit: contain; display: block; }
+  #introskip { position: absolute; top: 18px; right: 18px; font: 500 15px/1 var(--sans, system-ui), sans-serif; color: #eef1f6; background: rgba(9,10,13,.8); border: 1px solid rgba(200,210,225,.4); border-radius: 999px; padding: 10px 18px; cursor: pointer; }
+  #introskip:focus-visible { outline: 2px solid #ffd36a; outline-offset: 3px; }
+  #introskip kbd { margin-left: 8px; }
+  #introstatus { position: absolute; color: #9aa3b2; letter-spacing: .08em; }
+  #intromark { position: absolute; right: 18px; bottom: 14px; font-size: 11px; color: rgba(200,210,225,.55); letter-spacing: .04em; }
   .pill.then[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
   #start .go { font: 400 24px/1 var(--serif); letter-spacing: .08em; padding: 14px 34px; border: 1px solid var(--accent); border-radius: 999px; color: var(--accent); }
   #start .hint { font-size: 12px; letter-spacing: .14em; color: var(--mute); text-transform: uppercase; }
@@ -225,6 +234,7 @@
     <button type="button" class="pill then" id="then" aria-pressed="false">Then &amp; now: 2006<kbd>T</kbd></button>
     <button type="button" class="pill" id="alarm" aria-pressed="true">Extreme tremble: on</button>
     <button type="button" class="pill" id="voice" aria-pressed="false">Voice: built-in</button>
+    <button type="button" class="pill" id="replayintro">Replay intro</button>
   </div>
   <p class="note" id="thennote">Then &amp; now plays the same day 20 years earlier, so you can hear how a place has changed. It is one day's snapshot, so weather plays a part; ocean heat shows the long-term warming most clearly.</p>
 
@@ -271,6 +281,14 @@
     </ul>
   </details>
 </main>
+
+<!-- [CLAUDE ADDITION] the 30-second intro tutorial (scene in intro/style.js). Plays on a first visit after "Begin listening". -->
+<div id="intro" hidden role="dialog" aria-modal="true" aria-label="30-second intro: how to listen">
+  <canvas id="introcanvas" width="1920" height="1080" aria-hidden="true"></canvas>
+  <p id="introstatus">Loading the intro...</p>
+  <button id="introskip" type="button">Skip intro<kbd>S</kbd></button>
+  <span id="intromark">Made with AI assistance</span>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="geo.js"></script>
@@ -884,6 +902,10 @@
     w: 'up', s: 'down', a: 'left', d: 'right',
   };
   window.addEventListener('keydown', e => {
+    if (introOn) {                                       // [CLAUDE ADDITION] during the intro only S or Escape do anything: skip it
+      if (e.key === 'Escape' || (e.key && e.key.toLowerCase() === 's')) { e.preventDefault(); endIntro(true); }
+      return;
+    }
     if (e.target && e.target.type === 'range') return;   // let the date slider use the arrow keys
     const k = KEYMAP[e.key] || KEYMAP[e.key.toLowerCase?.()];
     if (k) { keys.add(k); e.preventDefault(); }
@@ -975,13 +997,89 @@
       setTimeout(() => { if (ttsOff) startKokoro(); }, 1500);   // no server voice: start the free on-device voice now, so it is ready when needed
     }
   }
-  startBtn.addEventListener('click', ensureAudio);
+  startBtn.addEventListener('click', async () => {      // [CLAUDE ADDITION] on a first visit, the intro plays first
+    const first = introWanted();
+    const ready = ensureAudio();
+    if (first && master) master.gain.value = 0;           // the app stays silent under the intro
+    await ready;
+    if (first) startIntro();
+  });
   // [CLAUDE FIX] after a button is pressed, send focus back to the map (once listening has started) instead of dropping it
   // on the page, which would put screen readers back into reading mode and stop the arrow keys from walking.
   function toMap(el) {
     if (wrapNode.getAttribute('role') === 'application') wrapNode.focus({ preventScroll: true });
     else el.blur();
   }
+
+  // ---------- [CLAUDE ADDITION] intro tutorial: 30 seconds on how to listen (S or Escape skips) ----------
+  // It plays once, on a first visit, right after "Begin listening" (browsers only allow sound after a click), and the
+  // "Replay intro" button plays it again. It is skipped for people who ask for reduced motion. The scene (intro/style.js)
+  // needs three.js 0.187.0: it is downloaded only when the intro starts and handed to the scene directly, so it never
+  // replaces the older three.js this page uses for its globe. Each beat's line is spoken with the app's own voice
+  // (or the screen reader, per the Voice setting), so the intro works without seeing it.
+  let introOn = false, introRun = null, introKit = null;
+  const introEl = document.getElementById('intro'), introCanvas = document.getElementById('introcanvas');
+  const introSkip = document.getElementById('introskip'), introStatus = document.getElementById('introstatus');
+  function introWanted() {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+    try { return localStorage.getItem('ej-intro-seen') !== '1'; } catch (e) { return true; }
+  }
+  async function loadIntro() {
+    if (introKit) return introKit;
+    if (!document.getElementById('introfonts')) {
+      const l = document.createElement('link'); l.id = 'introfonts'; l.rel = 'stylesheet';
+      l.href = 'https://fonts.googleapis.com/css2?family=Oswald:wght@500&family=Inter:wght@500&display=swap'; document.head.appendChild(l);
+    }
+    const THREE187 = await import('https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js');
+    const [stageSrc, soundSrc, sceneSrc] = await Promise.all(['intro/stage.js', 'intro/sound.js', 'intro/style.js']
+      .map(u => fetch(u).then(r => { if (!r.ok) throw new Error(u + ' ' + r.status); return r.text(); })));
+    const env = Object.create(window); env.THREE = THREE187;   // the intro's own "window": its THREE, K and SOUND live here
+    new Function('window', 'globalThis', stageSrc)(env, env);
+    new Function('window', 'globalThis', soundSrc)(env, env);
+    new Function('window', 'globalThis', 'THREE', 'K', 'registerStyle', sceneSrc)(env, env, THREE187, env.K, env.registerStyle);
+    introKit = { K: env.K, SOUND: env.SOUND, style: env.STYLES[env.STYLES.length - 1], S: null };
+    return introKit;
+  }
+  async function startIntro() {
+    if (introOn) return;
+    introOn = true; keys.clear();
+    if (ctx && master) { master.gain.cancelScheduledValues(ctx.currentTime); master.gain.setValueAtTime(0, ctx.currentTime); }
+    introEl.hidden = false; introStatus.hidden = false; introSkip.focus();
+    try { localStorage.setItem('ej-intro-seen', '1'); } catch (e) {}
+    const small = innerWidth < 900;
+    try {
+      const kit = await loadIntro();
+      if (!kit.S) kit.S = await kit.K.run(introCanvas, kit.style, { samples: small ? 1 : 2, width: small ? 1280 : 1920, height: small ? 720 : 1080 });
+    } catch (err) { console.warn('intro could not load', err); endIntro(false); return; }
+    if (!introOn) return;                                 // skipped while it was loading
+    introStatus.hidden = true; introSkip.focus();
+    const kit = introKit, D = kit.style.duration, beats = kit.style.beats;
+    const run = { stop: kit.SOUND.live(k => kit.style.sound(k), 0, { voiceover: false, master: 0.75 }), t0: performance.now(), beat: -1, n: small ? 1 : 2, raf: 0 };
+    introRun = run;
+    const tick = now => {
+      if (introRun !== run) return;
+      const t = (now - run.t0) / 1000;
+      if (t >= D) { endIntro(false); return; }
+      const b = beats.reduce((i, x, k) => (t >= x.at ? k : i), 0);
+      if (b !== run.beat) { run.beat = b; say(beats[b].speak); }
+      const s0 = performance.now();
+      kit.S.seek(t, run.n);
+      if (run.n > 1 && performance.now() - s0 > 70) run.n = 1;   // a slower computer: one sample per frame keeps it moving
+      run.raf = requestAnimationFrame(tick);
+    };
+    run.raf = requestAnimationFrame(tick);
+  }
+  function endIntro(skipped) {
+    if (!introOn) return;
+    introOn = false;
+    if (introRun) { cancelAnimationFrame(introRun.raf); introRun.stop(); introRun = null; }
+    introEl.hidden = true;
+    if (ctx && master) master.gain.setTargetAtTime(muted ? 0 : 0.9, ctx.currentTime, 0.3);   // the app's sound fades back in
+    if (skipped) say('Intro skipped. Use the arrow keys to walk, and H to hear where you are.');
+    if (wrapNode.getAttribute('role') === 'application') wrapNode.focus({ preventScroll: true });
+  }
+  introSkip.addEventListener('click', () => endIntro(true));
+  document.getElementById('replayintro').addEventListener('click', async () => { await ensureAudio(); startIntro(); });
 
   // ---------- where on Earth: country, continent or sea, from Natural Earth outlines (geo.js, public domain) ----------
   const GEO = (() => {
@@ -1368,7 +1466,7 @@
                  : `Now: ${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}.`);
   }
   thenBtn.addEventListener('click', e => { toggleThen(); toMap(e.currentTarget); });
-  window.addEventListener('keydown', e => { if (e.key && e.key.toLowerCase() === 't' && !e.repeat) toggleThen(); });
+  window.addEventListener('keydown', e => { if (!introOn && e.key && e.key.toLowerCase() === 't' && !e.repeat) toggleThen(); });
 
   // [CLAUDE ADDITION] Extreme tremble on/off
   const alarmBtn = document.getElementById('alarm');
@@ -1816,6 +1914,7 @@
     wg.strokeStyle = 'rgba(233,228,214,.55)'; wg.lineWidth = 1; wg.stroke();
   }
   function frame(now) {
+    if (introOn) { last = now; requestAnimationFrame(frame); return; }   // [CLAUDE ADDITION] the app rests under the intro
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
 
     let ax = (keys.has('right') ? 1 : 0) - (keys.has('left') ? 1 : 0);

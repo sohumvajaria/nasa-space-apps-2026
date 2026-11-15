@@ -1,5 +1,7 @@
 // Earth Jukebox intro tutorial, "Pin Wall" style (rebuilt from the Pin Wall reference for the Earth Jukebox).
-// Needs: window.THREE, lib/stage.js (K, registerStyle) and geo.js (window.EJ_GEO, Natural Earth outlines) loaded first.
+// Needs THREE (three.js 0.187.0), stage.js (K, registerStyle) and geo.js (window.EJ_GEO, Natural Earth outlines) first.
+// The app runs this file with THREE, K and registerStyle passed in, so it never meets the app's own older three.js.
+// Written with AI assistance (Claude).
 {
   // ---------------------------------------------------------------- content
   // The wall is the whole world as ONE MOVING RELIEF of steel pins: x = longitude, y = latitude (1 unit = 15 degrees),
@@ -13,13 +15,14 @@
   // The data shapes are ILLUSTRATIVE (where these things usually are), not a NASA frame.
   const DURATION = 30;
   const WALL_W = 24, WALL_H = 12, DEG = 15;          // 360 x 180 degrees on a 24 x 12 wall
+  // say: the caption on the plate. speak: the line the app's voice reads at that moment (for listeners who cannot see it)
   const BEATS = [
-    { at: 0.0, say: 'This pulse is home', note: 'Null Island, 0° N 0° E' },
-    { at: 5.5, say: 'Walk with the arrow keys' },
-    { at: 10.5, say: 'More rain: louder and brighter' },
-    { at: 16.0, say: 'A tremble means extreme' },
-    { at: 20.0, say: 'Press 6: five layers, one chord' },
-    { at: 25.5, say: 'Press T: then and now', note: '20 years apart' },
+    { at: 0.0, say: 'This pulse is home', note: 'Null Island, 0° N 0° E', speak: 'Welcome. This soft pulse is home. Press S to skip.' },
+    { at: 5.5, say: 'Walk with the arrow keys', speak: 'Walk with the arrow keys, or W A S D.' },
+    { at: 10.5, say: 'More rain: louder and brighter', speak: 'More rain plays louder and brighter.' },
+    { at: 16.0, say: 'A tremble means extreme', speak: 'A tremble means extreme.' },
+    { at: 20.0, say: 'Press 6: five layers, one chord', speak: 'Press 6 to hear all five layers as one chord.' },
+    { at: 25.5, say: 'Press T: then and now', note: '20 years apart', speak: 'Press T to hear twenty years ago. Now, your turn.' },
   ];
   // the app's own Earth Orchestra colours (index.html ORCHESTRA), plus the wall's resting tints
   const TINT = {
