@@ -199,7 +199,7 @@
 
   <details>
     <summary>How to listen</summary>
-    <p>Use headphones. Move with <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> (or WASD). You always face up (north). A <b>soft pulse</b> beats steadily from Null Island (0, 0), where the equator meets the prime meridian (the glowing orb on the map), and you can walk anywhere on Earth: it gets quieter with distance and pans to show which side it is on, so you can always find your way back. An <b>instrument</b> plays the data under you: violin for rain, cello for land heat, flute for plants, harp for ocean heat and French horn for haze. The more intense the data where you stand, the louder and brighter it plays. Press <kbd>6</kbd> for the <b>Earth Orchestra</b>: all five at once, so every place on Earth has its own chord. Press <kbd>H</kbd> to hear where you are and what is playing, and <kbd>L</kbd> to hear which layer you are on. Use the sound key to preview each level. Switch layers with <kbd>1</kbd> to <kbd>6</kbd>; each switch is announced and plays that instrument. <kbd>V</kbd> switches between the 3D terrain and the flat map. Hold <kbd>Shift</kbd> to move faster, <kbd>M</kbd> to mute.</p>
+    <p>Use headphones. Move with <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> (or WASD). You always face up (north). A <b>soft pulse</b> beats steadily from Null Island (0, 0), where the equator meets the prime meridian (the glowing orb on the map), and you can walk anywhere on Earth: it gets quieter with distance and pans to show which side it is on, so you can always find your way back. An <b>instrument</b> plays the data under you: violin for rain, cello for land heat, flute for plants, clarinet for ocean heat and French horn for haze. The more intense the data where you stand, the louder and brighter it plays. Press <kbd>6</kbd> for the <b>Earth Orchestra</b>: all five at once, so every place on Earth has its own chord. Press <kbd>H</kbd> for a short summary of what is playing and where you are (for example "Heavy rain. France, Europe."), and <kbd>L</kbd> to hear which layer you are on. Use the sound key to preview each level. Switch layers with <kbd>1</kbd> to <kbd>6</kbd>; each switch is announced and plays that instrument. <kbd>V</kbd> switches between the 3D terrain and the flat map. Hold <kbd>Shift</kbd> to move faster, <kbd>M</kbd> to mute.</p>
   </details>
 </main>
 
@@ -260,7 +260,7 @@
     },
     ocean: {
       id: 'GHRSST_L4_MUR_Sea_Surface_Temperature', dataset: 'GHRSST MUR sea surface temperature', noun: 'Sea heat', centerName: 'Null Island',
-      blurb: 'Sea surface temperature, played by the harp: its rippling notes grow louder as the water warms. Land is silent.',
+      blurb: 'Sea surface temperature, played by the clarinet: warmer and louder as the water heats up. Land is silent.',
       semis: 5, wave: 'triangle', trem: 0.25, tremDepth: 0.4, bright: 3000, home: { lat: 5, lon: 150 },
       tiers: ['no data', 'cold', 'cool', 'warm', 'very warm'],
       say: ['No ocean data here', 'Cold water', 'Cool water', 'Warm water', 'Very warm water'],
@@ -282,16 +282,18 @@
   const curLayer = () => LAYERS[layerKey];
 
   // ---------- The Earth Orchestra: one instrument per layer ----------
-  // Notes are counted in semitones from the center pulse (A3, 220 Hz). All of them belong to an A major chord,
-  // so any mix of layers sounds like music rather than a clash. bright = how far each instrument opens up at full data.
+  // Notes are counted in semitones from the center pulse (A3, 220 Hz). Together they spell an open A major chord,
+  // spread out the way an orchestra voices it: A2 (cello), E3 (clarinet), A3 (pulse), C sharp 4 (horn), A4 (violin),
+  // E5 (flute). Every note has room, so any mix of layers sounds calm and full.
+  // bright = how far each instrument opens up at full data; color = its color on the Earth Orchestra map.
   const ORCHESTRA = {
-    rain:   { inst: 'violin', name: 'violin',      semis: 9,  bright: 5000 },   // F sharp 4
-    heat:   { inst: 'cello',  name: 'cello',       semis: -5, bright: 2600 },   // E3
-    plants: { inst: 'flute',  name: 'flute',       semis: 16, bright: 3000 },   // C sharp 5
-    ocean:  { inst: 'harp',   name: 'harp',        semis: 12, bright: 3000 },   // A4, rippling up through E5 and C sharp 5
-    air:    { inst: 'horn',   name: 'French horn', semis: 2,  bright: 1600 },   // B3
+    rain:   { inst: 'violin',   name: 'violin',      semis: 12,  bright: 5000, color: [80, 130, 255] },   // A4, blue
+    heat:   { inst: 'cello',    name: 'cello',       semis: -12, bright: 2600, color: [255, 90, 50] },    // A2, red
+    plants: { inst: 'flute',    name: 'flute',       semis: 19,  bright: 2500, color: [80, 225, 100] },   // E5, green
+    ocean:  { inst: 'clarinet', name: 'clarinet',    semis: -5,  bright: 2200, color: [40, 215, 215] },   // E3, teal
+    air:    { inst: 'horn',     name: 'French horn', semis: 4,   bright: 1600, color: [255, 200, 60] },   // C sharp 4, gold
   };
-  const ORCH_BLURB = 'The Earth Orchestra: all five layers at once. Violin for rain, cello for land heat, flute for plants, harp for ocean heat and French horn for haze. Each plays louder where its data is more intense, so every place on Earth has its own chord.';
+  const ORCH_BLURB = 'The Earth Orchestra: all five layers at once, so every place on Earth has its own chord. Violin for rain (blue on the map), cello for land heat (red), flute for plants (green), clarinet for ocean heat (teal) and French horn for haze (gold). Each plays louder where its data is more intense.';
 
   let center = { lon: 0, lat: 0 }, field = null, dataImg = null, stormLevel = 0;
   const srcPos = { x: 0, y: 0 };            // the sound source sits at Null Island (0, 0) for every layer
@@ -422,6 +424,7 @@
       placed = true;
     }
     document.getElementById('datastat').textContent = statText();
+    if (orchestra) showOrchestraMap();          // in orchestra mode the map keeps showing every layer
   }
 
   async function loadWindow() {   // the picture for the chosen day (used by the date slider)
@@ -472,10 +475,44 @@
   const fmtLat = v => Math.abs(v).toFixed(1) + (v >= 0 ? 'N' : 'S');
   const fmtLon = v => Math.abs(v).toFixed(1) + (v >= 0 ? 'E' : 'W');
 
-  function fieldOf(k) {                      // the data for layer k on the chosen day (or the newest day while it loads)
-    if (k === layerKey && field) return field;
+  function layerField(k) {                   // the data for layer k on the chosen day (or the newest day while it loads)
     const d = ready.get(k + '|' + dataTime) || ready.get(k + '|' + latestDay());
     return d ? d.field : null;
+  }
+  function fieldOf(k) { return (k === layerKey && field && !orchestra) ? field : layerField(k); }
+
+  // ---------- the Earth Orchestra map: every layer at once, each in its instrument's color ----------
+  // Colors add up, so a place where two instruments play shows both. The terrain height is the loudest instrument.
+  const orchCanvas = document.createElement('canvas'); orchCanvas.width = GW; orchCanvas.height = GH;
+  let orchField = null, orchVersion = 0, orchSig = '';
+  function buildOrchestraMap() {
+    const keys = Object.keys(ORCHESTRA), fs = keys.map(layerField);
+    if (!fs.some(Boolean)) return false;
+    const sig = dataTime + ':' + fs.map(f => (f ? 1 : 0)).join('');
+    if (sig === orchSig) return true;
+    const x = orchCanvas.getContext('2d'), img = x.createImageData(GW, GH), d = img.data, of = new Float32Array(GW * GH);
+    const cols = keys.map(k => ORCHESTRA[k].color);
+    for (let i = 0; i < GW * GH; i++) {
+      let r = 0, gg = 0, b = 0, top = 0;
+      for (let j = 0; j < fs.length; j++) {
+        const f = fs[j]; if (!f) continue;
+        const v = f[i]; if (v < 0.03) continue;
+        r += cols[j][0] * v; gg += cols[j][1] * v; b += cols[j][2] * v; if (v > top) top = v;
+      }
+      const m = Math.max(r, gg, b), sc = m > 255 ? 255 / m : 1;
+      d[4 * i] = r * sc; d[4 * i + 1] = gg * sc; d[4 * i + 2] = b * sc; d[4 * i + 3] = top ? Math.min(235, 70 + 190 * top) : 0;
+      of[i] = top;
+    }
+    x.putImageData(img, 0, 0);
+    orchField = of; orchSig = sig; orchVersion++;
+    return true;
+  }
+  function showOrchestraMap() {
+    if (orchestra && buildOrchestraMap()) { dataImg = orchCanvas; field = orchField; }
+  }
+  function loadAllLayers() {                 // fetch every layer for the chosen day; repaint the map as each one arrives
+    Object.keys(LAYERS).forEach(k => getLayerData(k, dataTime).then(showOrchestraMap).catch(() => {}));
+    showOrchestraMap();
   }
   function levelAt(k, x, y) {
     const f = fieldOf(k);
@@ -502,7 +539,7 @@
   // Two sounds, one job each:
   //   CENTER PULSE  a soft, round tone on a steady beat, placed in 3D at Null Island (0, 0) (the glowing orb).
   //                 It tells you WHERE Null Island is: it pans to its side and fades with distance.
-  //   ORCHESTRA     one instrument per layer (violin, cello, flute, harp, horn), not placed in 3D.
+  //   ORCHESTRA     one instrument per layer (violin, cello, flute, clarinet, horn), not placed in 3D.
   //                 It tells you WHAT is under you: louder and brighter where the data is more intense.
   function buildAudio() {
     ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -555,7 +592,7 @@
   const BPM = 72, BEAT = 60 / BPM;
   const CHIME_ROOT = 220;                               // A3
   const ATTACK = 0.2;                                   // seconds to fade in (was 0.12 with a steeper curve)
-  let nextBeat = 0, beatTime = 0, sched = null, harpTime = 0, harpStep = 0;
+  let nextBeat = 0, beatTime = 0, sched = null;
 
   function buildChime() {
     chimeOut = ctx.createGain();
@@ -586,7 +623,7 @@
     if (kind === 'violin' || kind === 'cello') bowed(f, kind === 'cello', level);
     else if (kind === 'flute') flute(f, level);
     else if (kind === 'horn') horn(f, level);
-    // the harp is plucked, so its notes are scheduled in time with the pulse (see schedule)
+    else if (kind === 'clarinet') clarinet(f, level);
     return { key, level, tone, f, kind, cur: 0 };
   }
   function vibrato(o, rate, cents) {
@@ -617,17 +654,32 @@
       ? [['highpass', 60, 0.7], ['peaking', 180, 1.2, 5], ['peaking', 400, 1.5, 4], ['peaking', 1200, 1, -3], ['peaking', 2200, 1, 3]]
       : [['highpass', 190, 0.7], ['peaking', 280, 1.4, 5], ['peaking', 550, 2, 4], ['peaking', 1500, 1.2, -3], ['peaking', 2900, 1, 6]], dest);
   }
-  function flute(f, dest) {                  // flute: an almost pure tone, a whisper of overtones, breath noise, vibrato
-    const mix = ctx.createGain();
-    [['sine', 1, 0.5], ['triangle', 2, 0.06], ['sine', 3, 0.02]].forEach(([type, m, gain]) => {
-      const o = ctx.createOscillator(); o.type = type; o.frequency.value = f * m; vibrato(o, 5, 10);
+  function flute(f, dest) {                  // flute: a soft, nearly pure tone; every overtone shares one vibrato, plus a little breath
+    const mix = ctx.createGain(); mix.gain.value = 0.55;   // the flute sits quietly on top of the chord
+    const vib = ctx.createOscillator(), vd = ctx.createGain();
+    vib.frequency.value = 4.8; vd.gain.value = 6; vib.connect(vd); vib.start();
+    [[1, 0.42], [2, 0.07], [3, 0.015]].forEach(([m, gain]) => {
+      const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f * m;
+      vd.connect(o.detune);                    // the overtones move together, so the note stays in tune with itself
       const g = ctx.createGain(); g.gain.value = gain; o.connect(g).connect(mix); o.start();
     });
     const breath = ctx.createBufferSource(); breath.buffer = noise(); breath.loop = true;
-    const bb = ctx.createBiquadFilter(); bb.type = 'bandpass'; bb.frequency.value = f * 2; bb.Q.value = 1.2;
-    const bg = ctx.createGain(); bg.gain.value = 0.05;
+    const bb = ctx.createBiquadFilter(); bb.type = 'bandpass'; bb.frequency.value = 2500; bb.Q.value = 0.7;
+    const bg = ctx.createGain(); bg.gain.value = 0.012;
     breath.connect(bb).connect(bg).connect(mix); breath.start();
     mix.connect(dest);
+  }
+  function clarinet(f, dest) {               // clarinet: hollow and woody (a square wave is mostly odd overtones, like a clarinet)
+    const mix = ctx.createGain();
+    const sq = ctx.createOscillator(), tri = ctx.createOscillator(), gs = ctx.createGain(), gt = ctx.createGain();
+    sq.type = 'square'; sq.frequency.value = f; tri.type = 'triangle'; tri.frequency.value = f;
+    gs.gain.value = 0.16; gt.gain.value = 0.25;
+    sq.connect(gs).connect(mix); tri.connect(gt).connect(mix); sq.start(); tri.start();
+    const breath = ctx.createBufferSource(); breath.buffer = noise(); breath.loop = true;
+    const bb = ctx.createBiquadFilter(); bb.type = 'bandpass'; bb.frequency.value = 1800; bb.Q.value = 0.8;
+    const bg = ctx.createGain(); bg.gain.value = 0.01;
+    breath.connect(bb).connect(bg).connect(mix); breath.start();
+    chain(mix, [['lowpass', 1800, 0.8], ['peaking', 1500, 1.5, 3]], dest);   // no vibrato: clarinettists play it straight
   }
   function horn(f, dest) {                   // French horn: brassy saws, softened like a hand in the bell
     const mix = ctx.createGain();
@@ -637,17 +689,6 @@
     });
     chain(mix, [['lowpass', 900, 1.6], ['peaking', 450, 1, 4]], dest);
   }
-  const HARP_STEPS = [1, 1.5, 1, 1.26];        // A, E, A, C#: a rippling A major arpeggio
-  function pluck(t, f, dest) {               // harp: a bright pluck that rings and slowly darkens
-    const o = ctx.createOscillator(), o2 = ctx.createOscillator(), g2 = ctx.createGain();
-    const lp = ctx.createBiquadFilter(), g = ctx.createGain();
-    o.type = 'triangle'; o.frequency.value = f; o2.type = 'sine'; o2.frequency.value = f * 2; g2.gain.value = 0.3;
-    lp.type = 'lowpass'; lp.frequency.setValueAtTime(4000, t); lp.frequency.exponentialRampToValueAtTime(900, t + 0.5);
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.5, t + 0.006); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.8);
-    o.connect(lp); o2.connect(g2).connect(lp); lp.connect(g).connect(dest);
-    o.start(t); o2.start(t); o.stop(t + 1.9); o2.stop(t + 1.9);
-  }
-
   function strike(t, freq, amp, len) {       // one soft, round tone
     [[1, 1, 1], [2, 0.1, 0.5], [3, 0.02, 0.3]].forEach(([ratio, gain, decay]) => {
       const o = ctx.createOscillator(), g = ctx.createGain();
@@ -666,12 +707,6 @@
       const accent = nextBeat % 4 === 0;
       strike(beatTime, CHIME_ROOT, accent ? 0.4 : 0.28, 3.4);
       nextBeat++; beatTime += BEAT;
-    }
-    if (harpTime < ctx.currentTime) harpTime = beatTime;   // the harp plucks on every half beat, in time with the pulse
-    while (harpTime < ctx.currentTime + 0.15) {
-      const v = voices.ocean;
-      if (v && v.cur > 0.02) pluck(harpTime, v.f * HARP_STEPS[harpStep % HARP_STEPS.length], v.level);
-      harpStep++; harpTime += BEAT / 2;
     }
   }
 
@@ -836,7 +871,7 @@
     const c = hitTest(GEO.countries, lon, lat);
     if (c) {
       const name = (THE.test(c.name) ? 'the ' : '') + c.name;
-      return { short: c.name, spoken: `over ${name}` + (c.extra && c.extra !== c.name ? `, in ${c.extra}` : '') };
+      return { short: c.name, brief: c.name + (c.extra && c.extra !== c.name ? `, ${c.extra}` : ''), spoken: `over ${name}` + (c.extra && c.extra !== c.name ? `, in ${c.extra}` : '') };
     }
     const s = hitTest(GEO.seas, lon, lat);
     const sea = s ? s.name : roughOcean(lat, lon);
@@ -848,7 +883,7 @@
       }
       if (coast) break;
     }
-    return { short: sea, spoken: `over ${seaName(sea)}` + (coast ? `, off the coast of ${(THE.test(coast) ? 'the ' : '') + coast}` : '') };
+    return { short: sea, brief: sea, spoken: `over ${seaName(sea)}` + (coast ? `, off the coast of ${(THE.test(coast) ? 'the ' : '') + coast}` : '') };
   }
   let placeCache = { x: 1e9, y: 1e9, p: null };
   function placeHere() {                     // only recomputed after you move about half a degree
@@ -870,8 +905,7 @@
   const LABEL = { rain: 'Rain', heat: 'Land heat', plants: 'Plants', ocean: 'Ocean heat', air: 'Haze' };
   const LAYER_ORDER = ['rain', 'heat', 'plants', 'ocean', 'air', 'all'];
   function layerAnnouncement() {
-    if (orchestra) return 'Layer 6 of 6: the Earth Orchestra. All five layers play together: ' +
-      Object.keys(ORCHESTRA).map(k => `${ORCHESTRA[k].name} for ${LABEL[k].toLowerCase()}`).join(', ').replace(/, ([^,]*)$/, ', and $1') + '.';
+    if (orchestra) return 'Earth Orchestra.';
     return `Layer ${LAYER_ORDER.indexOf(layerKey) + 1} of 6: ${LABEL[layerKey]}, played by the ${ORCHESTRA[layerKey].name}.`;
   }
   // sound logo: the layer's instrument plays its note for a moment; the orchestra plays a quick roll call, then all together
@@ -887,12 +921,12 @@
   }
 
   // ---------- spoken summary (on demand) ----------
-  function summaryText() {
+  function summaryText() {                   // short on purpose: "Heavy rain. France, Europe."
     if (!field) return 'Map data is not loaded.';
-    const where = `You're ${placeHere().spoken}.`;
-    if (!orchestra) return `${curLayer().say[tierIndex(realStorm)]}. ${where}`;
-    const parts = Object.keys(ORCHESTRA).map(k => `${ORCHESTRA[k].name}, ${LAYERS[k].say[tierIndex(levelAt(k, player.x, player.y))].toLowerCase()}`);
-    return `Earth Orchestra. ${where} Here, the ${parts.join('; the ')}.`;
+    const where = placeHere().brief;
+    if (!orchestra) return `${curLayer().say[tierIndex(realStorm)]}. ${where}.`;
+    const playing = Object.keys(ORCHESTRA).filter(k => levelAt(k, player.x, player.y) >= 0.03).map(k => ORCHESTRA[k].name);
+    return `${where}. ${playing.length ? playing.join(', ') : 'Quiet here'}.`;
   }
   function speak() {
     const text = summaryText();
@@ -930,12 +964,14 @@
     if (key === 'all') {
       if (orchestra) { say(layerAnnouncement()); return; }
       orchestra = true; previewLevel = null;
-      Object.keys(LAYERS).forEach(k => getLayerData(k, dataTime).catch(() => {}));   // every layer for the chosen day
+      loadAllLayers();                          // every layer for the chosen day, painted together on the map
       applyLayerUI();
     } else {
       const wasOrch = orchestra;
       orchestra = false;
-      if (key !== layerKey) loadLayer(key); else if (wasOrch) applyLayerUI(); else { say(layerAnnouncement()); return; }
+      if (key !== layerKey) loadLayer(key);
+      else if (wasOrch) { applyLayerUI(); loadWindow(); }   // back to this layer's own map
+      else { say(layerAnnouncement()); return; }
     }
     startLogo();
     say(layerAnnouncement());
@@ -956,8 +992,8 @@
     timeOut.textContent = dayLabel(off);
     clearTimeout(timeDebounce);
     timeDebounce = setTimeout(() => {
-      dataTime = dayFor(off).toISOString().slice(0, 10); loadWindow();
-      if (orchestra) Object.keys(LAYERS).forEach(k => getLayerData(k, dataTime).catch(() => {}));
+      dataTime = dayFor(off).toISOString().slice(0, 10);
+      if (orchestra) loadAllLayers(); else loadWindow();
     }, 300);
   });
   timeOut.textContent = dayLabel(0);
@@ -993,10 +1029,7 @@
     g.clearRect(0, 0, W, H);
     g.fillStyle = '#0b1415'; g.fillRect(0, 0, W, H);
     if (baseImg) { g.globalAlpha = 0.5; g.drawImage(baseImg, 0, 0, W, H); g.globalAlpha = 1; }
-    if (orchestra) {                                          // all five layers, faintly on top of each other
-      Object.keys(LAYERS).forEach(k => { const d = ready.get(k + '|' + dataTime) || ready.get(k + '|' + latestDay()); if (d) { g.globalAlpha = 0.4; g.drawImage(d.img, 0, 0, W, H); } });
-      g.globalAlpha = 1;
-    } else if (dataImg) { g.globalAlpha = 0.88; g.drawImage(dataImg, 0, 0, W, H); g.globalAlpha = 1; }
+    if (dataImg) { g.globalAlpha = 0.88; g.drawImage(dataImg, 0, 0, W, H); g.globalAlpha = 1; }   // in orchestra mode: every layer
 
     // soft vignette pulls the eye to the middle
     const vg = g.createRadialGradient(W / 2, H / 2, H * 0.45, W / 2, H / 2, W * 0.62);
@@ -1126,11 +1159,19 @@
     canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
 
     function sync() {                      // follow the app: layer texture, window outline, beacon
-      if (st.shownKey !== layerKey) {
-        st.shownKey = layerKey;
-        const k = layerKey;
-        if (!overlayTex[k]) overlayTex[k] = tex(gibsUrl(k, latestDay(), -180, -90, 180, 90, 1024, 512), true);
-        overlay.material.map = overlayTex[k]; overlay.material.needsUpdate = true;
+      const want = orchestra ? 'orchestra' + orchVersion : layerKey;
+      if (st.shownKey !== want) {
+        st.shownKey = want;
+        if (orchestra) {                     // the Earth Orchestra map, every layer in its instrument's color
+          if (st.orchTex) st.orchTex.dispose();
+          st.orchTex = new THREE.CanvasTexture(orchCanvas); st.orchTex.encoding = THREE.sRGBEncoding; st.orchTex.anisotropy = 4;
+          overlay.material.map = st.orchTex;
+        } else {
+          const k = layerKey;
+          if (!overlayTex[k]) overlayTex[k] = tex(gibsUrl(k, latestDay(), -180, -90, 180, 90, 1024, 512), true);
+          overlay.material.map = overlayTex[k];
+        }
+        overlay.material.needsUpdate = true;
       }
       if (st.shownCenter !== center) {
         st.shownCenter = center;
