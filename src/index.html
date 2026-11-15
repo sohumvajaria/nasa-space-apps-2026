@@ -1049,6 +1049,10 @@
     const small = innerWidth < 900;
     try {
       const kit = await loadIntro();
+      try {                                               // prepare the six spoken lines now, so the voice keeps time
+        const prep = ttsOff ? kokoroUrl : fetchVoice;
+        if (!(ttsOff && kokoroState === 'failed')) kit.style.beats.forEach(b => prep(b.speak).catch(() => {}));
+      } catch (e) {}
       if (!kit.S) kit.S = await kit.K.run(introCanvas, kit.style, { samples: small ? 1 : 2, width: small ? 1280 : 1920, height: small ? 720 : 1080 });
     } catch (err) { console.warn('intro could not load', err); endIntro(false); return; }
     if (!introOn) return;                                 // skipped while it was loading
