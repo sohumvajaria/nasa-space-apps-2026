@@ -541,7 +541,7 @@
   const tierIndex = v => v < 0.03 ? 0 : v < 0.3 ? 1 : v < 0.55 ? 2 : v < 0.85 ? 3 : 4;
   const stormTier = v => curLayer().tiers[tierIndex(v)];
 
-  let ctx = null, panner = null, master = null, muted = false;
+  let ctx = null, panner = null, master = null, muted = false, duckNode = null;   // duckNode: dips the music while the voice speaks
   let orchBus = null;
   const voices = {};               // layer key -> its instrument voice (see makeVoice)
   let bus = null, chimeOut = null, chimeIn = null;
@@ -557,7 +557,8 @@
 
     master = ctx.createGain();
     master.gain.value = 0.9;
-    master.connect(ctx.destination);
+    duckNode = ctx.createGain();
+    master.connect(duckNode).connect(ctx.destination);
 
     // Distance-aware, HRTF-binaural panner for the center pulse: left/right/front/back cues,
     // interaural time + level differences and spectral filtering.
@@ -853,6 +854,7 @@
       wrapNode.setAttribute('aria-label', 'Earth Jukebox map. Arrow keys or W A S D to walk, H for a summary, 1 to 6 to change layer, T for then and now. Press Tab to leave the map.');
       wrapNode.tabIndex = 0;
       wrapNode.focus();
+      warmVoice();                           // get the narrator's most common phrases ready
     }
   }
   startBtn.addEventListener('click', ensureAudio);
@@ -946,22 +948,81 @@
     say(readerVoice ? 'Announcements now come through your screen reader.' : 'Announcements now use the built-in voice.');
   });
   applyVoiceUI();
+  // ---------- the voice: a soft, human-sounding narrator, with the browser's best voice as a backup ----------
+  // /api/tts (a Vercel function) turns text into speech with a calm neural voice once an API key is set in Vercel.
+  // Each phrase is fetched once and then reused. If the voice service is not set up, slow, or offline, the browser's
+  // own voice speaks instead: the most natural one it has, a little slower and lower. While anyone speaks,
+  // the music dips so the words are easy to hear.
+  const ttsCache = new Map();                // text -> Promise of an audio URL
+  let ttsOff = false, ttsAudio = null, speechId = 0;
+  function duck(on) { if (ctx && duckNode) duckNode.gain.setTargetAtTime(on ? 0.4 : 1, ctx.currentTime, 0.12); }
+  function fetchVoice(text) {
+    if (!ttsCache.has(text)) {
+      const pr = fetch('/api/tts?text=' + encodeURIComponent(text))
+        .then(r => { if (r.status === 503 || r.status === 404) ttsOff = true; if (!r.ok) throw new Error('voice ' + r.status); return r.blob(); })   // 503/404: not set up, so use the browser voice from now on
+        .then(b => URL.createObjectURL(b));
+      pr.catch(() => ttsCache.delete(text));
+      ttsCache.set(text, pr);
+    }
+    return ttsCache.get(text);
+  }
+  let bestVoice = null;
+  function pickVoice() {                     // the most natural English voice this browser has
+    const vs = speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang));
+    const prefs = [/natural/i, /premium|enhanced/i, /\b(ava|samantha|allison|serena|zoe|susan|karen|moira)\b/i, /google (us|uk) english/i, /\b(aria|jenny|libby|sonia)\b/i];
+    for (const re of prefs) { const v = vs.find(x => re.test(x.name)); if (v) return v; }
+    return vs.find(v => v.localService) || vs[0] || null;
+  }
+  if ('speechSynthesis' in window) { bestVoice = pickVoice(); speechSynthesis.addEventListener('voiceschanged', () => { bestVoice = pickVoice(); }); }
+  function builtinSpeak(text, id) {
+    if (!('speechSynthesis' in window)) return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    if (bestVoice) u.voice = bestVoice;
+    u.rate = 0.92; u.pitch = 0.95; u.volume = 0.9;    // calmer: a touch slower and lower
+    u.onstart = () => duck(true);
+    u.onend = u.onerror = () => { if (id === speechId) duck(false); };
+    speechSynthesis.speak(u);
+  }
+  function stopSpeech() {
+    speechId++;
+    if (ttsAudio) { ttsAudio.pause(); ttsAudio = null; }
+    if ('speechSynthesis' in window) speechSynthesis.cancel();
+    duck(false);
+  }
+  function voiceSpeak(text) {
+    stopSpeech();
+    const id = speechId;
+    if (ttsOff) { builtinSpeak(text, id); return; }
+    const slow = setTimeout(() => {          // the voice service is slow right now: do not keep the listener waiting
+      if (id === speechId) { const nid = ++speechId; builtinSpeak(text, nid); }
+    }, 2500);
+    fetchVoice(text).then(url => {
+      clearTimeout(slow);
+      if (id !== speechId) return;           // something newer was said meanwhile
+      const a = new Audio(url); ttsAudio = a;
+      a.onended = a.onerror = () => { if (id === speechId) { duck(false); ttsAudio = null; } };
+      duck(true);
+      a.play().catch(() => { if (id === speechId) builtinSpeak(text, id); });
+    }).catch(() => { clearTimeout(slow); if (id === speechId) builtinSpeak(text, id); });
+  }
+
   function say(text) {
     const live = document.getElementById('announce');
     if (readerVoice || !('speechSynthesis' in window)) {   // re-set the text so the same words are announced again
       live.textContent = ''; setTimeout(() => { live.textContent = text; }, 50);
       return;
     }
-    live.textContent = '';                    // built-in voice: keep the live region quiet so nothing is spoken twice
-    if ('speechSynthesis' in window) {
-      speechSynthesis.cancel();
-      const u = new SpeechSynthesisUtterance(text); u.rate = 1.05;
-      speechSynthesis.speak(u);
-    }
+    live.textContent = '';                    // our own voice: keep the live region quiet so nothing is spoken twice
+    voiceSpeak(text);
   }
   const LABEL = { rain: 'Rain', heat: 'Land heat', plants: 'Plants', ocean: 'Ocean heat', air: 'Haze' };
   const LAYER_ORDER = ['rain', 'heat', 'plants', 'ocean', 'air', 'all'];
-  function layerAnnouncement() {
+  function warmVoice() {                     // fetch the phrases you hear most, so they play instantly
+    if (ttsOff) return;
+    LAYER_ORDER.forEach(k => fetchVoice(k === 'all' ? 'Earth Orchestra.'
+      : `Layer ${LAYER_ORDER.indexOf(k) + 1} of 6: ${LABEL[k]}, played by the ${ORCHESTRA[k].name}.`).catch(() => {}));
+  }  function layerAnnouncement() {
     if (orchestra) return 'Earth Orchestra.';
     return `Layer ${LAYER_ORDER.indexOf(layerKey) + 1} of 6: ${LABEL[layerKey]}, played by the ${ORCHESTRA[layerKey].name}.`;
   }
@@ -1318,7 +1379,7 @@
     renderer.outputEncoding = THREE.sRGBEncoding;
     renderer.setClearColor(0x0a1112);
     const scene = new THREE.Scene();
-    scene.fog = new THREE.Fog(0x0a1112, 30, 92);
+    scene.fog = new THREE.Fog(0x0a1112, 28, 70);    // the far land melts into the night
     const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 300);
 
     const PATCH = 100, SEG = 200;              // the terrain is a 100 degree patch (a vertex every 0.5), re-centered on you as you walk
@@ -1326,9 +1387,15 @@
     const colorCanvas = document.createElement('canvas'); colorCanvas.width = colorCanvas.height = 512;
     const cx = colorCanvas.getContext('2d');
     const map = new THREE.CanvasTexture(colorCanvas); map.encoding = THREE.sRGBEncoding; map.anisotropy = 4;
-    const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map, roughness: 0.92, metalness: 0 }));
+    // soft edges: instead of ending in a hard straight line, the land fades into the night in a wide circle around you
+    const fadeCanvas = document.createElement('canvas'); fadeCanvas.width = fadeCanvas.height = 256;
+    const fx = fadeCanvas.getContext('2d'), fgr = fx.createRadialGradient(128, 128, 0, 128, 128, 128);
+    fgr.addColorStop(0, '#fff'); fgr.addColorStop(0.55, '#fff'); fgr.addColorStop(0.85, '#444'); fgr.addColorStop(1, '#000');
+    fx.fillStyle = '#000'; fx.fillRect(0, 0, 256, 256); fx.fillStyle = fgr; fx.fillRect(0, 0, 256, 256);
+    const fade = new THREE.CanvasTexture(fadeCanvas);
+    const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map, roughness: 0.92, metalness: 0, alphaMap: fade, transparent: true }));
     scene.add(mesh);
-    const wire = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ wireframe: true, color: 0xdcbf8f, transparent: true, opacity: 0.05, depthWrite: false }));
+    const wire = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ wireframe: true, color: 0xdcbf8f, transparent: true, opacity: 0.05, depthWrite: false, alphaMap: fade }));
     wire.position.y = 0.02; scene.add(wire);
     scene.add(new THREE.AmbientLight(0x9ab4ac, 0.7));
     const sun = new THREE.DirectionalLight(0xffe1b0, 1.05); sun.position.set(-30, 45, 25); scene.add(sun);
@@ -1360,7 +1427,8 @@
     const patch = { cx: 1e9, cy: 1e9 };        // world position (degrees) the patch is centered on
 
     const heightAt = (x, north) => {
-      if (!field) return 0;
+      if (!field || north > 90 || north < -90) return 0;         // nothing beyond the poles
+      x = ((x + 180) % 360 + 360) % 360 - 180;                   // the Earth wraps around at 180 degrees
       const px = Math.max(0, Math.min(GW - 1, Math.floor((x + 180) / 360 * GW)));
       const py = Math.max(0, Math.min(GH - 1, Math.floor((90 - north) / 180 * GH)));
       return Math.pow(Math.min(1, field[py * GW + px]), 0.9) * HS;
@@ -1368,6 +1436,11 @@
 
     function paintImage(img, alpha, cxw, cyw) {   // draw the part of a whole-world image that lies under the patch
       if (!img) return;
+      if (alpha > 0 && cxw !== undefined && !paintImage.inner) {   // near 180 degrees, also draw the world next door
+        paintImage.inner = true;
+        [-360, 0, 360].forEach(o => paintImage(img, alpha, cxw + o, cyw));
+        paintImage.inner = false; return;
+      }
       const iw = img.width, ih = img.height, ppd = iw / 360, sw0 = PATCH * ppd, k = 512 / sw0;
       let sx = (cxw - PATCH / 2 + 180) * ppd, sy = (90 - (cyw + PATCH / 2)) * ppd, sw = sw0, sh = sw0, ox = 0, oy = 0;
       if (sx < 0) { ox = -sx * k; sw += sx; sx = 0; }
@@ -1386,7 +1459,11 @@
       map.needsUpdate = true;
       mesh.position.set(patch.cx, 0, -patch.cy); wire.position.set(patch.cx, 0.02, -patch.cy);
       const pos = geo.attributes.position;
-      for (let i = 0; i < pos.count; i++) pos.setY(i, heightAt(patch.cx + pos.getX(i), patch.cy - pos.getZ(i)));
+      for (let i = 0; i < pos.count; i++) {
+        const r = Math.hypot(pos.getX(i), pos.getZ(i)) / (PATCH / 2);          // 0 at the center, 1 at the edge
+        const taper = r < 0.55 ? 1 : r > 0.95 ? 0 : 0.5 + 0.5 * Math.cos(Math.PI * (r - 0.55) / 0.4);   // mountains settle toward the edge
+        pos.setY(i, heightAt(patch.cx + pos.getX(i), patch.cy - pos.getZ(i)) * taper);
+      }
       pos.needsUpdate = true; geo.computeVertexNormals();
       src.position.set(srcPos.x, heightAt(srcPos.x, srcPos.y), -srcPos.y);
       st.dataRef = field; st.baseRef = baseImg;
