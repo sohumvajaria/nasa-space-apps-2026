@@ -130,7 +130,8 @@
   /* ---------- layouts by device ----------
      phones: one column (the default above). tablets: a wider single column.
      desktops: a wide stage, the map big on the left and readings + controls in a panel on the right. */
-  #side { display: flex; flex-direction: column; align-items: center; gap: 34px; width: 100%; }
+  #side, #under { display: flex; flex-direction: column; align-items: center; gap: 34px; width: 100%; }
+  #thennote { margin: 0; text-align: center; font-size: 12.5px; line-height: 1.7; color: var(--faint); }
   @media (min-width: 700px) {
     main { max-width: 760px; }
     #wrap { width: min(100%, 640px); }
@@ -146,14 +147,15 @@
     #hero header .links { text-align: left; }
     main {
       max-width: 1240px; display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 22px 32px; align-items: start; justify-items: stretch;
-      grid-template-rows: auto auto auto 1fr auto auto;   /* the side panel is tall: let the spare height go to the row under the map */
-      grid-template-areas: "layers layers" "blurb blurb" "map side" "hint side" "data data" "help help";
+      grid-template-rows: auto auto auto auto 1fr auto auto;   /* the side panel can be taller than the map: spare height goes to the row under the map */
+      grid-template-areas: "layers layers" "blurb blurb" "map side" "hint side" "under side" "data data" "help help";
     }
     #layers { grid-area: layers; justify-content: center; }
     #layerblurb { grid-area: blurb; justify-self: center; margin: -6px 0 6px; }
     #wrap, #wrap.flat { grid-area: map; width: 100%; aspect-ratio: 16 / 10; }
     #wrap.flat { aspect-ratio: 2 / 1; }
     #touchhint { grid-area: hint; margin: 0; text-align: center; }
+    #under { grid-area: under; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: stretch; justify-items: stretch; }
     #side { grid-area: side; gap: 20px; position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; padding-right: 2px; scrollbar-width: thin; }
     #datastat { grid-area: data; justify-self: center; }
     main > details { grid-area: help; justify-self: center; max-width: 720px; }
@@ -225,6 +227,9 @@
   </div>
   <p class="note" id="thennote">Then &amp; now plays the same day 20 years earlier, so you can hear how a place has changed. It is one day's snapshot, so weather plays a part; ocean heat shows the long-term warming most clearly.</p>
 
+  </aside>
+
+  <div id="under">
   <section class="group" id="key" aria-label="Sound key">
     <span class="k">Sound key</span>
     <div class="row">
@@ -242,8 +247,7 @@
     <output id="timeout" for="time">-</output>
     <p class="note">NASA publishes these maps as daily frames (some, like plants, update every 8 days), so you can go back in days. Forecasts are not part of this data.</p>
   </section>
-
-  </aside>
+  </div>
 
   <div class="sr" id="announce" role="status" aria-live="polite"></div>
   <div class="sr" id="summary" aria-live="off"></div>
