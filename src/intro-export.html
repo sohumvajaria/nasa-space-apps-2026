@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Export the Earth Jukebox intro</title>
+<!-- [CLAUDE ADDITION] Renders the 30-second intro frame by frame at full quality on this computer's graphics card and
+     saves it as an MP4 (H.264 video + sound). Needs Chrome or Edge (WebCodecs). Made with AI assistance (Claude). -->
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root { --bg: #0b0c0f; --panel: #14161b; --line: #2a2e36; --ink: #eef1f6; --mute: #9aa3b2; --accent: #ffd36a; --bad: #ff7a6b; color-scheme: dark; }
+  html, body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 "Inter", system-ui, sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 32px 20px 48px; display: flex; flex-direction: column; gap: 20px; }
+  h1 { font: 500 30px/1.1 "Oswald", "Arial Narrow", sans-serif; letter-spacing: .05em; text-transform: uppercase; margin: 0; }
+  p { margin: 0; max-width: 70ch; color: var(--mute); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+  .row { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; }
+  label { display: flex; gap: 8px; align-items: center; color: var(--ink); }
+  select, button { font: inherit; color: var(--ink); background: #0b0c0f; border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
+  button.go { background: var(--accent); color: #111; border-color: var(--accent); font-weight: 600; padding: 10px 22px; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+  button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  progress { width: 100%; height: 12px; accent-color: var(--accent); }
+  #msg { color: var(--ink); font-variant-numeric: tabular-nums; }
+  #msg.bad { color: var(--bad); }
+  canvas { width: 100%; height: auto; border-radius: 8px; border: 1px solid var(--line); background: #000; }
+  a.dl { color: #111; background: var(--accent); padding: 10px 22px; border-radius: 8px; font-weight: 600; text-decoration: none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Export the intro as a video</h1>
+  <p>This renders all 900 frames of the 30-second intro at full quality on this computer, adds the sound, and saves an MP4. Keep this tab open and in front while it works. A laptop with good graphics takes a few minutes; a slower one can take 15 or more.</p>
+  <div class="card">
+    <div class="row">
+      <label for="quality">Quality</label>
+      <select id="quality">
+        <option value="4">Draft: 4 samples per frame (fastest)</option>
+        <option value="8" selected>Good: 8 samples per frame</option>
+        <option value="16">Best: 16 samples per frame (slowest)</option>
+      </select>
+      <label><input type="checkbox" id="voice"> Bake in the app's narrator voice (needs the ElevenLabs key in Vercel)</label>
+    </div>
+    <div class="row"><button class="go" id="go" type="button" disabled>Loading...</button><span id="links" class="row"></span></div>
+    <progress id="bar" max="900" value="0"></progress>
+    <div id="msg" role="status" aria-live="polite">Loading the scene...</div>
+  </div>
+  <canvas id="c" width="1920" height="1080" aria-label="Preview of the frame being rendered"></canvas>
+</main>
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.187.0/build/three.module.js" } }</script>
+<script src="intro/mp4-muxer.js"></script>
+<script type="module">
+  import * as THREE from 'three';
+  window.THREE = THREE;
+  const $ = id => document.getElementById(id), msg = $('msg'), go = $('go'), bar = $('bar');
+  const say = (t, bad) => { msg.textContent = t; msg.className = bad ? 'bad' : ''; };
+  const load = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+  if (!('VideoEncoder' in window)) { say('This browser cannot export video. Please open this page in Chrome or Edge.', true); throw new Error('no WebCodecs'); }
+  await load('intro/stage.js'); await load('intro/sound.js'); await load('geo.js'); await load('intro/style.js');
+  const style = STYLES[STYLES.length - 1]; style.quality = 'full';
+  const S = await K.run($('c'), style, { samples: 8 });
+  S.seek(3.2, 4);
+  const FPS = 30, D = style.duration, W = 1920, H = 1080, SR = 48000;
+  const FRAMES = +new URLSearchParams(location.search).get('frames') || Math.round(D * FPS);   // ?frames=N: a quick test export
+  bar.max = FRAMES; go.disabled = false; go.textContent = 'Export MP4'; say('Ready. Choose a quality and press Export MP4.');
+
+  async function pickVideo() {
+    for (const codec of ['avc1.640028', 'avc1.4d0028', 'avc1.42003e']) {
+      const cfg = { codec, width: W, height: H, bitrate: 14e6, framerate: FPS, avc: { format: 'avc' } };
+      try { if ((await VideoEncoder.isConfigSupported(cfg)).supported) return cfg; } catch (e) {}
+    }
+    return null;
+  }
+  async function pickAudio() {
+    for (const [codec, kind] of [['mp4a.40.2', 'aac'], ['opus', 'opus']]) {
+      const cfg = { codec, sampleRate: SR, numberOfChannels: 2, bitrate: 192000 };
+      try { if ((await AudioEncoder.isConfigSupported(cfg)).supported) return { cfg, kind }; } catch (e) {}
+    }
+    return null;
+  }
+
+  // the sound: the scene's score rendered offline, plus (optionally) the narrator's six lines, with the score dipping under them
+  async function renderAudio(withVoice) {
+    const { inter, frames } = await SOUND.renderOffline(k => style.sound(k), D, SR, { voiceover: withVoice });
+    const L = new Float32Array(frames), R = new Float32Array(frames);
+    for (let i = 0; i < frames; i++) { L[i] = inter[2 * i]; R[i] = inter[2 * i + 1]; }
+    if (withVoice) {
+      const dec = new OfflineAudioContext(1, 1, SR), duck = new Float32Array(frames).fill(1), voice = new Float32Array(frames);
+      for (const b of style.beats) {
+        say(`Fetching the narrator's line: "${b.speak}"`);
+        const r = await fetch('/api/tts?text=' + encodeURIComponent(b.speak));
+        if (!r.ok) throw new Error('The narrator voice is not set up on this site (the ElevenLabs key is missing). Untick the voice box, or ask Sohum to add the key.');
+        const buf = await dec.decodeAudioData(await r.arrayBuffer()), v = buf.getChannelData(0), s0 = Math.round((b.at + 0.3) * SR);
+        for (let i = 0; i < v.length && s0 + i < frames; i++) voice[s0 + i] += v[i];
+        const a = Math.max(0, s0 - 0.15 * SR), e = Math.min(frames, s0 + v.length + 0.25 * SR);
+        for (let i = a; i < e; i++) { const edge = Math.min(1, (i - a) / (0.15 * SR), (e - i) / (0.25 * SR)); duck[i] = Math.min(duck[i], 1 - 0.55 * edge); }
+      }
+      for (let i = 0; i < frames; i++) { L[i] = L[i] * duck[i] + 0.9 * voice[i]; R[i] = R[i] * duck[i] + 0.9 * voice[i]; }
+    }
+    // loudness: bring the whole mix to about -15 dB RMS (close to -15 LUFS for this material), never past -1 dB peak
+    let sum = 0, peak = 0;
+    for (let i = 0; i < frames; i++) { sum += L[i] * L[i] + R[i] * R[i]; peak = Math.max(peak, Math.abs(L[i]), Math.abs(R[i])); }
+    const rms = Math.sqrt(sum / (2 * frames)) || 1e-6, gain = Math.min(Math.pow(10, -15 / 20) / rms, 0.89 / (peak || 1));
+    for (let i = 0; i < frames; i++) { L[i] *= gain; R[i] *= gain; }
+    return { L, R, frames };
+  }
+
+  go.addEventListener('click', async () => {
+    go.disabled = true; $('quality').disabled = true; $('voice').disabled = true; $('links').textContent = '';
+    try {
+      const vcfg = await pickVideo(), acfg = await pickAudio();
+      if (!vcfg) throw new Error('This computer cannot encode H.264 video in the browser. Try Chrome on another computer.');
+      const samples = +$('quality').value, withVoice = $('voice').checked;
+      say('Rendering the sound...');
+      const audio = await renderAudio(withVoice);
+      const muxer = new Mp4Muxer.Muxer({
+        target: new Mp4Muxer.ArrayBufferTarget(), fastStart: 'in-memory', firstTimestampBehavior: 'offset',
+        video: { codec: 'avc', width: W, height: H, frameRate: FPS },
+        audio: acfg ? { codec: acfg.kind, sampleRate: SR, numberOfChannels: 2 } : undefined,
+      });
+      let failed = null;
+      const venc = new VideoEncoder({ output: (c, m) => muxer.addVideoChunk(c, m), error: e => { failed = e; } });
+      venc.configure(vcfg);
+      if (acfg) {
+        const aenc = new AudioEncoder({ output: (c, m) => muxer.addAudioChunk(c, m), error: e => { failed = e; } });
+        aenc.configure(acfg.cfg);
+        const CH = 4800;
+        for (let i = 0; i < audio.frames; i += CH) {
+          const n = Math.min(CH, audio.frames - i), data = new Float32Array(n * 2);
+          data.set(audio.L.subarray(i, i + n), 0); data.set(audio.R.subarray(i, i + n), n);
+          const ad = new AudioData({ format: 'f32-planar', sampleRate: SR, numberOfFrames: n, numberOfChannels: 2, timestamp: Math.round(i / SR * 1e6), data });
+          aenc.encode(ad); ad.close();
+        }
+        await aenc.flush(); aenc.close();
+      }
+      const t0 = performance.now();
+      for (let i = 0; i < FRAMES; i++) {
+        if (failed) throw failed;
+        S.seek(i / FPS, samples);
+        const vf = new VideoFrame($('c'), { timestamp: Math.round(i * 1e6 / FPS), duration: Math.round(1e6 / FPS) });
+        venc.encode(vf, { keyFrame: i % 60 === 0 }); vf.close();
+        while (venc.encodeQueueSize > 4) await new Promise(r => setTimeout(r, 5));
+        bar.value = i + 1;
+        if (i % 5 === 4) {
+          const per = (performance.now() - t0) / (i + 1), left = Math.round(per * (FRAMES - i - 1) / 1000);
+          say(`Frame ${i + 1} of ${FRAMES} · about ${left >= 60 ? Math.round(left / 60) + ' min' : left + ' s'} left`);
+          await new Promise(r => setTimeout(r, 0));           // let the page repaint the progress bar
+        }
+      }
+      await venc.flush(); venc.close();
+      if (failed) throw failed;
+      muxer.finalize();
+      const blob = new Blob([muxer.target.buffer], { type: 'video/mp4' }), url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.className = 'dl'; a.href = url; a.download = 'earth-jukebox-intro.mp4'; a.textContent = 'Download the MP4';
+      $('links').appendChild(a);
+      say(`Done: ${(blob.size / 1048576).toFixed(1)} MB, ${acfg ? acfg.kind.toUpperCase() + ' sound' : 'no sound (this browser cannot encode audio)'}${withVoice ? ', with narration' : ''}. Download it, then upload it to Claude.`);
+      a.click();
+    } catch (e) {
+      console.error(e); say('Export failed: ' + (e && e.message ? e.message : e), true);
+    }
+    go.disabled = false; $('quality').disabled = false; $('voice').disabled = false; go.textContent = 'Export again';
+  });
+</script>
+</body>
+</html>

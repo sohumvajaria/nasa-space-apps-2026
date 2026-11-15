@@ -47,9 +47,10 @@
     await load('intro/stage.js'); await load('intro/sound.js'); await load('geo.js'); await load('intro/style.js');
   } catch (e) { status.textContent = 'The intro could not load.'; throw e; }
   const style = STYLES[STYLES.length - 1];
+  style.quality = new URLSearchParams(location.search).has('full') ? 'full' : 'lite';   // ?full = the storyboard look (needs strong graphics)
   const small = innerWidth < 900;
   const canvas = document.getElementById('c');
-  const S = await K.run(canvas, style, { samples: small ? 1 : 2, width: small ? 1280 : 1920, height: small ? 720 : 1080 });
+  const S = await K.run(canvas, style, { samples: 1, width: small ? 960 : 1280, height: small ? 540 : 720 });
   window.seek = t => S.seek(t); window.DURATION = style.duration;
   status.remove();
 
@@ -60,7 +61,7 @@
   const stopNow = () => { stopSound?.(); stopSound = null; };
   const show = (n) => { S.seek(t, n); scrub.value = t; timeEl.textContent = `${t.toFixed(1)} / ${D.toFixed(1)} s`; };
   const beatAt = x => style.beats.reduce((i, b, k) => (x >= b.at ? k : i), 0);
-  const sharpen = () => { clearTimeout(sharp); sharp = setTimeout(() => { if (!playing) show(12); }, 250); };   // a paused frame gets the full look
+  const sharpen = () => { clearTimeout(sharp); sharp = setTimeout(() => { if (!playing) show(6); }, 250); };   // a paused frame gets the full look
 
   function setPlaying(p) {
     playing = p; playBtn.textContent = p ? 'Pause' : 'Play';
@@ -72,7 +73,7 @@
   loopBtn.addEventListener('click', () => { loop = !loop; loopBtn.setAttribute('aria-pressed', loop); loopBtn.textContent = 'Loop: ' + (loop ? 'on' : 'off'); });
   window.addEventListener('keydown', e => { if (e.key === ' ' && e.target === document.body) { e.preventDefault(); setPlaying(!playing); } });
 
-  show(12);                                             // browsers allow sound only after a click: wait for Play
+  show(6);                                              // browsers allow sound only after a click: wait for Play
   function frame(now) {
     if (playing) {
       t += Math.min(0.1, (now - last) / 1000);

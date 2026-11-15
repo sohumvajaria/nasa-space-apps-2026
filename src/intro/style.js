@@ -100,7 +100,8 @@
   }
 
   const col = Object.fromEntries(Object.entries(TINT).map(([k, v]) => [k, new THREE.Color(v)]));
-  const tmp = new THREE.Color();
+  const tmp = new THREE.Color(), tmp2 = new THREE.Color(), lc = new THREE.Color();   // reused: nothing is allocated per pin
+  const mixC = [0, 0, 0];
   function relief(p, m, t, o) {
     // ---- resting wall: sea and a little land
     let lift = SEA + LAND * p.land + p.rough, glow = 0;
@@ -119,12 +120,12 @@
     const dy = Math.hypot(p.x - m.you[0], p.y - m.you[1]);
     const rt = t - RAIN.at - dy / RAIN.front - p.rnd * 0.05;
     let layerTop = 0;
-    const mixC = [0, 0, 0]; let mixW = 0;
+    mixC[0] = mixC[1] = mixC[2] = 0; let mixW = 0;
     const addLayer = (amt, c) => { if (amt <= 0.004) return; layerTop = Math.max(layerTop, amt); mixC[0] += c.r * amt; mixC[1] += c.g * amt; mixC[2] += c.b * amt; mixW += amt; };
     if (rt > 0) {
       const rise = rt > 2.5 ? 1 : K.spring(rt, 1.9, 0.5);
       const amt = p.rain * rise;
-      addLayer(amt, p.core > 0.05 ? tmp.clone().copy(col.rain).lerp(col.extreme, p.core * K.seg(t, TREMBLE.at, TREMBLE.at + 0.4)) : col.rain);
+      addLayer(amt, p.core > 0.05 ? tmp2.copy(col.rain).lerp(col.extreme, p.core * K.seg(t, TREMBLE.at, TREMBLE.at + 0.4)) : col.rain);
       glow += 0.55 * Math.pow(amt, 2.2);
     }
     // ---- the extreme core trembles (7 times a second), and glows a little hotter
@@ -148,7 +149,7 @@
     }
     if (mixW > 0) {
       const top = Math.max(mixC[0], mixC[1], mixC[2]) / mixW, sc = 1 / Math.max(1e-3, top);
-      const lc = new THREE.Color(mixC[0] / mixW * sc, mixC[1] / mixW * sc, mixC[2] / mixW * sc);
+      lc.setRGB(mixC[0] / mixW * sc, mixC[1] / mixW * sc, mixC[2] / mixW * sc);
       tmp.lerp(lc, K.clamp(layerTop * 2.2));
       lift += ORCH.height * layerTop + (RAIN.height - ORCH.height) * 0;
     }
@@ -166,7 +167,9 @@
   }
 
   // ---------------------------------------------------------------- the mechanism (as in the Pin Wall reference)
-  const PITCH = 0.1;
+  // quality 'full' = the storyboard look (33,000 pins); 'lite' = live playback in the app: fewer, simpler pins and a
+  // smaller shadow map, so ordinary laptops and phones keep up. Set style.quality before K.run.
+  const Q = { full: { pitch: 0.1, seg: 12, shadow: 4096 }, lite: { pitch: 0.16, seg: 7, shadow: 2048 } };
 
   registerStyle({
     id: 'pin-wall-earth-jukebox',
@@ -178,8 +181,10 @@
     fonts: ['500 60px "Oswald"', '500 40px "Inter"'],
     render: { samples: 40, shutter: 0.55, tone: 'filmic', exposure: 1.2, bloom: 0.4, bloomThreshold: 1.3, vignette: 0.4, grain: 0.012, saturation: 1.12, fov: 28, background: '#030304' },
 
+    quality: 'full',
     build(S) {
       const { THREE, K, scene, camera } = S;
+      const QQ = Q[this.quality] || Q.full, PITCH = QQ.pitch;
       landMask();
 
       // pins: one instanced mesh; per pin a lift + glow (aPin) and a tint (aTint), written every moment
@@ -198,7 +203,7 @@
       const R = PITCH * 0.47, LEN = 7, prof = [];
       for (const q of [0, 0.3, 0.55, 0.75, 0.9, 0.98, 1]) prof.push(new THREE.Vector2(Math.max(1e-4, q * R), -0.62 * R * (1 - Math.sqrt(1 - q * q * 0.985))));
       prof.push(new THREE.Vector2(R, -0.075), new THREE.Vector2(R * 0.9, -0.085), new THREE.Vector2(R * 0.9, -LEN));
-      const pinGeo = new THREE.LatheGeometry(prof.reverse(), 12); pinGeo.rotateX(Math.PI / 2);
+      const pinGeo = new THREE.LatheGeometry(prof.reverse(), QQ.seg); pinGeo.rotateX(Math.PI / 2);
       const cols = Math.floor(WALL_W / PITCH), rowH = PITCH * Math.sqrt(3) / 2, rows = Math.floor(WALL_H / rowH), count = cols * rows;
       const aPin = new THREE.InstancedBufferAttribute(new Float32Array(count * 2), 2); aPin.setUsage(THREE.DynamicDrawUsage);
       const aTint = new THREE.InstancedBufferAttribute(new Float32Array(count * 3), 3); aTint.setUsage(THREE.DynamicDrawUsage);
@@ -240,7 +245,7 @@
         { pos: [-14, 12, 16], size: [14, 8], color: '#eef3ff', power: 2.6 },
         { pos: [16, -6, 12], size: [5, 12], color: '#cfe0ff', power: 1.2 },
       ] });
-      const key = K.sun(S, { pos: [-26, 6, 9.5], target: [0, 0, 0], color: '#fff4e6', power: 7, size: 14, soft: 1.1, mapSize: 4096, bias: -0.0012, normalBias: 0.01 });
+      const key = K.sun(S, { pos: [-26, 6, 9.5], target: [0, 0, 0], color: '#fff4e6', power: 7, size: 14, soft: 1.1, mapSize: QQ.shadow, bias: -0.0012, normalBias: 0.01 });
       K.sun(S, { pos: [18, -9, 3.4], target: [0, 0, 0], color: '#5a98ff', power: 2.8, shadow: false });
       const lamp = new THREE.PointLight(TINT.home, 0, 0, 2); lamp.position.set(0, 0, 1.2); scene.add(lamp);
       const stormLamp = new THREE.PointLight(TINT.extreme, 0, 0, 2); scene.add(stormLamp);
