@@ -147,8 +147,8 @@
     #hero header .links { text-align: left; }
     main {
       max-width: 1240px; display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 22px 32px; align-items: start; justify-items: stretch;
-      grid-template-rows: auto auto auto auto 1fr auto auto;   /* the side panel can be taller than the map: spare height goes to the row under the map */
-      grid-template-areas: "layers layers" "blurb blurb" "map side" "hint side" "under side" "data data" "help help";
+      grid-template-rows: auto auto auto auto auto auto auto;
+      grid-template-areas: "layers layers" "blurb blurb" "map side" "hint hint" "under under" "data data" "help help";
     }
     #layers { grid-area: layers; justify-content: center; }
     #layerblurb { grid-area: blurb; justify-self: center; margin: -6px 0 6px; }
@@ -999,18 +999,13 @@
   // Each phrase is fetched once and then reused. If the voice service is not set up, slow, or offline, the browser's
   // own voice speaks instead: the most natural one it has, a little slower and lower. While anyone speaks,
   // the music dips so the words are easy to hear.
-  const ttsCache = new Map();                // text -> Promise of an audio URL
   let ttsOff = false, ttsAudio = null, speechId = 0;
   function duck(on) { if (ctx && duckNode) duckNode.gain.setTargetAtTime(on ? 0.4 : 1, ctx.currentTime, 0.12); }
-  function fetchVoice(text) {
-    if (!ttsCache.has(text)) {
-      const pr = fetch('/api/tts?text=' + encodeURIComponent(text))
-        .then(r => { if (r.status === 503 || r.status === 404) ttsOff = true; if (!r.ok) throw new Error('voice ' + r.status); return r.blob(); })   // 503/404: not set up, so use the browser voice from now on
-        .then(b => URL.createObjectURL(b));
-      pr.catch(() => ttsCache.delete(text));
-      ttsCache.set(text, pr);
-    }
-    return ttsCache.get(text);
+  const voiceUrl = text => '/api/tts?text=' + encodeURIComponent(text);
+  // Ask once, for free, whether a neural voice is set up on the server. If not, the browser's voice is used from the start.
+  fetch('/api/tts?probe=1').then(r => { if (r.status !== 204) ttsOff = true; }).catch(() => { ttsOff = true; });
+  function fetchVoice(text) {                // warm-up: download a phrase now so it is in the cache and plays instantly later
+    return fetch(voiceUrl(text)).then(r => { if (r.status === 503 || r.status === 404) ttsOff = true; if (!r.ok) throw new Error('voice ' + r.status); return r.arrayBuffer(); });
   }
   let bestVoice = null;
   function pickVoice() {                     // the most natural English voice this browser has
@@ -1040,17 +1035,20 @@
     stopSpeech();
     const id = speechId;
     if (ttsOff) { builtinSpeak(text, id); return; }
-    const slow = setTimeout(() => {          // the voice service is slow right now: do not keep the listener waiting
-      if (id === speechId) { const nid = ++speechId; builtinSpeak(text, nid); }
-    }, 2500);
-    fetchVoice(text).then(url => {
+    // The audio element streams the voice: it starts playing as soon as the first bytes arrive.
+    const a = new Audio(); ttsAudio = a; a.preload = 'auto'; a.src = voiceUrl(text);
+    let started = false;
+    const fallback = () => {                 // not playing (error, or too slow): use the browser voice rather than keep the listener waiting
       clearTimeout(slow);
-      if (id !== speechId) return;           // something newer was said meanwhile
-      const a = new Audio(url); ttsAudio = a;
-      a.onended = a.onerror = () => { if (id === speechId) { duck(false); ttsAudio = null; } };
-      duck(true);
-      a.play().catch(() => { if (id === speechId) builtinSpeak(text, id); });
-    }).catch(() => { clearTimeout(slow); if (id === speechId) builtinSpeak(text, id); });
+      if (started || id !== speechId) return;
+      a.pause(); a.removeAttribute('src'); ttsAudio = null;
+      builtinSpeak(text, ++speechId);
+    };
+    const slow = setTimeout(fallback, 1800);
+    a.onplaying = () => { started = true; clearTimeout(slow); if (id === speechId) duck(true); };
+    a.onended = () => { if (id === speechId) { duck(false); ttsAudio = null; } };
+    a.onerror = () => { if (started) { if (id === speechId) { duck(false); ttsAudio = null; } } else fallback(); };
+    a.play().catch(fallback);
   }
 
   function say(text) {
