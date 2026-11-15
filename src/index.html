@@ -55,6 +55,7 @@
   .sub { margin: 12px 0 0; color: var(--mute); font: italic 400 16px/1.4 var(--serif); }
 
   #wrap { position: relative; width: min(100%, 540px); aspect-ratio: 1; }
+  #wrap.flat { width: min(94vw, 980px); aspect-ratio: 2 / 1; }
   #wrap canvas {
     width: 100%; height: 100%; display: block; border-radius: 28px;
     border: 1px solid var(--line);
@@ -146,7 +147,7 @@
   <p id="layerblurb" class="blurb"></p>
 
   <div id="wrap">
-    <canvas id="c" width="900" height="900" role="img" aria-label="Top-down map of NASA satellite data. A sound source sits at the center; your position is the small pale dot."></canvas>
+    <canvas id="c" width="1800" height="900" role="img" aria-label="World map of NASA satellite data. A sound source, the glowing orb, sits at the layer's hotspot; your position is the small pale dot."></canvas>
     <canvas id="relief" width="900" height="900" role="img" aria-label="3D terrain view of the NASA map. A glowing beam marks the sound source; you are the small pale marker." hidden></canvas>
     <div id="stick" hidden><div id="knob"></div></div>
     <button id="start" type="button"><span class="go">Begin listening</span><span class="hint">Headphones recommended</span></button>
@@ -159,7 +160,7 @@
     <div><span class="k">Direction</span><b id="brg">-</b></div>
     <div><span class="k">Distance</span><b id="dist">0.0</b></div>
     <div><span class="k">Volume</span><b id="vol">100%</b></div>
-    <div><span class="k">Position</span><b id="pos">0, 0</b></div>
+    <div><span class="k">Date</span><b id="pos">-</b></div>
     <div><span class="k">Location</span><b id="loc">-</b></div>
   </section>
 
@@ -196,7 +197,7 @@
 
   <details>
     <summary>How to listen</summary>
-    <p>Use headphones. Move with <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> (or WASD). You always face up (north). A <b>soft pulse</b> beats steadily at the center (0, 0): it gets quieter with distance and pans to show which side it is on, so you can always find your way back. A <b>synth note</b> plays the data under you: each layer (rain, land heat, plants, ocean heat or haze) has its own note above the pulse, and the more intense the data where you stand, the louder and brighter it gets, from faint at the low end to full and bright at the top. Press <kbd>H</kbd> to hear a short spoken summary, and use the sound key to preview each level. Switch layers with <kbd>1</kbd> to <kbd>5</kbd>. <kbd>V</kbd> switches between the 3D terrain and the flat map. Hold <kbd>Shift</kbd> to move faster, <kbd>M</kbd> to mute.</p>
+    <p>Use headphones. Move with <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> (or WASD). You always face up (north). A <b>soft pulse</b> beats steadily from the layer's hotspot, the glowing orb on the map, and you can walk anywhere on Earth: it gets quieter with distance and pans to show which side it is on, so you can always find your way back. A <b>synth note</b> plays the data under you: each layer (rain, land heat, plants, ocean heat or haze) has its own note above the pulse, and the more intense the data where you stand, the louder and brighter it gets, from faint at the low end to full and bright at the top. Press <kbd>H</kbd> to hear a short spoken summary, and use the sound key to preview each level. Switch layers with <kbd>1</kbd> to <kbd>5</kbd>. <kbd>V</kbd> switches between the 3D terrain and the flat map. Hold <kbd>Shift</kbd> to move faster, <kbd>M</kbd> to mute.</p>
   </details>
 </main>
 
@@ -206,8 +207,8 @@
   'use strict';
 
   // ---------- Config ----------
-  const WORLD = 40;            // world spans -WORLD..+WORLD on both axes
-  const SPEED = 6;             // units per second
+  const WX = 180, WY = 90;     // the whole world: x = longitude, y = latitude, both in degrees (1 unit = 1 degree)
+  const SPEED = 5;             // units (degrees) per second
   const REF_DISTANCE = 1.5;    // distance at which volume is 100%
   const MAX_DISTANCE = 60;     // distance where the linear falloff would reach its floor
   const ROLLOFF = 0.9;         // 1 = fades to silence at MAX_DISTANCE; lower keeps a quiet floor at the far edge
@@ -218,11 +219,11 @@
   // ---------- NASA GIBS map layers ----------
   // Every layer is a colorized GIBS image. We turn each pixel's legend color back into a position along
   // that layer's own legend (0..1), then into a calibrated "level" using per-layer anchors, so the tiers
-  // of every layer land on clearly different sounds. The plane is an 80x80-unit window, 0.5 degrees per unit.
+  // of every layer land on clearly different sounds. The plane is the whole world: 360 x 180 units, 1 degree per unit.
   const BASE_TIME = Date.parse('2026-11-13T00:00:00Z');   // newest day all layers have
   let dataTime = '2026-11-13';
   const GIBS = 'https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi';
-  const GRID = 400, DEG_PER_UNIT = 0.5;
+  const GW = 1440, GH = 720, DEG_PER_UNIT = 1;   // the world data grid: 0.25 degrees per pixel
 
   // semis = interval above the root note for the layer's voice; trem = shimmer rate (Hz) and depth;
   // bright = how far the voice's filter opens at full intensity; home = fixed center (else the peak is auto-found).
@@ -278,6 +279,7 @@
   const stormRatio = () => Math.pow(2, curLayer().semis / 12);
 
   let center = { lon: 0, lat: 0 }, field = null, dataImg = null, stormLevel = 0;
+  const srcPos = { x: 0, y: 0 };            // where the sound source sits on the plane (the layer's hotspot)
   let realStorm = 0, previewLevel = null, previewTimer = null, loadToken = 0;
 
   const gibsUrl = (key, date, w, s, e, n, px, py) => `${GIBS}?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1` +
@@ -353,29 +355,25 @@
   function statText() {
     const L = curLayer();
     return `Data: NASA ${L.dataset} (GIBS layer ${L.id}), frame for ${dataTime}. ` +
-      `${L.centerName} (0,0) is near ${fmtLat(center.lat)}, ${fmtLon(center.lon)}. 1 unit is about ${DEG_PER_UNIT} degrees.`;
+      `${L.centerName} is near ${fmtLat(center.lat)}, ${fmtLon(center.lon)}. The whole world is walkable: 1 unit is 1 degree.`;
   }
 
-  // The most intense spot in a global image (smoothed, within 60 degrees of the equator, 45 for rain).
-  async function findPeak(key, date) {
-    const gw = 360, gh = 180;                // small on purpose: only needs to find the right region, and loads fast
-    const global = toScores(await loadImg(gibsUrl(key, date, -180, -90, 180, 90, gw, gh)), gw, gh, key);
-    const blur = boxBlur(global, gw, gh, 4);
+  // The most intense spot in a field (smoothed, within 60 degrees of the equator, 45 for rain).
+  function peakOf(f, key) {
+    const blur = boxBlur(f, GW, GH, 10);      // about 2.5 degrees of smoothing, so it finds a real peak, not one pixel
+    const maxLat = LAYERS[key].maxLat || 60;
     let best = -1, bx = 0, by = 0;
-    for (let y = 0; y < gh; y++) {
-      const lat = 90 - (y + 0.5) / gh * 180;
-      if (Math.abs(lat) > (LAYERS[key].maxLat || 60)) continue;
-      for (let x = 0; x < gw; x++) if (blur[y * gw + x] > best) { best = blur[y * gw + x]; bx = x; by = y; }
+    for (let y = 0; y < GH; y++) {
+      const lat = 90 - (y + 0.5) / GH * 180;
+      if (Math.abs(lat) > maxLat) continue;
+      for (let x = 0; x < GW; x++) if (blur[y * GW + x] > best) { best = blur[y * GW + x]; bx = x; by = y; }
     }
-    return {
-      lon: Math.max(-158, Math.min(158, -180 + (bx + 0.5) / gw * 360)),
-      lat: Math.max(-68, Math.min(68, 90 - (by + 0.5) / gh * 180)),
-    };
+    return { lon: -180 + (bx + 0.5) / GW * 360, lat: 90 - (by + 0.5) / GH * 180 };
   }
 
   // Everything for one layer and day, cached so switching back is instant. The first load of every
   // layer is started in the background as soon as the page opens, so most switches are already done.
-  const centerOf = {};                       // key -> Promise<{lon, lat}>, fixed per layer so dates line up
+  const centerOf = {};                       // key -> {lon, lat}: the hotspot, fixed per layer so dates line up
   const dataCache = new Map(), ready = new Map();   // 'key|date' -> Promise / resolved data
   const latestDay = () => new Date(BASE_TIME).toISOString().slice(0, 10);
   function getLayerData(key, date) {
@@ -383,20 +381,28 @@
     if (dataCache.has(id)) return dataCache.get(id);
     const L = LAYERS[key];
     const p = (async () => {
-      if (!centerOf[key]) centerOf[key] = L.home ? Promise.resolve({ lon: L.home.lon, lat: L.home.lat }) : findPeak(key, latestDay());
-      const c = await centerOf[key], half = 40 * DEG_PER_UNIT;
-      const img = await loadImg(gibsUrl(key, date, c.lon - half, c.lat - half, c.lon + half, c.lat + half, GRID, GRID));
-      const f = boxBlur(toScores(img, GRID, GRID, key), GRID, GRID, 5);   // ~1 unit of smoothing, small so color bands stay distinct
-      const out = { center: c, img, field: f };
+      const img = await loadImg(gibsUrl(key, date, -180, -90, 180, 90, GW, GH));          // the whole world in one image
+      const f = boxBlur(toScores(img, GW, GH, key), GW, GH, 2);                           // about 0.5 degrees of smoothing
+      if (!centerOf[key]) centerOf[key] = L.home ? { lon: L.home.lon, lat: L.home.lat } : peakOf(f, key);
+      const out = { center: centerOf[key], img, field: f };
       ready.set(id, out);
       return out;
     })();
     dataCache.set(id, p);
-    p.catch(() => { dataCache.delete(id); delete centerOf[key]; });
+    p.catch(() => { dataCache.delete(id); });
     return p;
   }
 
-  function showData(d) { center = d.center; dataImg = d.img; field = d.field; document.getElementById('datastat').textContent = statText(); }
+  function showData(d, teleport) {
+    center = d.center; dataImg = d.img; field = d.field;
+    srcPos.x = center.lon; srcPos.y = center.lat;
+    if (panner) setPos(panner, 'position', srcPos.x, 0, -srcPos.y);    // the sound now comes from this layer's hotspot
+    if (teleport) {                           // a new layer: start near its hotspot, a little way off so the direction is obvious
+      player.x = Math.max(-WX, Math.min(WX, srcPos.x + 12)); player.y = Math.max(-WY, Math.min(WY, srcPos.y - 8));
+      if (ctx) updateListener(true);
+    }
+    document.getElementById('datastat').textContent = statText();
+  }
 
   async function loadWindow() {   // the picture for the chosen day (used by the date slider)
     const token = ++loadToken, key = layerKey, day = dataTime, stat = document.getElementById('datastat');
@@ -429,13 +435,13 @@
     timeEl.value = 0; timeOut.textContent = dayLabel(0);
     applyLayerUI(); applyLayerVoice();
     const hit = ready.get(key + '|' + dataTime);
-    if (hit) { showData(hit); return; }                    // already fetched: instant
+    if (hit) { showData(hit, true); return; }              // already fetched: instant
     field = null; dataImg = null;
     stat.textContent = 'Loading NASA data...';
     try {
       const d = await getLayerData(key, dataTime);
       if (token !== loadToken || key !== layerKey) return;
-      showData(d);
+      showData(d, true);
     } catch (err) {
       if (token !== loadToken || key !== layerKey) return;
       field = null; dataImg = null;
@@ -448,9 +454,9 @@
 
   function stormAt(x, y) {   // 0..1 intensity at a plane position (already calibrated per layer)
     if (!field) return 0;
-    const px = Math.max(0, Math.min(GRID - 1, Math.floor((x + 40) / 80 * GRID)));
-    const py = Math.max(0, Math.min(GRID - 1, Math.floor((40 - y) / 80 * GRID)));
-    return Math.min(1, field[py * GRID + px]);
+    const px = Math.max(0, Math.min(GW - 1, Math.floor((x + 180) / 360 * GW)));
+    const py = Math.max(0, Math.min(GH - 1, Math.floor((90 - y) / 180 * GH)));
+    return Math.min(1, field[py * GW + px]);
   }
   const tierIndex = v => v < 0.03 ? 0 : v < 0.3 ? 1 : v < 0.55 ? 2 : v < 0.85 ? 3 : 4;
   const stormTier = v => curLayer().tiers[tierIndex(v)];
@@ -462,8 +468,8 @@
 
   // ---------- Audio ----------
   // Two sounds, one job each:
-  //   CENTER PULSE  a soft, round tone on a steady beat, placed at the center (0, 0) in 3D.
-  //                 It tells you WHERE the center is: it pans to its side and fades with distance.
+  //   CENTER PULSE  a soft, round tone on a steady beat, placed in 3D at the layer's hotspot (the glowing orb).
+  //                 It tells you WHERE the hotspot is: it pans to its side and fades with distance.
   //   DATA SYNTH    a steady synth note at the layer's interval above the pulse, not placed in 3D.
   //                 It tells you WHAT is under you: louder and brighter where the data is more intense.
   function buildAudio() {
@@ -481,7 +487,7 @@
     panner.refDistance = REF_DISTANCE;
     panner.rolloffFactor = ROLLOFF;
     panner.maxDistance = MAX_DISTANCE;
-    setPos(panner, 'position', 0, 0, 0);   // source at (0,0)
+    setPos(panner, 'position', srcPos.x, 0, -srcPos.y);   // the source sits at the layer's hotspot
     bus = ctx.createGain();
     bus.connect(panner).connect(master);
     buildChime();
@@ -684,9 +690,9 @@
   // ---------- spoken summary (on demand) ----------
   function summaryText() {
     if (!field) return 'Map data is not loaded.';
-    const L = curLayer(), dist = Math.hypot(player.x, player.y);
-    const where = dist < 0.5 ? `You are at the ${L.centerName.toLowerCase()}`
-      : `${L.centerName} ${compass(-player.x, -player.y).replace('-', ' ')}, ${Math.round(dist)} units away`;
+    const L = curLayer(), dx = srcPos.x - player.x, dy = srcPos.y - player.y, dist = Math.hypot(dx, dy);
+    const where = dist < 1 ? `You are at the ${L.centerName.toLowerCase()}`
+      : `${L.centerName} ${compass(dx, dy).replace('-', ' ')}, about ${(Math.round(dist * 111 / 50) * 50).toLocaleString()} kilometers away`;
     return `${L.say[tierIndex(realStorm)]}. ${where}.`;
   }
   function speak() {
@@ -719,7 +725,7 @@
     document.getElementById('layerblurb').textContent = L.blurb;
     keyBtns.forEach((b, i) => { b.textContent = L.tiers[i + 1][0].toUpperCase() + L.tiers[i + 1].slice(1); b.setAttribute('aria-pressed', 'false'); });
     document.getElementById('keynote').textContent = `Plays what you would hear standing in ${L.noun.toLowerCase() === 'rain' ? 'that much rain' : 'data at that level'}.`;
-    document.getElementById('c').setAttribute('aria-label', `Top-down map of NASA ${L.noun.toLowerCase()} data. A sound source sits at the center; your position is the small pale dot.`);
+    document.getElementById('c').setAttribute('aria-label', `Top-down map of NASA ${L.noun.toLowerCase()} data. A sound source, the glowing orb, sits at the layer\'s hotspot; your position is the small pale dot.`);
   }
   function switchLayer(key) {
     if (key === layerKey) return;
@@ -749,9 +755,11 @@
   // ---------- Render + loop ----------
   const canvas = document.getElementById('c');
   const g = canvas.getContext('2d');
-  const W = canvas.width;
-  const toPx = v => (v + WORLD) / (2 * WORLD) * W;           // world x -> px
-  const toPy = v => (WORLD - v) / (2 * WORLD) * W;           // world y (north up) -> px
+  const W = canvas.width, H = canvas.height;
+  const toPx = v => (v + WX) / (2 * WX) * W;                 // longitude -> px
+  const toPy = v => (WY - v) / (2 * WY) * H;                 // latitude (north up) -> px
+  let baseImg = null;                                        // NASA Blue Marble relief, dimmed under the data so coastlines show
+  loadImg(`${GIBS}?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&LAYERS=BlueMarble_ShadedRelief_Bathymetry&SRS=EPSG:4326&BBOX=-180,-90,180,90&WIDTH=1800&HEIGHT=900&FORMAT=image/jpeg`).then(i => { baseImg = i; }).catch(() => {});
 
   const hud = {
     pos: document.getElementById('pos'), dist: document.getElementById('dist'),
@@ -767,48 +775,55 @@
   }
 
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const UNIT = W / (2 * WORLD);
+  const UNIT = W / (2 * WX);                                 // pixels per degree
 
   function draw(t) {
-    g.clearRect(0, 0, W, W);
-    g.fillStyle = '#0b1415'; g.fillRect(0, 0, W, W);
-    if (dataImg) { g.globalAlpha = 0.74; g.drawImage(dataImg, 0, 0, W, W); g.globalAlpha = 1; }
+    const K = 1.8;                                           // sizes below are tuned for a smaller canvas
+    g.clearRect(0, 0, W, H);
+    g.fillStyle = '#0b1415'; g.fillRect(0, 0, W, H);
+    if (baseImg) { g.globalAlpha = 0.5; g.drawImage(baseImg, 0, 0, W, H); g.globalAlpha = 1; }
+    if (dataImg) { g.globalAlpha = 0.88; g.drawImage(dataImg, 0, 0, W, H); g.globalAlpha = 1; }
 
     // soft vignette pulls the eye to the middle
-    const vg = g.createRadialGradient(W / 2, W / 2, W * 0.28, W / 2, W / 2, W * 0.78);
-    vg.addColorStop(0, 'rgba(8,14,15,0)'); vg.addColorStop(1, 'rgba(8,14,15,0.6)');
-    g.fillStyle = vg; g.fillRect(0, 0, W, W);
+    const vg = g.createRadialGradient(W / 2, H / 2, H * 0.45, W / 2, H / 2, W * 0.62);
+    vg.addColorStop(0, 'rgba(8,14,15,0)'); vg.addColorStop(1, 'rgba(8,14,15,0.5)');
+    g.fillStyle = vg; g.fillRect(0, 0, W, H);
 
-    const sx = toPx(0), sy = toPy(0);
+    // graticule every 30 degrees; the equator and prime meridian in gold
+    g.lineWidth = 1.2;
+    for (let lon = -150; lon <= 150; lon += 30) { g.strokeStyle = lon === 0 ? 'rgba(220,191,143,0.55)' : 'rgba(233,228,214,0.10)'; g.beginPath(); g.moveTo(toPx(lon), 0); g.lineTo(toPx(lon), H); g.stroke(); }
+    for (let lat = -60; lat <= 60; lat += 30) { g.strokeStyle = lat === 0 ? 'rgba(220,191,143,0.55)' : 'rgba(233,228,214,0.10)'; g.beginPath(); g.moveTo(0, toPy(lat)); g.lineTo(W, toPy(lat)); g.stroke(); }
 
-    // quiet distance rings every 10 units
-    g.lineWidth = 1.5; g.setLineDash([2, 9]); g.strokeStyle = 'rgba(233,228,214,0.16)';
-    for (let r = 10; r <= 50; r += 10) { g.beginPath(); g.arc(sx, sy, r * UNIT, 0, Math.PI * 2); g.stroke(); }
+    const sx = toPx(srcPos.x), sy = toPy(srcPos.y);
+
+    // quiet distance rings every 10 degrees around the source
+    g.lineWidth = 1.5 * K / 1.8; g.setLineDash([2 * K, 9 * K]); g.strokeStyle = 'rgba(233,228,214,0.20)';
+    for (let r = 10; r <= 30; r += 10) { g.beginPath(); g.arc(sx, sy, r * UNIT, 0, Math.PI * 2); g.stroke(); }
     g.setLineDash([]);
 
     // the source: a warm orb with slow ripples
     for (let i = 0; i < 3; i++) {
       const ph = reduceMotion ? (0.25 + i * 0.3) : (((t / 3600) + i / 3) % 1);
-      g.strokeStyle = `rgba(236,208,160,${0.38 * (1 - ph)})`;
-      g.lineWidth = 2;
-      g.beginPath(); g.arc(sx, sy, 10 + ph * 150, 0, Math.PI * 2); g.stroke();
+      g.strokeStyle = `rgba(236,208,160,${0.5 * (1 - ph)})`;
+      g.lineWidth = 2 * K;
+      g.beginPath(); g.arc(sx, sy, (10 + ph * 110) * K / 1.8 * 1.2, 0, Math.PI * 2); g.stroke();
     }
-    const glow = g.createRadialGradient(sx, sy, 0, sx, sy, 38);
-    glow.addColorStop(0, 'rgba(244,222,176,0.55)'); glow.addColorStop(1, 'rgba(244,222,176,0)');
-    g.fillStyle = glow; g.beginPath(); g.arc(sx, sy, 38, 0, Math.PI * 2); g.fill();
-    g.fillStyle = '#f3dfb4'; g.beginPath(); g.arc(sx, sy, 6, 0, Math.PI * 2); g.fill();
+    const glow = g.createRadialGradient(sx, sy, 0, sx, sy, 34 * K);
+    glow.addColorStop(0, 'rgba(244,222,176,0.65)'); glow.addColorStop(1, 'rgba(244,222,176,0)');
+    g.fillStyle = glow; g.beginPath(); g.arc(sx, sy, 34 * K, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#f6e3b6'; g.beginPath(); g.arc(sx, sy, 5.5 * K, 0, Math.PI * 2); g.fill();
 
     // you: a pale dot with the direction you face (always north)
     const px = toPx(player.x), py = toPy(player.y);
-    g.strokeStyle = 'rgba(233,228,214,0.16)'; g.lineWidth = 1.5; g.setLineDash([3, 8]);
+    g.strokeStyle = 'rgba(233,228,214,0.30)'; g.lineWidth = 1.5 * K; g.setLineDash([3 * K, 8 * K]);
     g.beginPath(); g.moveTo(px, py); g.lineTo(sx, sy); g.stroke(); g.setLineDash([]);
-    const wedge = g.createRadialGradient(px, py, 0, px, py, 70);
-    wedge.addColorStop(0, 'rgba(176,222,206,0.30)'); wedge.addColorStop(1, 'rgba(176,222,206,0)');
+    const wedge = g.createRadialGradient(px, py, 0, px, py, 38 * K);
+    wedge.addColorStop(0, 'rgba(176,222,206,0.40)'); wedge.addColorStop(1, 'rgba(176,222,206,0)');
     g.fillStyle = wedge;
-    g.beginPath(); g.moveTo(px, py); g.arc(px, py, 70, -Math.PI * 0.75, -Math.PI * 0.25); g.closePath(); g.fill();
-    g.strokeStyle = 'rgba(214,240,228,0.55)'; g.lineWidth = 1.5;
-    g.beginPath(); g.arc(px, py, 11, 0, Math.PI * 2); g.stroke();
-    g.fillStyle = '#d6f0e4'; g.beginPath(); g.arc(px, py, 5, 0, Math.PI * 2); g.fill();
+    g.beginPath(); g.moveTo(px, py); g.arc(px, py, 38 * K, -Math.PI * 0.75, -Math.PI * 0.25); g.closePath(); g.fill();
+    g.strokeStyle = 'rgba(214,240,228,0.7)'; g.lineWidth = 1.5 * K;
+    g.beginPath(); g.arc(px, py, 6 * K, 0, Math.PI * 2); g.stroke();
+    g.fillStyle = '#d6f0e4'; g.beginPath(); g.arc(px, py, 3 * K, 0, Math.PI * 2); g.fill();
   }
 
   // ---------- 3D (Three.js): the globe above, and the terrain view of the map ----------
@@ -882,6 +897,9 @@
     const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
     halo.scale.set(0.26, 0.26, 1);
     spin.add(beacon, halo);
+    const meDot = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, color: 0x9fe0cc }));
+    meDot.scale.set(0.12, 0.12, 1); spin.add(meDot);
+    outline.visible = false;
 
     const st = { renderer, scene, camera, spin, canvas, shownKey: null, shownCenter: null, rotY: -1.2, rotX: 0.2, dragging: false, lastDrag: -1e9, atmI: 1 };
 
@@ -902,12 +920,6 @@
       }
       if (st.shownCenter !== center && (center.lat || center.lon)) {
         st.shownCenter = center;
-        const pts = [], h = 20, n = 14;
-        for (let i = 0; i < n; i++) pts.push(ll(center.lat - h, center.lon - h + 2 * h * i / n, 1.012));
-        for (let i = 0; i < n; i++) pts.push(ll(center.lat - h + 2 * h * i / n, center.lon + h, 1.012));
-        for (let i = 0; i < n; i++) pts.push(ll(center.lat + h, center.lon + h - 2 * h * i / n, 1.012));
-        for (let i = 0; i < n; i++) pts.push(ll(center.lat + h - 2 * h * i / n, center.lon - h, 1.012));
-        outlineGeo.setFromPoints(pts);
         const c = ll(center.lat, center.lon, 1.014); beacon.position.copy(c); halo.position.copy(c);
       }
     }
@@ -920,7 +932,8 @@
       }
       sync();
       // ease toward the layer's center unless the listener is dragging the globe
-      const lonC = center.lon, latC = center.lat;
+      const lonC = player.x, latC = player.y;      // the hero globe follows you around the planet
+      meDot.position.copy(ll(player.y, player.x, 1.014));
       let tgtY = -Math.PI / 2 - lonC * Math.PI / 180;
       tgtY += Math.PI * 2 * Math.round((st.rotY - tgtY) / (Math.PI * 2));
       const tgtX = latC * Math.PI / 180 * 0.55;
@@ -949,11 +962,11 @@
     renderer.outputEncoding = THREE.sRGBEncoding;
     renderer.setClearColor(0x0a1112);
     const scene = new THREE.Scene();
-    scene.fog = new THREE.Fog(0x0a1112, 38, 105);
+    scene.fog = new THREE.Fog(0x0a1112, 30, 92);
     const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 300);
 
-    const SEG = 159;
-    const geo = new THREE.PlaneGeometry(80, 80, SEG, SEG); geo.rotateX(-Math.PI / 2);   // x east, z south
+    const PATCH = 100, SEG = 200;              // the terrain is a 100 degree patch (a vertex every 0.5), re-centered on you as you walk
+    const geo = new THREE.PlaneGeometry(PATCH, PATCH, SEG, SEG); geo.rotateX(-Math.PI / 2);   // x east, z south
     const colorCanvas = document.createElement('canvas'); colorCanvas.width = colorCanvas.height = 512;
     const cx = colorCanvas.getContext('2d');
     const map = new THREE.CanvasTexture(colorCanvas); map.encoding = THREE.sRGBEncoding; map.anisotropy = 4;
@@ -988,23 +1001,39 @@
 
     const st = { renderer, scene, camera, mesh, dataRef: null, camPos: new THREE.Vector3(12, 16, 24), camLook: new THREE.Vector3(12, 1, 0), t: 0 };
     const cool = new THREE.Color(0x86aa9a), hot = new THREE.Color(0xff6a3c);
+    const patch = { cx: 1e9, cy: 1e9 };        // world position (degrees) the patch is centered on
 
     const heightAt = (x, north) => {
       if (!field) return 0;
-      const px = Math.max(0, Math.min(GRID - 1, Math.floor((x + 40) / 80 * GRID)));
-      const py = Math.max(0, Math.min(GRID - 1, Math.floor((40 - north) / 80 * GRID)));
-      return Math.pow(Math.min(1, field[py * GRID + px]), 0.9) * HS;
+      const px = Math.max(0, Math.min(GW - 1, Math.floor((x + 180) / 360 * GW)));
+      const py = Math.max(0, Math.min(GH - 1, Math.floor((90 - north) / 180 * GH)));
+      return Math.pow(Math.min(1, field[py * GW + px]), 0.9) * HS;
     };
 
-    function rebuild() {                  // new data: repaint the color map and raise the terrain
+    function paintImage(img, alpha, cxw, cyw) {   // draw the part of a whole-world image that lies under the patch
+      if (!img) return;
+      const iw = img.width, ih = img.height, ppd = iw / 360, sw0 = PATCH * ppd, k = 512 / sw0;
+      let sx = (cxw - PATCH / 2 + 180) * ppd, sy = (90 - (cyw + PATCH / 2)) * ppd, sw = sw0, sh = sw0, ox = 0, oy = 0;
+      if (sx < 0) { ox = -sx * k; sw += sx; sx = 0; }
+      if (sy < 0) { oy = -sy * k; sh += sy; sy = 0; }
+      if (sx + sw > iw) sw = iw - sx;
+      if (sy + sh > ih) sh = ih - sy;
+      if (sw <= 0 || sh <= 0) return;
+      cx.globalAlpha = alpha; cx.drawImage(img, sx, sy, sw, sh, ox, oy, sw * k, sh * k); cx.globalAlpha = 1;
+    }
+
+    function rebuild() {                  // new data, or you walked far enough: repaint the color map and raise the terrain
+      patch.cx = Math.round(player.x * 2) / 2; patch.cy = Math.round(player.y * 2) / 2;   // snapped to the vertex grid, so nothing shimmers
       cx.fillStyle = '#0b1415'; cx.fillRect(0, 0, 512, 512);
-      if (dataImg) cx.drawImage(dataImg, 0, 0, 512, 512);
+      paintImage(baseImg, 0.45, patch.cx, patch.cy);      // dim NASA relief so coastlines show
+      paintImage(dataImg, 1, patch.cx, patch.cy);
       map.needsUpdate = true;
+      mesh.position.set(patch.cx, 0, -patch.cy); wire.position.set(patch.cx, 0.02, -patch.cy);
       const pos = geo.attributes.position;
-      for (let i = 0; i < pos.count; i++) pos.setY(i, heightAt(pos.getX(i), -pos.getZ(i)));
+      for (let i = 0; i < pos.count; i++) pos.setY(i, heightAt(patch.cx + pos.getX(i), patch.cy - pos.getZ(i)));
       pos.needsUpdate = true; geo.computeVertexNormals();
-      src.position.set(0, heightAt(0, 0), 0);
-      st.dataRef = field;
+      src.position.set(srcPos.x, heightAt(srcPos.x, srcPos.y), -srcPos.y);
+      st.dataRef = field; st.baseRef = baseImg;
     }
 
     st.render = (now, dt) => {
@@ -1013,7 +1042,7 @@
       if (reliefEl.width !== Math.round(w * renderer.getPixelRatio()) || reliefEl.height !== Math.round(h * renderer.getPixelRatio())) {
         renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
       }
-      if (st.dataRef !== field) rebuild();
+      if (st.dataRef !== field || st.baseRef !== baseImg || Math.hypot(player.x - patch.cx, player.y - patch.cy) > 6) rebuild();
 
       const px = player.x, pz = -player.y, gy = heightAt(player.x, player.y);
       me.position.set(px, gy + 1.1 + Math.sin(now / 600) * 0.12, pz);
@@ -1038,6 +1067,7 @@
   function setView(on) {
     view3d = !!on && !!relief;
     reliefEl.hidden = !view3d; canvas.hidden = view3d;
+    wrapEl.classList.toggle('flat', !view3d);      // the flat map is the whole world, so it is wide
     const b = document.getElementById('view');
     b.setAttribute('aria-pressed', String(view3d));
     b.firstChild.textContent = view3d ? '3D terrain' : 'Flat map';
@@ -1064,8 +1094,8 @@
     ax += joy.x; ay += joy.y;
     const len = Math.hypot(ax, ay) || 1, mag = Math.min(1, len);   // keys are full speed; the touch stick is analog
     const sp = SPEED * (keys.has('shift') || joy.fast ? 2.2 : 1);
-    player.x = Math.max(-WORLD, Math.min(WORLD, player.x + (ax / len) * sp * mag * dt));
-    player.y = Math.max(-WORLD, Math.min(WORLD, player.y + (ay / len) * sp * mag * dt));
+    player.x = Math.max(-WX, Math.min(WX, player.x + (ax / len) * sp * mag * dt));
+    player.y = Math.max(-WY, Math.min(WY, player.y + (ay / len) * sp * mag * dt));
 
     if (ax || ay) updateListener(false);
     buzzOnTier(tierIndex(realStorm), now);
@@ -1078,13 +1108,13 @@
       stormFilter.frequency.setTargetAtTime(250 + curLayer().bright * Math.pow(stormLevel, 1.5), t, 0.08);
     }
     hud.storm.textContent = field ? Math.round(stormLevel * 100) + '% (' + stormTier(stormLevel) + ')' : 'n/a';
-    hud.loc.textContent = field ? `${fmtLat(center.lat + player.y * DEG_PER_UNIT)}, ${fmtLon(center.lon + player.x * DEG_PER_UNIT)}` : 'n/a';
+    hud.loc.textContent = field ? `${fmtLat(player.y)}, ${fmtLon(player.x)}` : 'n/a';
 
-    const dist = Math.hypot(player.x, player.y);
-    hud.pos.textContent = `${player.x.toFixed(1)}, ${player.y.toFixed(1)}`;
-    hud.dist.textContent = dist.toFixed(1);
+    const sdx = srcPos.x - player.x, sdy = srcPos.y - player.y, dist = Math.hypot(sdx, sdy);   // to the hotspot, in degrees
+    hud.pos.textContent = dataTime;
+    hud.dist.textContent = Math.round(dist * 111).toLocaleString() + ' km';
     hud.vol.textContent = Math.round(volumeAt(dist) * 100) + '%';
-    hud.brg.textContent = compass(-player.x, -player.y);
+    hud.brg.textContent = compass(sdx, sdy);
 
     if (globe && vis.globe && !document.hidden) globe.render(now);
     if (view3d) { if (vis.relief && !document.hidden) relief.render(now, dt); } else draw(now);

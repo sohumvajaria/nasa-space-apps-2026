@@ -72,7 +72,7 @@
     <p>Most satellite maps are pictures, which leaves out anyone who cannot see them. Earth Jukebox turns real NASA satellite data into sound you can move through, using headphones and a keyboard.</p>
     <ol class="steps">
       <li>Pick a layer: rain, land heat, plants, ocean heat or haze.</li>
-      <li>A steady note plays from the center of the map, and you start a little way off. Walk toward it with the arrow keys.</li>
+      <li>A steady note plays from the layer's hotspot, shown as a glowing orb on a map of the whole world, and you start a little way off. Walk toward it with the arrow keys, or walk anywhere else on Earth.</li>
       <li>It gets louder as you get closer, and you hear which side it is on.</li>
       <li>A second note joins in where the data is intense. The stronger the rain, heat, haze or greenness under you, the louder and brighter it gets.</li>
     </ol>
@@ -102,7 +102,7 @@
     <h2 id="audio">What you hear</h2>
     <ul class="feat">
       <li><strong>Spatial audio</strong>Binaural 3D sound (HRTF) from the browser's Web Audio engine. Use headphones and you can tell left from right, and ahead from behind.</li>
-      <li><strong>Distance as volume</strong>Volume falls off smoothly from the center, so you can follow the sound back to it from anywhere on the map.</li>
+      <li><strong>Distance as volume</strong>Volume falls off smoothly with distance and never drops to silence, so you can always follow the sound back to the hotspot, from anywhere on Earth.</li>
       <li><strong>Two sounds</strong>A warm synth drone (the default), or a soft pulse: one warm, round tone per beat, a touch fuller on the first beat of each bar, with no sharp edges. Both carry the same spatial and data cues. Switch any time.</li>
       <li><strong>Intensity is loudness and brightness</strong>The layer's note gets louder and its tone opens up as the data intensifies, so strong areas sound sharper as well as louder.</li>
       <li><strong>Sound key</strong>Buttons that play each level on demand (for example light, moderate, heavy, extreme), so you can learn what the sounds mean before you explore.</li>
@@ -115,11 +115,11 @@
     <ul class="feat">
       <li><strong>Walk the map</strong>Arrow keys or WASD, with Shift to move faster. On a phone or tablet, press anywhere on the map and drag like a joystick: pull a little to walk, farther to go faster. You always face north.</li>
       <li><strong>Vibration</strong>On phones that support it, the device buzzes when you walk into stronger data, with a stronger pattern for stronger levels. It can be switched off.</li>
-      <li><strong>Spoken summary on demand</strong>Press <kbd>H</kbd> for a short spoken line such as "Heavy rain. Storm center ahead left, 14 units away." It is short on purpose, so you only hear it when you ask. The text is also kept in the page for screen readers.</li>
+      <li><strong>Spoken summary on demand</strong>Press <kbd>H</kbd> for a short spoken line such as "Heavy rain. Storm center ahead left, about 1,600 kilometers away." It is short on purpose, so you only hear it when you ask. The text is also kept in the page for screen readers.</li>
       <li><strong>Plain-word levels</strong>Levels use words like light, heavy and scorching instead of color names, so they mean something whether or not you have ever seen color.</li>
-      <li><strong>3D globe</strong>The page opens on a real 3D Earth built from NASA imagery: relief, city lights at night and the active data layer on top. A gold outline shows where on the planet your map sits. Drag to spin it; it settles back on the current layer's center. The glow around the planet swells as the data under you gets more intense.</li>
-      <li><strong>3D terrain view</strong>The map is also a 3D landscape where intensity becomes height, so a storm is a mountain. A glowing beam marks the sound source and the camera follows you from behind, facing north, the same direction the sound is oriented. Press <kbd>V</kbd> to switch to the flat map.</li>
-      <li><strong>Live readout</strong>The panel under the map shows the level at your position, the direction to the center, your distance, the volume, and your real latitude and longitude.</li>
+      <li><strong>3D globe</strong>The page opens on a real 3D Earth built from NASA imagery: relief, city lights at night and the active data layer on top. A glowing dot shows where you are on the planet, and the globe turns to follow you as you walk. Drag to spin it; it settles back on the current layer's center. The glow around the planet swells as the data under you gets more intense.</li>
+      <li><strong>3D terrain view</strong>The 3D view is a landscape where intensity becomes height, so a storm is a mountain, and it follows you across the whole planet. The flat map shows the entire world at once, with NASA relief under the data. A glowing beam marks the sound source and the camera follows you from behind, facing north, the same direction the sound is oriented. Press <kbd>V</kbd> to switch to the flat map.</li>
+      <li><strong>Live readout</strong>The panel under the map shows the level at your position, the direction to the hotspot, your distance in kilometers, the volume, the date, and your real latitude and longitude.</li>
       <li><strong>Go back in time</strong>A date slider moves back up to 30 days. NASA publishes these maps as daily frames, so it is days, not hours. Forecasts are not part of the data.</li>
     </ul>
   </section>
