@@ -36,6 +36,7 @@
     background: radial-gradient(40vmax 40vmax at 15% 20%, rgba(70, 140, 130, .16), transparent 70%), radial-gradient(45vmax 45vmax at 85% 75%, rgba(220, 170, 110, .10), transparent 70%);
     animation: drift 40s ease-in-out infinite alternate;
   }
+  #sky { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -2; pointer-events: none; display: block; }
   @keyframes drift { to { transform: translate3d(3vmax, -2vmax, 0) scale(1.08); } }
   #hero { position: relative; width: 100%; max-width: 980px; margin: 0 auto 10px; height: clamp(420px, 68vh, 620px); }
   #globe { position: absolute; inset: 0; width: 100%; height: 100%; display: block; mix-blend-mode: screen; cursor: grab; touch-action: pan-y; }
@@ -170,6 +171,7 @@
 </style>
 </head>
 <body>
+<canvas id="sky" aria-hidden="true"></canvas>
 <div id="hero">
   <canvas id="globe" aria-hidden="true"></canvas>
   <header>
@@ -1450,15 +1452,6 @@
     const atm = mk('varying vec3 vN; uniform float uI; uniform vec3 uC; void main(){ float i = pow(max(0.0, 0.78 - dot(vN, vec3(0.0,0.0,1.0))), 2.2); gl_FragColor = vec4(uC, 1.0) * i * uI * 1.25; }', THREE.BackSide, 1.17);
     const rim = mk('varying vec3 vN; uniform float uI; uniform vec3 uC; void main(){ float f = pow(1.0 - max(dot(vN, vec3(0.0,0.0,1.0)), 0.0), 3.0); gl_FragColor = vec4(uC, 1.0) * f * uI * 0.9; }', THREE.FrontSide, 1.012);
 
-    // stars
-    const N = 1600, sp = new Float32Array(N * 3);
-    for (let i = 0; i < N; i++) {
-      const r = 30 + Math.random() * 30, u = Math.random() * 2 - 1, t = Math.random() * Math.PI * 2, q = Math.sqrt(1 - u * u);
-      sp[3 * i] = r * q * Math.cos(t); sp[3 * i + 1] = r * u; sp[3 * i + 2] = r * q * Math.sin(t);
-    }
-    const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(sp, 3));
-    const stars = new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xdde6df, size: 1.3, sizeAttenuation: false, transparent: true, opacity: 0.65 }));
-    scene.add(stars);
 
     // where the plane sits on the planet: a 40x40 degree outline and a pulsing beacon
     const outlineGeo = new THREE.BufferGeometry();
@@ -1522,7 +1515,6 @@
         st.rotX += (tgtX - st.rotX) * k;
       }
       spin.rotation.set(0, 0, 0); spin.rotation.y = st.rotY; root.rotation.x = st.rotX;
-      stars.rotation.y = now * 0.00001;
       // the glow around the planet breathes with how intense the data under you is
       st.atmI += ((0.7 + 1.1 * stormLevel) - st.atmI) * 0.06;
       atm.material.uniforms.uI.value = st.atmI; rim.material.uniforms.uI.value = st.atmI * 0.9;
@@ -1755,6 +1747,33 @@
     requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
+})();
+</script>
+
+<script>
+// Page-wide starfield: one cheap 2D canvas fixed behind everything, with a gentle twinkle.
+(() => {
+  const cv = document.getElementById('sky'), g = cv.getContext('2d');
+  const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let W = 0, H = 0, stars = [];
+  function build() {
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    W = innerWidth; H = innerHeight; cv.width = W * dpr; cv.height = H * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const n = Math.round(W * H / 5500);
+    stars = Array.from({ length: n }, () => ({ x: Math.random() * W, y: Math.random() * H, r: Math.random() < 0.08 ? 1.4 : 0.5 + Math.random() * 0.7,
+      a: 0.25 + Math.random() * 0.55, f: 0.3 + Math.random() * 1.2, p: Math.random() * 6.28, warm: Math.random() < 0.2 }));
+  }
+  function draw(t) {
+    g.clearRect(0, 0, W, H);
+    for (const s of stars) {
+      const a = calm ? s.a : s.a * (0.65 + 0.35 * Math.sin(t * 0.001 * s.f + s.p));
+      g.fillStyle = (s.warm ? 'rgba(255,232,196,' : 'rgba(221,230,223,') + a.toFixed(3) + ')';
+      g.beginPath(); g.arc(s.x, s.y, s.r, 0, 6.2832); g.fill();
+    }
+    if (!calm) requestAnimationFrame(draw);
+  }
+  build(); requestAnimationFrame(draw);
+  let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { build(); if (calm) requestAnimationFrame(draw); }, 150); });
 })();
 </script>
 </body>
