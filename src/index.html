@@ -982,11 +982,13 @@
   // [CLAUDE FIX] Announcements used to go to BOTH the built-in voice and the screen reader, so screen reader users heard
   // two voices at once. "Voice" now chooses one: built-in (default, for people without a screen reader) or screen reader.
   let readerVoice = false;
+  let kokoroState = 'off';                   // the on-device narrator: off, loading, ready or failed
   try { readerVoice = localStorage.getItem('ej-voice') === 'reader'; } catch (e) {}
   const voiceBtn = document.getElementById('voice');
   function applyVoiceUI() {
     voiceBtn.setAttribute('aria-pressed', String(readerVoice));
-    voiceBtn.textContent = 'Voice: ' + (readerVoice ? 'screen reader' : 'built-in');
+    voiceBtn.textContent = 'Voice: ' + (readerVoice ? 'screen reader' : kokoroState === 'ready' ? 'natural'
+      : kokoroState === 'loading' ? 'natural (loading)' : 'built-in');
   }
   voiceBtn.addEventListener('click', () => {
     readerVoice = !readerVoice; applyVoiceUI();
@@ -995,18 +997,74 @@
   });
   applyVoiceUI();
   // ---------- the voice: a soft, human-sounding narrator, with the browser's best voice as a backup ----------
-  // /api/tts (a Vercel function) turns text into speech with a calm neural voice once an API key is set in Vercel.
-  // Each phrase is fetched once and then reused. If the voice service is not set up, slow, or offline, the browser's
-  // own voice speaks instead: the most natural one it has, a little slower and lower. While anyone speaks,
-  // the music dips so the words are easy to hear.
+  // Three ways to speak, best first:
+  //   1. /api/tts (a Vercel function), if an API key is ever set in Vercel (see api/tts.js)
+  //   2. Kokoro, a free open-source neural voice that runs entirely in this browser: no key, no account.
+  //      It downloads once (about 90 MB, then cached by the browser) and runs in a background thread.
+  //   3. the browser's own voice: the most natural one it has, a little slower and lower
+  // Each phrase is made once and then reused. While anyone speaks, the music dips so the words are easy to hear.
   const ttsCache = new Map();                // text -> Promise of an audio URL
   let ttsOff = false, ttsAudio = null, speechId = 0;
   function duck(on) { if (ctx && duckNode) duckNode.gain.setTargetAtTime(on ? 0.4 : 1, ctx.currentTime, 0.12); }
+  function serverVoice(text) {
+    if (ttsOff) return Promise.reject(new Error('no server voice'));
+    return fetch('/api/tts?text=' + encodeURIComponent(text))
+      .then(r => { if (r.status === 503 || r.status === 404) ttsOff = true; if (!r.ok) throw new Error('voice ' + r.status); return r.blob(); })   // 503/404: not set up
+      .then(b => URL.createObjectURL(b));
+  }
+
+  // Kokoro (Apache 2.0, onnx-community/Kokoro-82M-v1.0-ONNX) via kokoro-js, in a module worker so the music never stutters
+  const KOKORO_VOICE = 'af_heart', KOKORO_SPEED = 0.9;   // a warm, calm voice, a little slower than normal
+  const KOKORO_WORKER = `
+    import { KokoroTTS } from 'https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/dist/kokoro.web.js';
+    let tts = null;
+    const ready = KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', { dtype: 'q8', device: 'wasm' })
+      .then(t => { tts = t; postMessage({ type: 'ready' }); })
+      .catch(e => postMessage({ type: 'failed', error: String(e) }));
+    onmessage = async e => {
+      const { id, text, voice, speed } = e.data;
+      try {
+        await ready;
+        if (!tts) throw new Error('voice model did not load');
+        const audio = await tts.generate(text, { voice, speed });
+        postMessage({ type: 'audio', id, blob: await audio.toBlob() });
+      } catch (err) { postMessage({ type: 'error', id, error: String(err) }); }
+    };`;
+  let kokoroWorker = null, kokoroSeq = 0;
+  const kokoroJobs = new Map();              // job id -> {resolve, reject}
+  function startKokoro() {
+    if (kokoroWorker || kokoroState === 'failed') return;
+    if (navigator.connection && navigator.connection.saveData) { kokoroState = 'failed'; return; }   // respect data saver
+    try {
+      kokoroWorker = new Worker(URL.createObjectURL(new Blob([KOKORO_WORKER], { type: 'text/javascript' })), { type: 'module' });
+    } catch (e) { kokoroState = 'failed'; return; }
+    kokoroState = 'loading'; applyVoiceUI();
+    kokoroWorker.onmessage = e => {
+      const m = e.data;
+      if (m.type === 'ready') { kokoroState = 'ready'; applyVoiceUI(); }
+      else if (m.type === 'failed') {
+        kokoroState = 'failed'; applyVoiceUI();
+        kokoroJobs.forEach(j => j.reject(new Error(m.error))); kokoroJobs.clear();
+      } else {
+        const j = kokoroJobs.get(m.id); if (!j) return;
+        kokoroJobs.delete(m.id);
+        if (m.type === 'audio') j.resolve(URL.createObjectURL(m.blob)); else j.reject(new Error(m.error));
+      }
+    };
+    kokoroWorker.onerror = () => { kokoroState = 'failed'; applyVoiceUI(); kokoroJobs.forEach(j => j.reject(new Error('worker'))); kokoroJobs.clear(); };
+  }
+  function kokoroVoice(text) {
+    startKokoro();
+    if (kokoroState === 'failed') return Promise.reject(new Error('no on-device voice'));
+    return new Promise((resolve, reject) => {
+      const id = ++kokoroSeq;
+      kokoroJobs.set(id, { resolve, reject });
+      kokoroWorker.postMessage({ id, text, voice: KOKORO_VOICE, speed: KOKORO_SPEED });
+    });
+  }
   function fetchVoice(text) {
     if (!ttsCache.has(text)) {
-      const pr = fetch('/api/tts?text=' + encodeURIComponent(text))
-        .then(r => { if (r.status === 503 || r.status === 404) ttsOff = true; if (!r.ok) throw new Error('voice ' + r.status); return r.blob(); })   // 503/404: not set up, so use the browser voice from now on
-        .then(b => URL.createObjectURL(b));
+      const pr = serverVoice(text).catch(() => kokoroVoice(text));
       pr.catch(() => ttsCache.delete(text));
       ttsCache.set(text, pr);
     }
@@ -1039,10 +1097,10 @@
   function voiceSpeak(text) {
     stopSpeech();
     const id = speechId;
-    if (ttsOff) { builtinSpeak(text, id); return; }
-    const slow = setTimeout(() => {          // the voice service is slow right now: do not keep the listener waiting
+    if (ttsOff && kokoroState === 'failed') { builtinSpeak(text, id); return; }
+    const slow = setTimeout(() => {          // the natural voice is not ready yet: do not keep the listener waiting
       if (id === speechId) { const nid = ++speechId; builtinSpeak(text, nid); }
-    }, 2500);
+    }, kokoroState === 'ready' ? 4000 : 2500);
     fetchVoice(text).then(url => {
       clearTimeout(slow);
       if (id !== speechId) return;           // something newer was said meanwhile
@@ -1064,11 +1122,12 @@
   }
   const LABEL = { rain: 'Rain', heat: 'Land heat', plants: 'Plants', ocean: 'Ocean heat', air: 'Haze' };
   const LAYER_ORDER = ['rain', 'heat', 'plants', 'ocean', 'air', 'all'];
-  function warmVoice() {                     // fetch the phrases you hear most, so they play instantly
-    if (ttsOff) return;
+  function warmVoice() {                     // prepare the phrases you hear most, so they play instantly
+    if (ttsOff && kokoroState === 'failed') return;
     LAYER_ORDER.forEach(k => fetchVoice(k === 'all' ? 'Earth Orchestra.'
       : `Layer ${LAYER_ORDER.indexOf(k) + 1} of 6: ${LABEL[k]}, played by the ${ORCHESTRA[k].name}.`).catch(() => {}));
-  }  function layerAnnouncement() {
+  }
+  function layerAnnouncement() {
     if (orchestra) return 'Earth Orchestra.';
     return `Layer ${LAYER_ORDER.indexOf(layerKey) + 1} of 6: ${LABEL[layerKey]}, played by the ${ORCHESTRA[layerKey].name}.`;
   }
@@ -1425,9 +1484,27 @@
     renderer.outputEncoding = THREE.sRGBEncoding;
     renderer.setClearColor(0x0a1112);
     const scene = new THREE.Scene();
-    scene.fog = new THREE.Fog(0x0a1112, 28, 70);    // the far land melts into the night
-    const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 300);
+    // the sky: deep night overhead, a soft blue-green glow of atmosphere at the horizon, like Earth seen from orbit
+    const skyCanvas = document.createElement('canvas'); skyCanvas.width = 2; skyCanvas.height = 256;
+    const skx = skyCanvas.getContext('2d'), skg = skx.createLinearGradient(0, 0, 0, 256);
+    skg.addColorStop(0, '#02040a'); skg.addColorStop(0.22, '#04101a'); skg.addColorStop(0.36, '#0f3442');
+    skg.addColorStop(0.43, '#1f5560'); skg.addColorStop(0.5, '#0d2a30'); skg.addColorStop(0.7, '#0a1416'); skg.addColorStop(1, '#0a1112');
+    skx.fillStyle = skg; skx.fillRect(0, 0, 2, 256);
+    scene.background = new THREE.CanvasTexture(skyCanvas); scene.background.encoding = THREE.sRGBEncoding;
+    scene.fog = new THREE.Fog(0x16444f, 30, 78);    // far land fades into the glowing atmosphere, not into gray
+    const stars = (() => {                          // a dome of faint stars that travels with the camera
+      const n = 700, pts = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) {
+        const az = Math.random() * Math.PI * 2, el = 0.12 + Math.random() * 1.3, r = 220;
+        pts[3 * i] = r * Math.cos(el) * Math.cos(az); pts[3 * i + 1] = r * Math.sin(el); pts[3 * i + 2] = r * Math.cos(el) * Math.sin(az);
+      }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pts, 3));
+      return new THREE.Points(g, new THREE.PointsMaterial({ color: 0xcfe3ff, size: 1.6, sizeAttenuation: false, transparent: true, opacity: 0.75, fog: false, depthWrite: false }));
+    })();
+    scene.add(stars);
+    const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 400);
 
+    const CURVE = 0.006;                       // how quickly the land bends away, like the curve of a planet
     const PATCH = 100, SEG = 200;              // the terrain is a 100 degree patch (a vertex every 0.5), re-centered on you as you walk
     const geo = new THREE.PlaneGeometry(PATCH, PATCH, SEG, SEG); geo.rotateX(-Math.PI / 2);   // x east, z south
     const colorCanvas = document.createElement('canvas'); colorCanvas.width = colorCanvas.height = 512;
@@ -1436,7 +1513,7 @@
     // soft edges: instead of ending in a hard straight line, the land fades into the night in a wide circle around you
     const fadeCanvas = document.createElement('canvas'); fadeCanvas.width = fadeCanvas.height = 256;
     const fx = fadeCanvas.getContext('2d'), fgr = fx.createRadialGradient(128, 128, 0, 128, 128, 128);
-    fgr.addColorStop(0, '#fff'); fgr.addColorStop(0.55, '#fff'); fgr.addColorStop(0.85, '#444'); fgr.addColorStop(1, '#000');
+    fgr.addColorStop(0, '#fff'); fgr.addColorStop(0.7, '#fff'); fgr.addColorStop(0.95, '#000'); fgr.addColorStop(1, '#000');
     fx.fillStyle = '#000'; fx.fillRect(0, 0, 256, 256); fx.fillStyle = fgr; fx.fillRect(0, 0, 256, 256);
     const fade = new THREE.CanvasTexture(fadeCanvas);
     const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map, roughness: 0.92, metalness: 0, alphaMap: fade, transparent: true }));
@@ -1508,10 +1585,10 @@
       for (let i = 0; i < pos.count; i++) {
         const r = Math.hypot(pos.getX(i), pos.getZ(i)) / (PATCH / 2);          // 0 at the center, 1 at the edge
         const taper = r < 0.55 ? 1 : r > 0.95 ? 0 : 0.5 + 0.5 * Math.cos(Math.PI * (r - 0.55) / 0.4);   // mountains settle toward the edge
-        pos.setY(i, heightAt(patch.cx + pos.getX(i), patch.cy - pos.getZ(i)) * taper);
+        pos.setY(i, heightAt(patch.cx + pos.getX(i), patch.cy - pos.getZ(i)) * taper - CURVE * (pos.getX(i) ** 2 + pos.getZ(i) ** 2));
       }
       pos.needsUpdate = true; geo.computeVertexNormals();
-      src.position.set(srcPos.x, heightAt(srcPos.x, srcPos.y), -srcPos.y);
+      src.position.set(srcPos.x, heightAt(srcPos.x, srcPos.y) - CURVE * ((srcPos.x - patch.cx) ** 2 + (srcPos.y - patch.cy) ** 2), -srcPos.y);
       st.dataRef = field; st.baseRef = baseImg;
     }
 
@@ -1523,6 +1600,11 @@
       }
       if (st.dataRef !== field || st.baseRef !== baseImg || Math.hypot(player.x - patch.cx, player.y - patch.cy) > 6) rebuild();
 
+      if (st.lastX !== undefined && Math.abs(player.x - st.lastX) > 180) {   // looped around the world: move the camera with you
+        const shift = player.x - st.lastX > 0 ? 360 : -360;
+        st.camPos.x += shift; st.camLook.x += shift;
+      }
+      st.lastX = player.x;
       const px = player.x, pz = -player.y, gy = heightAt(player.x, player.y);
       me.position.set(px, gy + 1.1 + Math.sin(now / 600) * 0.12, pz);
       ring.position.y = -0.95; mh.material.color.copy(cool).lerp(hot, stormLevel);
@@ -1538,6 +1620,7 @@
       st.camPos.lerp(new THREE.Vector3(px, Math.max(14, gy + 13), pz + 21), ease);
       st.camLook.lerp(new THREE.Vector3(px, gy * 0.5 + 1, pz - 12), ease);
       camera.position.copy(st.camPos); camera.lookAt(st.camLook);
+      stars.position.copy(camera.position);
       renderer.render(scene, camera);
     };
     return st;
@@ -1573,7 +1656,7 @@
     ax += joy.x; ay += joy.y;
     const len = Math.hypot(ax, ay) || 1, mag = Math.min(1, len);   // keys are full speed; the touch stick is analog
     const sp = SPEED * (keys.has('shift') || joy.fast ? 2.2 : 1);
-    player.x = Math.max(-WX, Math.min(WX, player.x + (ax / len) * sp * mag * dt));
+    player.x = ((player.x + (ax / len) * sp * mag * dt + WX) % (2 * WX) + 2 * WX) % (2 * WX) - WX;   // the Earth is round: keep going east and you come back from the west
     player.y = Math.max(-WY, Math.min(WY, player.y + (ay / len) * sp * mag * dt));
 
     if (ax || ay) updateListener(false);
