@@ -147,7 +147,7 @@
   <p id="layerblurb" class="blurb"></p>
 
   <div id="wrap">
-    <canvas id="c" width="1800" height="900" role="img" aria-label="World map of NASA satellite data. A sound source, the glowing orb, sits at the layer's hotspot; your position is the small pale dot."></canvas>
+    <canvas id="c" width="1800" height="900" role="img" aria-label="World map of NASA satellite data. A sound source, the glowing orb, sits at Null Island where the equator meets the prime meridian; your position is the small pale dot."></canvas>
     <canvas id="relief" width="900" height="900" role="img" aria-label="3D terrain view of the NASA map. A glowing beam marks the sound source; you are the small pale marker." hidden></canvas>
     <div id="stick" hidden><div id="knob"></div></div>
     <button id="start" type="button"><span class="go">Begin listening</span><span class="hint">Headphones recommended</span></button>
@@ -197,7 +197,7 @@
 
   <details>
     <summary>How to listen</summary>
-    <p>Use headphones. Move with <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> (or WASD). You always face up (north). A <b>soft pulse</b> beats steadily from the layer's hotspot, the glowing orb on the map, and you can walk anywhere on Earth: it gets quieter with distance and pans to show which side it is on, so you can always find your way back. A <b>synth note</b> plays the data under you: each layer (rain, land heat, plants, ocean heat or haze) has its own note above the pulse, and the more intense the data where you stand, the louder and brighter it gets, from faint at the low end to full and bright at the top. Press <kbd>H</kbd> to hear a short spoken summary, and use the sound key to preview each level. Switch layers with <kbd>1</kbd> to <kbd>5</kbd>. <kbd>V</kbd> switches between the 3D terrain and the flat map. Hold <kbd>Shift</kbd> to move faster, <kbd>M</kbd> to mute.</p>
+    <p>Use headphones. Move with <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> (or WASD). You always face up (north). A <b>soft pulse</b> beats steadily from Null Island (0, 0), where the equator meets the prime meridian (the glowing orb on the map), and you can walk anywhere on Earth: it gets quieter with distance and pans to show which side it is on, so you can always find your way back. A <b>violin</b> plays the data under you: each layer (rain, land heat, plants, ocean heat or haze) has its own note above the pulse, and the more intense the data where you stand, the louder and brighter it gets, from faint at the low end to full and bright at the top. Press <kbd>H</kbd> to hear a short spoken summary, and use the sound key to preview each level. Switch layers with <kbd>1</kbd> to <kbd>5</kbd>. <kbd>V</kbd> switches between the 3D terrain and the flat map. Hold <kbd>Shift</kbd> to move faster, <kbd>M</kbd> to mute.</p>
   </details>
 </main>
 
@@ -229,8 +229,8 @@
   // bright = how far the voice's filter opens at full intensity; home = fixed center (else the peak is auto-found).
   const LAYERS = {
     rain: {
-      id: 'IMERG_Precipitation_Rate', dataset: 'GPM IMERG precipitation rate', noun: 'Rain', centerName: 'Storm center',
-      blurb: 'Rain rate from the GPM IMERG satellites. A minor sixth rises above the center note and gets louder and brighter as the rain gets heavier.',
+      id: 'IMERG_Precipitation_Rate', dataset: 'GPM IMERG precipitation rate', noun: 'Rain', centerName: 'Null Island',
+      blurb: 'Rain rate from the GPM IMERG satellites. A violin plays a minor sixth above the center pulse, louder and brighter as the rain gets heavier.',
       semis: 8, wave: 'sawtooth', trem: 0, tremDepth: 0, bright: 5000, home: null, maxLat: 45,
       tiers: ['dry', 'light', 'moderate', 'heavy', 'extreme'],
       say: ['No rain here', 'Light rain', 'Moderate rain', 'Heavy rain', 'Extreme rain'],
@@ -238,8 +238,8 @@
       ramp: '00764e00784b007b48007e4500814200833e00863a008936008c32008e2e00912900942400971f00991a009c14009f0f00a20900a50303a70009aa0010ad0017b0001eb20026b5002db80035bb003dbd0045c0004ec30056c6005fc80068cb0072ce007bd10085d4008fd60099d900a3dc00aedf00b8e100c3e400cfe700daea00e6ec00efed00f2e600f5e000f7d900fad200fdca00ffc201ffb904ffb006ffa809ffa00cff980fff9011ff8814ff8117ff7a1aff731cff6c1fff6522ff5f25ff5927ff532aff4d2dff4730ff4233ff342cff2626ff2020ff1a1aff1313ff0d0dff0707ff0101fa0000f30000ed0000e70000e10000da0000d40000ce0000c80000c20000bb0000b50000af0000a90000a200009c00009600009000008a00008300007d00007700007100006a00006400005e00005800005200004b00004500003f0000390000330000b1faeeaefaefaaf9efa7f8f0a4f8f1a1f7f29ef6f39bf5f498f4f495f1f392eef28febf18ce7f089e4ef86e0ee84dded81d9ec7ed5ea7cd1e979cde876c9e674c5e571c1e46fbde26db8e16ab4df68b0dd66abdc63a7da61a2d85f9ed75d99d55b95d35990d1578ccf5587cd5383cb517ec94f7ac74d75c54f73c44d70c54c6dc64b6ac74a66c94963ca485fcb465ccc4558cd4454ce4350d0424cd14048d23f44d33e40d43f3dd5413cd7433bd84539d94838da4a37db4d36dc5035de5334df5632e05931e15c30e25f2fe4632ee5662de66a2be76a25e86a1fe86b19e96d14e96f12e57010e1720fdd740dd9750cd5770bd1780acc790ac77a0ac17a09bc7b09b77b09b27b09ac7a08a77a08a279089d78089877079276078d74078872068370067d6e06786c067369056e6605696305635e045d59045654044f4f044849034244033c3f03363a0330',
     },
     heat: {
-      id: 'MODIS_Terra_Land_Surface_Temp_Day', dataset: 'MODIS Terra land surface temperature (day)', noun: 'Land heat', centerName: 'Hottest spot',
-      blurb: 'How hot the ground is. A perfect fifth joins the center note with a fast shimmer that is faint over cold ground and burns bright over scorching land. Oceans are silent.',
+      id: 'MODIS_Terra_Land_Surface_Temp_Day', dataset: 'MODIS Terra land surface temperature (day)', noun: 'Land heat', centerName: 'Null Island',
+      blurb: 'How hot the ground is. A violin plays a perfect fifth above the center pulse, faint over cold ground and bright over scorching land. Oceans are silent.',
       semis: 7, wave: 'triangle', trem: 6, tremDepth: 0.5, bright: 4500, home: null,
       tiers: ['no data', 'cold', 'mild', 'hot', 'scorching'],
       say: ['No land temperature here', 'Cold land', 'Mild land', 'Hot land', 'Scorching land'],
@@ -247,8 +247,8 @@
       ramp: 'c900ffc500ffc100ffbd00ffb900ffb500ffb100ffad00ffa900ffa500ffa100ff9d00ff9900ff9500ff9100ff8d00ff8900ff8500ff8100ff7d00ff7900ff7500ff7100ff6d00ff6900ff6500ff6100ff5d00ff5900ff5500ff5100ff4d00ff4900ff4500ff4100ff3d00ff3900ff3500ff3100ff2d00ff2900ff2500ff2100ff1d00ff1900ff1500ff1100ff0d00ff0900ff0500ff0100ff000aff000fff0014ff001aff001fff0024ff0029ff002eff0033ff0038ff003dff0042ff0047ff004dff0052ff0057ff005cff0061ff0066ff006bff0070ff0075ff007aff0080ff0085ff008aff008fff0094ff0099ff009eff00a3ff00a8ff00adff00b3ff00b8ff00bdff00c2ff00c7ff00ccff00d1ff00d6ff00dbff00e0ff00e6ff00ebff00f0ff00f5ff00faff00ffff04fff70bffe60fffde12ffd516ffcd1affc41dffbc21ffb324ffab28ffa22cff9a2fff9133ff8937ff803aff783eff6f42ff6745ff5e49ff564dff4d50ff4554ff3c57ff345bff2b5fff2362ff1a66ff126aff096dff0171ff0075ff0078ff007cff0080ff0083ff0087ff008aff008eff0092ff0095ff0099ff009dff00a0ff00a4ff00a8ff00abff00afff00b3ff00b6ff00baff00bdff00c5ff00c8ff00ccff00d0ff00d3ff00d7ff00dbff00deff00e2ff00e6ff00e9ff00edff00f0ff00f4ff00f8ff00fbff00ffff00fffd00fffa00fff700fff400fff100ffee00ffeb00ffe800ffe500ffe200ffdf00ffdc00ffd900ffd600ffd300ffd000ffcd00ffca00ffc700ffc400ffc100ffbe00ffbb00ffb800ffb500ffb200ffaf00ffac00ffa900ffa600ffa300ffa000ff9d00ff9700ff9400ff9100ff8e00ff8b00ff8800ff8500ff8200ff7f00ff7c00ff7900ff7600ff7300ff7000ff6d00ff6a00ff6700ff6400ff6100ff5e00ff5b00ff5800ff5500ff5200ff4f00ff4c00ff4900ff4600ff4300ff4000ff3d00ff3a00ff3700ff3400ff3100ff2e00ff2b00ff2800ff2500ff2200ff1f00ff1c00ff1900ff1600ff1300ff1000ff0d00ff0a00ff0700ff0400ff0100',
     },
     plants: {
-      id: 'MODIS_Terra_NDVI_8Day', dataset: 'MODIS Terra vegetation index (NDVI, 8-day)', noun: 'Greenness', centerName: 'Amazon center',
-      blurb: 'How green and leafy the land is, centered on the Amazon. A major third swells slowly in and out, fuller where the forest is dense.',
+      id: 'MODIS_Terra_NDVI_8Day', dataset: 'MODIS Terra vegetation index (NDVI, 8-day)', noun: 'Greenness', centerName: 'Null Island',
+      blurb: 'How green and leafy the land is. A violin plays a major third above the center pulse, fuller where the forest is dense.',
       semis: 4, wave: 'triangle', trem: 0.35, tremDepth: 0.55, bright: 3500, home: { lat: -4, lon: -62 },
       tiers: ['no data', 'sparse', 'moderate', 'lush', 'dense'],
       say: ['No vegetation here', 'Sparse vegetation', 'Moderate vegetation', 'Lush vegetation', 'Dense vegetation'],
@@ -256,8 +256,8 @@
       ramp: 'f1ececf1ecedefe7e7efe7e8ece2e2ece2e3e2d8d8e2d8d9e1d9d4e1d9d5e0dad2e0dad3ddd5cbddd5cce5dbcde5dbcee1d2c5e1d2c6dfcec1dfcec2ddc9bcddc9bdd7c4b3d7c4b4d1c0abd1c0accdba9ecdba9fc8b5a5c8b5a6c0b096c0b097b9ab9bb9ab9cb4a595b4a596b09f8eb09f8fb09b89b09b8ab19883b19884b0957db0957eb09278b09279ac8d73ac8d74a9896ea9896fa58468a58469a18063a180649d7c5e9d7c5f9a6e599a6e5a965a46965a47bfde77bfde78b0cf68b0cf69a7cc4ba7cc4ca4c63da4c63ea0c030a0c03196ba2096ba218fb7158fb71687b30a87b30b80b00580b00678ad0078ad016eaa006eaa0164a60064a6015da3005da30156a10056a1015298005298015397005397014e94004e9401489000489001438d00438d013e8a003e8a013987003987013383003383012e80002e8001297d00297d012178002178011d75001d7501197300197301126e00126e010a69000a6901086700086701056400056401006400006401006000006001005a00005a01005400005401004800004801003c00003c01003600003601002400002401001800001801',
     },
     ocean: {
-      id: 'GHRSST_L4_MUR_Sea_Surface_Temperature', dataset: 'GHRSST MUR sea surface temperature', noun: 'Sea heat', centerName: 'Warm pool center',
-      blurb: 'Sea surface temperature, centered on the western Pacific warm pool. A perfect fourth drifts slowly in and out and gets warmer and louder as the water heats up. Land is silent.',
+      id: 'GHRSST_L4_MUR_Sea_Surface_Temperature', dataset: 'GHRSST MUR sea surface temperature', noun: 'Sea heat', centerName: 'Null Island',
+      blurb: 'Sea surface temperature. A violin plays a perfect fourth above the center pulse, louder and warmer as the water heats up. Land is silent.',
       semis: 5, wave: 'triangle', trem: 0.25, tremDepth: 0.4, bright: 3000, home: { lat: 5, lon: 150 },
       tiers: ['no data', 'cold', 'cool', 'warm', 'very warm'],
       say: ['No ocean data here', 'Cold water', 'Cool water', 'Warm water', 'Very warm water'],
@@ -265,8 +265,8 @@
       ramp: '2b001a2d001c30001f3300223500243800273b002b3f012e4201324501354801394b023d4e024151024555024958024d5b03515f035562035965035d6904616c046670056a73056e7606717806737906757a06777906777807777507757207746f07726b087067086e62086c5e08695a09675609655109634d0961490a5e450a5c410a5a3d0a58390a56350b54300b512c0b4f280b4d250c4c220d4b200e4b1e104d1e124e1e14511e16541e18571e1a5a1f1c5d1e1e601e21631f23661f25691f276c1f2a701f2c731f2e761f30791f327c1f357f1f3782203985203b88203d8b20408e20429120449420469721499b214b9e214ea12151a42254a72257aa235aad235db02460b32464b62567b9256abb266ebe2671c22775c52878c8287bcb297fce2982d12a85d42a88d72a8bda2b8edd2b92e02c95e32c98e62d9ce92e9fec2ea3ef2fa6f230aaf530acf42fadf02eaee82daede2badd029abbf27a8ab25a69823a48520a3711ea35d1ba54819a7351aaa251caf1720b30d26b7062dbb0137be0042c2004cc50057c90062cc006dcf0078d30083d7008eda0099de00a5e100b0e500bbe800c5ec00d0ef00dbf300e5f600edf700f3f700f8f500fcf300feef00ffea00ffe400ffdf00ffd900ffd400ffce00ffc900ffc400ffbf00ffb900ffb400ffaf00ffaa00ffa400ff9f00ff9900ff9400ff8e00ff8900ff8300fe7e00fd7a00fc7500fb7100fa6d00f86a00f66600f46200f25f00f05b00ee5700ec5300ea5000e84c00e64900e44500e24200e03e00de3b00dc3700da3300d83000d52d00d22a00ce2700ca2500c52200c02000bb1f00b51d00b01b00ab1900a61700a115009c14009712009110008c0e00870c00820a007c08007807007305006e03006b0200',
     },
     air: {
-      id: 'MODIS_Terra_Aerosol', dataset: 'MODIS Terra aerosol optical depth', noun: 'Haze', centerName: 'Haziest spot',
-      blurb: 'How much smoke, dust and haze is in the air. A tense tritone pulses unevenly, getting louder and harsher in thick haze.',
+      id: 'MODIS_Terra_Aerosol', dataset: 'MODIS Terra aerosol optical depth', noun: 'Haze', centerName: 'Null Island',
+      blurb: 'How much smoke, dust and haze is in the air. A violin plays a tense tritone above the center pulse, louder and harsher in thick haze.',
       semis: 6, wave: 'sawtooth', trem: 0.8, tremDepth: 0.6, bright: 2500, home: null,
       tiers: ['clear', 'light haze', 'moderate haze', 'heavy haze', 'thick smoke'],
       say: ['Clear air here', 'Light haze', 'Moderate haze', 'Heavy haze', 'Thick smoke or dust'],
@@ -279,7 +279,9 @@
   const stormRatio = () => Math.pow(2, curLayer().semis / 12);
 
   let center = { lon: 0, lat: 0 }, field = null, dataImg = null, stormLevel = 0;
-  const srcPos = { x: 0, y: 0 };            // where the sound source sits on the plane (the layer's hotspot)
+  const srcPos = { x: 0, y: 0 };            // the sound source sits at Null Island (0, 0) for every layer
+  const NULL_ISLAND = { lon: 0, lat: 0 };    // where the equator meets the prime meridian
+  let placed = false;                        // the player is placed once; switching layers keeps your spot
   let realStorm = 0, previewLevel = null, previewTimer = null, loadToken = 0;
 
   const gibsUrl = (key, date, w, s, e, n, px, py) => `${GIBS}?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1` +
@@ -355,7 +357,7 @@
   function statText() {
     const L = curLayer();
     return `Data: NASA ${L.dataset} (GIBS layer ${L.id}), frame for ${dataTime}. ` +
-      `${L.centerName} is near ${fmtLat(center.lat)}, ${fmtLon(center.lon)}. The whole world is walkable: 1 unit is 1 degree.`;
+      `The center pulse sits at Null Island (0, 0), where the equator meets the prime meridian. The whole world is walkable: 1 unit is 1 degree.`;
   }
 
   // The most intense spot in a field (smoothed, within 60 degrees of the equator, 45 for rain).
@@ -373,7 +375,7 @@
 
   // Everything for one layer and day, cached so switching back is instant. The first load of every
   // layer is started in the background as soon as the page opens, so most switches are already done.
-  const centerOf = {};                       // key -> {lon, lat}: the hotspot, fixed per layer so dates line up
+  const centerOf = {};                       // key -> {lon, lat}: the center, Null Island for every layer
   const dataCache = new Map(), ready = new Map();   // 'key|date' -> Promise / resolved data
   const latestDay = () => new Date(BASE_TIME).toISOString().slice(0, 10);
   function getLayerData(key, date) {
@@ -383,7 +385,7 @@
     const p = (async () => {
       const img = await loadImg(gibsUrl(key, date, -180, -90, 180, 90, GW, GH));          // the whole world in one image
       const f = boxBlur(toScores(img, GW, GH, key), GW, GH, 2);                           // about 0.5 degrees of smoothing
-      if (!centerOf[key]) centerOf[key] = L.home ? { lon: L.home.lon, lat: L.home.lat } : peakOf(f, key);
+      centerOf[key] = NULL_ISLAND;                                                        // every layer is centered on Null Island
       const out = { center: centerOf[key], img, field: f };
       ready.set(id, out);
       return out;
@@ -396,10 +398,11 @@
   function showData(d, teleport) {
     center = d.center; dataImg = d.img; field = d.field;
     srcPos.x = center.lon; srcPos.y = center.lat;
-    if (panner) setPos(panner, 'position', srcPos.x, 0, -srcPos.y);    // the sound now comes from this layer's hotspot
-    if (teleport) {                           // a new layer: start near its hotspot, a little way off so the direction is obvious
+    if (panner) setPos(panner, 'position', srcPos.x, 0, -srcPos.y);    // the pulse comes from Null Island
+    if (teleport && !placed) {                // first load only: start a little way off Null Island so the direction is obvious
       player.x = Math.max(-WX, Math.min(WX, srcPos.x + 12)); player.y = Math.max(-WY, Math.min(WY, srcPos.y - 8));
       if (ctx) updateListener(true);
+      placed = true;
     }
     document.getElementById('datastat').textContent = statText();
   }
@@ -463,14 +466,14 @@
 
   let ctx = null, panner = null, master = null, muted = false;
   let stormGain = null, stormFilter = null, dataOut = null;
-  const stormOscs = [];            // {o, mult}: the data synth, retuned per layer
+  const stormOscs = [];            // {o, mult}: the data violin, retuned per layer
   let bus = null, chimeOut = null, chimeIn = null;
 
   // ---------- Audio ----------
   // Two sounds, one job each:
-  //   CENTER PULSE  a soft, round tone on a steady beat, placed in 3D at the layer's hotspot (the glowing orb).
-  //                 It tells you WHERE the hotspot is: it pans to its side and fades with distance.
-  //   DATA SYNTH    a steady synth note at the layer's interval above the pulse, not placed in 3D.
+  //   CENTER PULSE  a soft, round tone on a steady beat, placed in 3D at Null Island (0, 0) (the glowing orb).
+  //                 It tells you WHERE Null Island is: it pans to its side and fades with distance.
+  //   DATA VIOLIN   a violin note at the layer's interval above the pulse, not placed in 3D.
   //                 It tells you WHAT is under you: louder and brighter where the data is more intense.
   function buildAudio() {
     ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -487,27 +490,46 @@
     panner.refDistance = REF_DISTANCE;
     panner.rolloffFactor = ROLLOFF;
     panner.maxDistance = MAX_DISTANCE;
-    setPos(panner, 'position', srcPos.x, 0, -srcPos.y);   // the source sits at the layer's hotspot
+    setPos(panner, 'position', srcPos.x, 0, -srcPos.y);   // the source sits at Null Island (0, 0)
     bus = ctx.createGain();
     bus.connect(panner).connect(master);
     buildChime();
 
-    // Data synth: the old "Synth" tone (two slightly detuned saws plus a triangle an octave up, through a
-    // low-pass filter), now steady with no pulsing, since it no longer has to help you locate anything.
-    // It goes straight to the output (no panner), so it does not fade or pan as you walk.
+    // Data violin: a bowed-string voice at the layer's interval above the pulse, made in the browser (no samples).
+    // Two bows a few cents apart, each a sawtooth (the wave shape a bowed string makes) with its own gentle
+    // vibrato, a little bow hiss, then filters that act like a violin's wooden body. Louder and brighter
+    // with more intense data, like pressing harder with the bow. It goes straight to the output (no panner),
+    // so it does not fade or pan as you walk.
     dataOut = ctx.createGain();
-    dataOut.gain.value = 0.28;
+    dataOut.gain.value = 0.34;
     dataOut.connect(master);
     stormGain = ctx.createGain();
-    stormGain.gain.value = 0;
-    [['sawtooth', 1, -6], ['sawtooth', 1, 6], ['triangle', 2, 0]].forEach(([type, mult, detune]) => {
+    stormGain.gain.value = 0;                            // bow pressure: set from the data every frame
+    const bows = ctx.createGain();
+    [[-4, 5.3], [4, 5.9]].forEach(([detune, rate]) => {
       const o = ctx.createOscillator();
-      o.type = type; o.detune.value = detune;
-      const g = ctx.createGain(); g.gain.value = 0.2;
-      o.connect(g).connect(stormGain);
-      o.start();
-      stormOscs.push({ o, mult });
+      o.type = 'sawtooth'; o.detune.value = detune;
+      const vib = ctx.createOscillator(), vibDepth = ctx.createGain();
+      vib.frequency.value = rate; vibDepth.gain.value = 7;   // vibrato: about 7 cents, 5 to 6 times a second
+      vib.connect(vibDepth).connect(o.detune); vib.start();
+      const g = ctx.createGain(); g.gain.value = 0.25;
+      o.connect(g).connect(bows); o.start();
+      stormOscs.push({ o, mult: 1 });
     });
+    const hissBuf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate), hd = hissBuf.getChannelData(0);
+    for (let i = 0; i < hd.length; i++) hd[i] = Math.random() * 2 - 1;
+    const hiss = ctx.createBufferSource(); hiss.buffer = hissBuf; hiss.loop = true;
+    const hissBp = ctx.createBiquadFilter(); hissBp.type = 'bandpass'; hissBp.frequency.value = 3200; hissBp.Q.value = 0.8;
+    const hissG = ctx.createGain(); hissG.gain.value = 0.015;
+    hiss.connect(hissBp).connect(hissG).connect(bows); hiss.start();
+    // the violin body: cut the rumble, lift the wood and air resonances and the bright "bridge" band
+    let node = bows;
+    [['highpass', 190, 0.7, 0], ['peaking', 280, 1.4, 5], ['peaking', 550, 2, 4], ['peaking', 1500, 1.2, -3], ['peaking', 2900, 1, 6]]
+      .forEach(([type, f, q, gain]) => {
+        const b = ctx.createBiquadFilter(); b.type = type; b.frequency.value = f; b.Q.value = q; b.gain.value = gain;
+        node.connect(b); node = b;
+      });
+    node.connect(stormGain);
     stormFilter = ctx.createBiquadFilter();
     stormFilter.type = 'lowpass'; stormFilter.frequency.value = 250; stormFilter.Q.value = 0.7;
     stormGain.connect(stormFilter).connect(dataOut);
@@ -547,7 +569,7 @@
 
   function applyLayerVoice(immediate) {      // each layer keeps its own interval above the pulse
     if (!ctx || !stormOscs.length) return;
-    const t = ctx.currentTime, tc = immediate ? 0.001 : 0.06, root = 110 * stormRatio();
+    const t = ctx.currentTime, tc = immediate ? 0.001 : 0.06, root = CHIME_ROOT * stormRatio();   // up an octave, in the violin's range
     stormOscs.forEach(v => v.o.frequency.setTargetAtTime(root * v.mult, t, tc));
   }
 
@@ -725,7 +747,7 @@
     document.getElementById('layerblurb').textContent = L.blurb;
     keyBtns.forEach((b, i) => { b.textContent = L.tiers[i + 1][0].toUpperCase() + L.tiers[i + 1].slice(1); b.setAttribute('aria-pressed', 'false'); });
     document.getElementById('keynote').textContent = `Plays what you would hear standing in ${L.noun.toLowerCase() === 'rain' ? 'that much rain' : 'data at that level'}.`;
-    document.getElementById('c').setAttribute('aria-label', `Top-down map of NASA ${L.noun.toLowerCase()} data. A sound source, the glowing orb, sits at the layer\'s hotspot; your position is the small pale dot.`);
+    document.getElementById('c').setAttribute('aria-label', `Top-down map of NASA ${L.noun.toLowerCase()} data. A sound source, the glowing orb, sits at Null Island where the equator meets the prime meridian; your position is the small pale dot.`);
   }
   function switchLayer(key) {
     if (key === layerKey) return;
@@ -918,7 +940,7 @@
         if (!overlayTex[k]) overlayTex[k] = tex(gibsUrl(k, latestDay(), -180, -90, 180, 90, 1024, 512), true);
         overlay.material.map = overlayTex[k]; overlay.material.needsUpdate = true;
       }
-      if (st.shownCenter !== center && (center.lat || center.lon)) {
+      if (st.shownCenter !== center) {
         st.shownCenter = center;
         const c = ll(center.lat, center.lon, 1.014); beacon.position.copy(c); halo.position.copy(c);
       }
@@ -1103,14 +1125,14 @@
     stormLevel = previewLevel != null ? previewLevel : realStorm;
     if (ctx && stormGain) {
       const t = ctx.currentTime;
-      stormGain.gain.setTargetAtTime(1.2 * stormLevel, t, 0.08);
+      stormGain.gain.setTargetAtTime(1.2 * stormLevel, t, 0.15);   // a bow eases in and out, it does not click
       // louder AND brighter as the storm intensifies: dull hum in green, harsh and open in red
       stormFilter.frequency.setTargetAtTime(250 + curLayer().bright * Math.pow(stormLevel, 1.5), t, 0.08);
     }
     hud.storm.textContent = field ? Math.round(stormLevel * 100) + '% (' + stormTier(stormLevel) + ')' : 'n/a';
     hud.loc.textContent = field ? `${fmtLat(player.y)}, ${fmtLon(player.x)}` : 'n/a';
 
-    const sdx = srcPos.x - player.x, sdy = srcPos.y - player.y, dist = Math.hypot(sdx, sdy);   // to the hotspot, in degrees
+    const sdx = srcPos.x - player.x, sdy = srcPos.y - player.y, dist = Math.hypot(sdx, sdy);   // to Null Island, in degrees
     hud.pos.textContent = dataTime;
     hud.dist.textContent = Math.round(dist * 111).toLocaleString() + ' km';
     hud.vol.textContent = Math.round(volumeAt(dist) * 100) + '%';
