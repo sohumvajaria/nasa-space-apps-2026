@@ -1,0 +1,20 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: "Oswald"; font-weight: 500; src: url(node_modules/@fontsource/oswald/files/oswald-latin-500-normal.woff2) format("woff2"); }
+@font-face { font-family: "Inter"; font-weight: 500; src: url(node_modules/@fontsource/inter/files/inter-latin-500-normal.woff2) format("woff2"); }
+body { margin: 0; background: #000; }
+</style>
+<script type="importmap">{ "imports": { "three": "./node_modules/three/build/three.module.js" } }</script>
+</head><body><canvas id="c" width="1920" height="1080"></canvas>
+<script type="module">
+import * as THREE from 'three';
+window.THREE = THREE;
+const load = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+await load('lib/stage.js'); await load('geo.js'); await load('style.js');
+const style = STYLES[STYLES.length - 1];
+const samples = +(new URLSearchParams(location.search).get('samples') || 16);
+const W = +(new URLSearchParams(location.search).get('w') || 1920);
+const S = await K.run(document.getElementById('c'), style, { samples, width: W, height: Math.round(W * 9 / 16) });
+window.seek = (t, n) => S.seek(t, n); window.DURATION = style.duration;
+window.ready = true;
+</script></body></html>
