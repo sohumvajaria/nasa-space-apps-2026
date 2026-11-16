@@ -33,7 +33,7 @@ The notes are chosen from A and E, spread across each instrument's natural range
 
 You can also:
 
-- **Press G for the guide.** It first teaches you how to move, out loud, and then you can type or speak questions and commands, like "take me to Tokyo and switch to ocean heat" or "why is it so quiet here?". It answers in short spoken sentences and can switch layers, move you around and change the date.
+- **Press G and just talk.** The guide teaches you how to move out loud, then listens after a soft beep, answers in a sentence or two, and listens again, so you never need a mouse or keyboard. You can also type. Ask things like "take me to Tokyo and switch to ocean heat" or "why is the ocean silent on land heat?", and it can switch layers, move you around and change the date.
 - **Press H** to hear where you are and what's playing, for example "Heavy rain. France, Europe."
 - **Travel through time.** The date slider goes back 30 days, and *Then & now* (T) plays the same calendar day 20 years earlier, so you can hear how a place has changed.
 - **Switch between a flat map and a 3D terrain view** (V), where the data shapes the land and a beam of light marks home.
