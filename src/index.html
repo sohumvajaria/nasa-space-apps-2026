@@ -1346,7 +1346,7 @@
     if ('speechSynthesis' in window) speechSynthesis.cancel();
     duck(false);
   }
-  function voiceSpeak(text) {
+  function voiceSpeak(text, patient) {      // patient: a fresh sentence the server has to make (guide answers) may take a few seconds, so wait for it
     stopSpeech();
     const id = speechId;
     if (ttsOff) { builtinSpeak(text, id); return; }   // no server voice (or it is down): the browser's own voice
@@ -1359,7 +1359,7 @@
       a.pause(); a.removeAttribute('src'); ttsAudio = null;
       builtinSpeak(text, ++speechId);
     };
-    const slow = setTimeout(fallback, 1800);
+    const slow = setTimeout(fallback, patient ? 9000 : 1800);
     a.onplaying = () => { started = true; clearTimeout(slow); if (id === speechId) duck(true); };
     a.onended = () => { if (id === speechId) { duck(false); ttsAudio = null; } };
     a.onerror = () => { if (started) { if (id === speechId) { duck(false); ttsAudio = null; } } else fallback(); };
@@ -2006,7 +2006,8 @@
     }
   }
   async function askGuide(text, viaMic) {
-    const speakIt = t => { if (viaMic) { ensureAudio(); voiceSpeak(t); } else say(t); };   // a spoken question always gets a spoken answer
+    // answers are new text, so the natural voice needs a moment: wait for it instead of giving up after 1.8 seconds
+    const speakIt = t => { if (readerVoice && !viaMic) say(t); else { ensureAudio(); voiceSpeak(t, true); } };
     text = String(text || '').trim();
     if (!text || guideBusy) return;
     guideBusy = true; guideSay('me', text); guideQ.value = '';
