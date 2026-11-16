@@ -1,51 +1,120 @@
-# NASA Space Apps Challenge 2026 — Our Submission
+# Terra-fic Tunes
 
-> One-line pitch: _TODO_
+**Walk across the whole planet by ear, and hear what NASA's satellites see.**
 
-**Challenge:** _TODO (name of the challenge you chose)_
-**Team:** _TODO (team name and members)_
-**Local event:** _TODO_
+Terra-fic Tunes turns real NASA Earth data into sound you can move through. You steer around a map of the world with the arrow keys, and wherever you stand, an instrument plays what the satellites measured there: rain, heat, vegetation, ocean temperature, wind. The stronger the data, the louder and brighter it plays. It was built for the 2026 NASA International Space Apps Challenge, for the challenge called **The Earth Information Jukebox**.
 
-## The Problem
-_What problem does the challenge pose, and why does it matter?_
+**Live site:** https://nasa-space-apps-2026-sandy.vercel.app
 
-## Our Solution
-_What did we build? What does it do?_
+> Team name, local event and demo video are filled in at the bottom of this page.
 
-## Demo
-- Live demo: _TODO_
-- Video: _TODO_
-- Slides: _TODO_
+## Why we made it
 
-## How It Works
-_Architecture, approach, and key decisions._
+Most satellite imagery is a picture, which quietly leaves out anyone who can't see it. That includes the roughly 300 million people worldwide with moderate to severe vision loss, and it also includes everyone listening on a phone in their pocket, or just curious what a hurricane would sound like. Sound is a good fit for this kind of data because it can carry a lot at once: pitch, volume, rhythm, and where a sound seems to come from.
 
-## NASA Data & Resources Used
-| Resource | Link | How we used it |
-|---|---|---|
-| _TODO_ | _TODO_ | _TODO_ |
+Before we wrote any code we searched forums and accessibility threads to see what blind and low-vision users say they miss in weather and data tools. The things that kept coming up were knowing where you are, hearing wind alongside rain, and having cues that tell you which direction something is in. Those shaped a lot of what's below, and a few of them are still on our list.
 
-## Getting Started
+## What it does
+
+You start at a spot just off Null Island, the point at 0° N, 0° E where the equator meets the prime meridian, and you can walk anywhere on Earth from there. A soft pulse plays from Null Island and moves between your left and right ears to show which side home is on, getting quieter as you wander away. That way you can always find your way back by ear alone.
+
+On top of the pulse, an instrument plays the data under your feet. There are five layers, each with its own instrument so you can tell them apart without looking:
+
+| Key | Layer | Instrument | NASA data |
+|---|---|---|---|
+| 1 | Rain | Violin | GPM IMERG precipitation rate |
+| 2 | Land heat | Cello | MODIS Terra land surface temperature |
+| 3 | Plants | Flute | MODIS Terra vegetation index (NDVI) |
+| 4 | Ocean heat | Clarinet | GHRSST MUR sea surface temperature |
+| 5 | Wind | Breeze | MERRA-2 surface wind speed (monthly average) |
+| 6 | Earth Orchestra | All of them | Every layer at once |
+
+The notes are chosen from A and E, spread across each instrument's natural range, so any combination sounds calm and open instead of messy. Walking across the planet means hearing that chord change: a lone clarinet over the open ocean, then violin, cello and flute together over a hot, green, rainy coast. When the data reaches its most extreme level, the instrument trembles the way an orchestra's strings do when something is wrong.
+
+You can also:
+
+- **Press G for the guide.** It first teaches you how to move, out loud, and then you can type or speak questions and commands, like "take me to Tokyo and switch to ocean heat" or "why is it so quiet here?". It answers in short spoken sentences and can switch layers, move you around and change the date.
+- **Press H** to hear where you are and what's playing, for example "Heavy rain. France, Europe."
+- **Travel through time.** The date slider goes back 30 days, and *Then & now* (T) plays the same calendar day 20 years earlier, so you can hear how a place has changed.
+- **Switch between a flat map and a 3D terrain view** (V), where the data shapes the land and a beam of light marks home.
+- **Watch the sound** in a small wave display with one coloured line per instrument, taller when louder.
+
+## Built for people who can't see the screen
+
+Accessibility isn't a mode in this project; the sound is the interface and the visuals are the extra. Everything works from the keyboard, and the map is announced to screen readers with proper labels. There's a *Voice* setting so screen-reader users can have announcements come only through their own reader, instead of hearing two voices at once. On a first visit, a short narrated intro explains how to listen, and S or Escape skips it. The 3D view smooths itself as you walk, touch screens get a drag-to-steer joystick, and phones can buzz when you cross into a stronger level of data.
+
+We haven't yet tested it with blind or low-vision listeners, and that's the thing we most want to do next. Everything here comes from reading what people have written, not from sitting with them, so we expect to be wrong about some of it.
+
+## How it works
+
+It's a static site with two small serverless functions, so there's no build step.
+
+**Data.** Every layer comes from NASA's [GIBS](https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/gibs-api) (Global Imagery Browse Services), which serves satellite maps as ordinary images. We request the whole world for the chosen day as one picture, then turn the colours back into numbers by matching each pixel to the layer's published legend. A little smoothing and a per-layer calibration turn those numbers into a 0 to 1 intensity that drives the sound. Because the numbers come from the legend and not from guesswork, "heavy rain" means what NASA's own scale says it means.
+
+**Sound.** Everything is synthesised live with the Web Audio API, with no audio files. The home pulse is placed in 3D with an HRTF panner so it genuinely sounds like it's off to one side. Each instrument is built from oscillators and filters (bowed sawtooth pairs for the strings, a nearly pure tone with breath for the flute, a square-plus-triangle blend for the clarinet's hollow sound), and its volume and brightness follow the data under you.
+
+**Voice.** Spoken announcements use [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M), an open-source speech model that runs entirely in your browser on the graphics card. It's free, needs no key, and what it says never leaves your device. The model is about 160 MB the first time and cached after that. Where it isn't available, which includes most phones, the browser's own voice takes over instantly, so you never wait for a sentence.
+
+**Graphics.** The hero globe and the 3D terrain use [Three.js](https://threejs.org/). The terrain is fixed to the world and bends away from you on the graphics card as you walk, which keeps it smooth instead of popping when the view re-centres.
+
+**The guide.** `api/guide.js` sends your question, plus a small snapshot of what the app is doing, to a Claude model (Haiku 5.5 by default). It replies in plain speech and can ask the page to do things through a short list of tools. It needs an API key, but the rest of the app doesn't, and if the guide is offline the page still teaches you the controls.
+
+## Data and credits
+
+Everything you hear comes from NASA data, accessed through GIBS:
+
+| Resource | What we used it for |
+|---|---|
+| [GPM IMERG](https://gpm.nasa.gov/data/imerg) `IMERG_Precipitation_Rate` | Rain |
+| [MODIS Terra](https://modis.gsfc.nasa.gov/) `MODIS_Terra_Land_Surface_Temp_Day` | Land heat |
+| MODIS Terra `MODIS_Terra_NDVI_8Day` | Plants |
+| [GHRSST MUR](https://podaac.jpl.nasa.gov/) `GHRSST_L4_MUR_Sea_Surface_Temperature` | Ocean heat |
+| [MERRA-2](https://gmao.gsfc.nasa.gov/reanalysis/MERRA-2/) `MERRA2_Surface_Wind_Speed_Monthly` | Wind |
+| `BlueMarble_ShadedRelief_Bathymetry` | The base map under the data |
+
+The data is courtesy of NASA's Earth Science Data Systems and GIBS. The wind layer is a monthly average of wind speed (the newest month NASA publishes), not the wind outside right now, because GIBS doesn't offer live wind or wind direction.
+
+Open-source pieces: [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) and `kokoro-js` (Apache 2.0) for the voice, [Three.js](https://threejs.org/) for graphics, and Claude from Anthropic for the optional guide. The narrated intro was voiced with Gemini.
+
+## Honest limits
+
+We'd rather you know what this can't do before you try it.
+
+- **It isn't live.** GIBS publishes daily frames, and some layers update less often than that, so you're hearing yesterday, not this minute. There are no forecasts.
+- **Clouds leave gaps.** Satellites can't see through clouds for some layers, and gaps are silent on purpose, so quiet doesn't always mean "nothing there".
+- **Wind is a monthly average of speed only.** There's no direction and no today's-gusts.
+- **Phones use the browser voice.** The natural voice needs WebGPU, which most phones and some browsers don't have yet.
+- **Then & now compares single days.** Weather plays a part, so it's an impression of change, not a climate trend.
+
+## Run it yourself
+
+The site is plain HTML, CSS and JavaScript in `src/`, so any static server works:
+
 ```bash
 git clone https://github.com/sohumvajaria/nasa-space-apps-2026.git
-cd nasa-space-apps-2026
-# TODO: install and run instructions
+cd nasa-space-apps-2026/src
+python3 -m http.server 8000
+# open http://localhost:8000
 ```
 
-## Repo Layout
-- `src/` — source code
-- `data/` — datasets or links to them (keep large files out of git)
-- `docs/` — write-ups, diagrams, and slides
+That gives you everything except the guide and the optional server voice, which are serverless functions in `api/`. To run those too, use the [Vercel CLI](https://vercel.com/docs/cli) from the repo root with `vercel dev`.
+
+To deploy your own copy, import the repo into Vercel (the included `vercel.json` already points at `src/`). For the guide, add an `ANTHROPIC_API_KEY` environment variable in the project settings and set a small monthly spend limit in the Anthropic console, since the endpoint is public once deployed. An optional `ELEVENLABS_API_KEY` or `OPENAI_API_KEY` turns on a server voice for devices without WebGPU. Never put a key in the code.
+
+## What's in the repo
+
+- `src/` is the app. `index.html` is the main page, `features.html` is the full feature tour, and `intro/` holds the narrated tutorial.
+- `api/guide.js` is the voice guide, and `api/tts.js` is the optional server voice.
+- `tools/` has helper scripts, and `data/` and `docs/` are for datasets and write-ups.
 
 ## Team
-_Names and roles._
 
-## Acknowledgments
-Built for the [NASA International Space Apps Challenge](https://www.spaceappschallenge.org/). Thanks to NASA and its partner agencies for open data.
+Built by Sohum Vajaria ([@sohumvajaria](https://github.com/sohumvajaria)), [@pranav-ysv](https://github.com/pranav-ysv) and [@sid-darth-vater](https://github.com/sid-darth-vater), with a lot of help from Claude.
+
+- **Team name:** _to add_
+- **Local event:** _to add_
+- **Demo video:** _to add_
 
 ## License
-MIT — see [LICENSE](LICENSE).
 
-## Voice
-
-Spoken announcements use Kokoro-82M (hexgrad, Apache 2.0), an open-source text-to-speech model that runs in the browser on WebGPU: free, no key, text never leaves the device. About 160 MB, downloaded once and cached. Falls back to the browser voice where WebGPU is unavailable. An optional server voice can be enabled with an API key (api/tts.js).
+MIT, see [LICENSE](LICENSE).

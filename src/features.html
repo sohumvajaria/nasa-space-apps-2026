@@ -74,16 +74,16 @@
     <h2 id="how">How it works</h2>
     <p>Most satellite maps are pictures, which leaves out anyone who cannot see them. Terra-fic Tunes turns real NASA satellite data into sound you can move through, using headphones and a keyboard.</p>
     <ol class="steps">
-      <li>Pick a layer: rain, land heat, plants, ocean heat, fires, snow and ice or wind.</li>
+      <li>Pick a layer: rain, land heat, plants, ocean heat or wind.</li>
       <li>A soft pulse beats from Null Island (0, 0), where the equator meets the prime meridian, shown as a glowing orb on a map of the whole world. You start a little way off. Walk toward it with the arrow keys, or walk anywhere else on Earth.</li>
       <li>It gets louder as you get closer, and you hear which side it is on.</li>
-      <li>An instrument joins in where the data is intense: violin for rain, cello for land heat, flute for plants, clarinet for ocean heat, a crackle for fires, glass bells for snow and ice and a breeze for wind. The stronger the data under you, the louder and brighter it plays. Press 8 for the Earth Orchestra: all five at once.</li>
+      <li>An instrument joins in where the data is intense: violin for rain, cello for land heat, flute for plants, clarinet for ocean heat, and a breeze for wind. The stronger the data under you, the louder and brighter it plays. Press 8 for the Earth Orchestra: all five at once.</li>
     </ol>
   </section>
 
   <section aria-labelledby="layers">
     <span class="k">Data</span>
-    <h2 id="layers">Seven map layers</h2>
+    <h2 id="layers">Five map layers</h2>
     <p>Each layer is a different part of the planet, from a different NASA dataset. Each has its own instrument, so you can tell them apart by ear. Layers are served live by <a href="https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/gibs-api">NASA GIBS</a>.</p>
     <div class="tablewrap">
       <table>
@@ -93,8 +93,6 @@
           <tr><td>Land heat</td><td>MODIS Terra land surface temperature</td><td>Cello. Fuller and brighter on hotter ground. Oceans are silent.</td><td>cold, mild, hot, scorching</td></tr>
           <tr><td>Plants</td><td>MODIS Terra vegetation index (NDVI)</td><td>Flute. Fuller over dense forest.</td><td>sparse, moderate, lush, dense</td></tr>
           <tr><td>Ocean heat</td><td>GHRSST MUR sea surface temperature</td><td>Clarinet. Warmer and louder as the water heats up. Land is silent.</td><td>cold, cool, warm, very warm</td></tr>
-          <tr><td>Fires</td><td>MODIS Terra thermal anomalies (active fires)</td><td>A crackle. A few pops for a few fires, a roar for many.</td><td>no fires, a few, some, many, widespread</td></tr>
-          <tr><td>Snow and ice</td><td>MODIS Terra snow cover and GHRSST sea ice concentration</td><td>Glass bells. A faint shimmer over a dusting, full and bright over solid ice.</td><td>no snow or ice, a dusting, patchy, snow-covered, solid ice</td></tr>
           <tr><td>Wind</td><td>MERRA-2 surface wind speed, a monthly average (newest month NASA publishes). Speed only: NASA's map service has no wind direction.</td><td>A breeze that swells. A whisper where calm, a rush where windy.</td><td>calm, light breeze, windy, very windy, gale-force</td></tr>
         </tbody>
       </table>
@@ -108,7 +106,7 @@
     <ul class="feat">
       <li><strong>Spatial audio</strong>Binaural 3D sound (HRTF) from the browser's Web Audio engine. Use headphones and you can tell left from right, and ahead from behind.</li>
       <li><strong>Distance as volume</strong>Volume falls off smoothly with distance and never drops to silence, so you can always follow the pulse back to Null Island, from anywhere on Earth.</li>
-      <li><strong>The Earth Orchestra</strong>Press <kbd>8</kbd> and all seven layers play at once, each on its own instrument. Together they spell one open A major chord, spread from the cello's low A up to the flute's high E, with the fire, bells and breeze around it, so any mix sounds calm and full: walk across the planet and hear its chord change, from a lone clarinet over the open ocean to violin, cello, flute and crackling fire over a hot, green, stormy, burning coast. The map shows every layer at once, each in its instrument's color: violin blue, cello red, flute green, clarinet teal, fire pink, snow and ice white, wind mint.</li>
+      <li><strong>The Earth Orchestra</strong>Press <kbd>6</kbd> and all five layers play at once, each on its own instrument. Together they play open fifths on A and E, spread from the cello's low A up to the flute's high E, so any mix sounds calm and full: walk across the planet and hear its chord change, from a lone clarinet over the open ocean to violin, cello and flute over a hot, green, stormy coast. The map shows every layer at once, each in its instrument's color: violin blue, cello red, flute green, clarinet teal, wind mint.</li>
       <li><strong>Two jobs, never mixed</strong>A soft pulse at Null Island (0, 0) tells you where the center is: one warm, round tone per beat that pans and fades with distance. The instruments tell you what is under you, louder and brighter as the data gets more intense. They do not pan or fade as you walk, so their loudness only ever means the data.</li>
       <li><strong>Always know your layer</strong>Every switch is announced ("Layer 2 of 6: Land heat, played by the cello", or just "Earth Orchestra") and plays that instrument's note, like a sound logo. Press <kbd>L</kbd> any time to hear it again.</li>
       <li><strong>Intensity is loudness and brightness</strong>The layer's note gets louder and its tone opens up as the data intensifies, so strong areas sound sharper as well as louder.</li>
@@ -121,6 +119,7 @@
     <span class="k">Exploring</span>
     <h2 id="explore">Moving and understanding</h2>
     <ul class="feat">
+      <li><strong>A guide you can talk to</strong>Press <kbd>G</kbd> and it first teaches you how to move, out loud. Then you can type or speak a question or a command, like "take me to Tokyo and switch to ocean heat", and it answers in short spoken sentences and does it for you: switching layers, moving you, changing the date, flipping between flat and 3D, and muting. It uses a Claude model and works only when a key is set on the server; without one, it still teaches the controls.</li>
       <li><strong>Walk the map</strong>Arrow keys or WASD, with Shift to move faster. On a phone or tablet, press anywhere on the map and drag like a joystick: pull a little to walk, farther to go faster. You always face north.</li>
       <li><strong>Vibration</strong>On phones that support it, the device buzzes when you walk into stronger data, with a stronger pattern for stronger levels. It can be switched off.</li>
       <li><strong>Spoken summary on demand</strong>Press <kbd>H</kbd> for a short spoken line such as "Heavy rain. France, Europe." It names the country and continent, or the sea, using public-domain Natural Earth outlines that load with the page, so it works without any extra service. It is short on purpose, so you only hear it when you ask. The text is also kept in the page for screen readers.</li>
@@ -153,9 +152,10 @@
           <tr><td><kbd>&larr;</kbd> <kbd>&uarr;</kbd> <kbd>&darr;</kbd> <kbd>&rarr;</kbd> or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></td><td>Move on the map</td></tr>
           <tr><td><kbd>Shift</kbd></td><td>Move faster</td></tr>
           <tr><td>Press and drag on the map</td><td>Move (touch or mouse)</td></tr>
+          <tr><td><kbd>G</kbd></td><td>Open the guide: learn how to move, then ask questions or give commands. Escape closes it</td></tr>
           <tr><td><kbd>H</kbd></td><td>Hear where you are and what is playing</td></tr>
           <tr><td><kbd>L</kbd></td><td>Hear which layer you are on</td></tr>
-          <tr><td><kbd>1</kbd> to <kbd>8</kbd></td><td>Switch layer: rain, land heat, plants, ocean heat, fires, snow and ice, wind, Earth Orchestra (8)</td></tr>
+          <tr><td><kbd>1</kbd> to <kbd>6</kbd></td><td>Switch layer: rain, land heat, plants, ocean heat, wind, Earth Orchestra (6)</td></tr>
           <tr><td><kbd>V</kbd></td><td>3D terrain / flat map</td></tr>
           <tr><td><kbd>M</kbd></td><td>Mute</td></tr>
           <tr><td><kbd>Tab</kbd></td><td>Reach the layer buttons, sound key and date slider. With the slider focused, the arrow keys change the date.</td></tr>
