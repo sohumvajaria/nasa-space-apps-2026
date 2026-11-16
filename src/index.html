@@ -1583,6 +1583,22 @@
     const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
     halo.scale.set(0.26, 0.26, 1);
     spin.add(beacon, halo);
+    // a beam of light shooting straight out of the planet at the equator / prime meridian crossing, like the one on the terrain map
+    const BEAM_LEN = 0.9;
+    const beamMat = new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+      uniforms: { uI: { value: 1 }, uC: { value: new THREE.Color(0xf3d9a0) } },
+      vertexShader: 'varying float vH; varying vec3 vN2; void main(){ vH = uv.y; vN2 = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: 'varying float vH; varying vec3 vN2; uniform float uI; uniform vec3 uC; void main(){ float fade = pow(1.0 - vH, 1.6); float edge = pow(abs(vN2.z), 0.7) * 0.6 + 0.4; gl_FragColor = vec4(uC, 1.0) * fade * edge * uI * 0.75; }',
+    });
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.05, BEAM_LEN, 24, 1, true), beamMat);
+    const beamCore = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.016, BEAM_LEN, 12, 1, true), beamMat.clone());
+    beamCore.material.uniforms = { uI: { value: 1.4 }, uC: { value: new THREE.Color(0xfff3d6) } };
+    spin.add(beam, beamCore);
+    const placeBeam = c => {
+      const n = c.clone().normalize();
+      [beam, beamCore].forEach(m => { m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), n); m.position.copy(n).multiplyScalar(1.0 + BEAM_LEN / 2); });
+    };
     const meDot = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, color: 0x9fe0cc }));
     meDot.scale.set(0.12, 0.12, 1); spin.add(meDot);
     outline.visible = false;
@@ -1614,7 +1630,7 @@
       }
       if (st.shownCenter !== center) {
         st.shownCenter = center;
-        const c = ll(center.lat, center.lon, 1.014); beacon.position.copy(c); halo.position.copy(c);
+        const c = ll(center.lat, center.lon, 1.014); beacon.position.copy(c); halo.position.copy(c); placeBeam(c);
       }
     }
 
@@ -1642,6 +1658,7 @@
       atm.material.uniforms.uI.value = st.atmI; rim.material.uniforms.uI.value = st.atmI * 0.9;
       const pulse = 1 + 0.25 * Math.sin(now / 420);
       halo.scale.set(0.26 * pulse, 0.26 * pulse, 1);
+      beamMat.uniforms.uI.value = 0.85 + 0.25 * Math.sin(now / 700);
       renderer.render(scene, camera);
     };
     return st;
