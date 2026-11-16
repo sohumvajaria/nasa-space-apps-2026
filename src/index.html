@@ -1234,6 +1234,7 @@
   // [CLAUDE FIX] Announcements used to go to BOTH the built-in voice and the screen reader, so screen reader users heard
   // two voices at once. "Voice" now chooses one: built-in (default, for people without a screen reader) or screen reader.
   let readerVoice = false;
+  let ttsOff = false, ttsAudio = null, speechId = 0;   // declared before first use (the voice button reads ttsOff when the page loads)
   try { readerVoice = localStorage.getItem('ej-voice') === 'reader'; } catch (e) {}
   const voiceBtn = document.getElementById('voice');
   function applyVoiceUI() {
@@ -1270,7 +1271,6 @@
   //   2. the browser's own voice: the most natural one it has, a little slower and lower. It is also the instant
   //      fallback whenever the server voice is slow, down or out of credit, so the listener never waits in silence.
   // While anyone speaks, the music dips so the words are easy to hear.
-  let ttsOff = false, ttsAudio = null, speechId = 0;
   function duck(on) { if (ctx && duckNode) duckNode.gain.setTargetAtTime(on ? 0.4 : 1, ctx.currentTime, 0.12); }
   const voiceUrl = text => '/api/tts?text=' + encodeURIComponent(text) + (styleI ? '&voice=' + STYLES[styleI][0] : '');
   // Ask once, for free, whether a neural voice is set up on the server. If not, the browser's voice is used from the start.
