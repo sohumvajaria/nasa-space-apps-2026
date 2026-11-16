@@ -963,6 +963,7 @@
     const li = ['1', '2', '3', '4', '5', '6'].indexOf(e.key);
     if (li >= 0) switchLayer(LAYER_ORDER[li]);
     if (e.key.toLowerCase() === 'l') say(layerAnnouncement());     // which layer am I on?
+    if (e.key.toLowerCase() === 'o') say(homeText());               // Orient: how far is home, and which way
     if (e.key.toLowerCase() === 'm') toggleMute();
     if (e.metaKey || e.ctrlKey || e.altKey) return;            // leave browser shortcuts (Cmd+N, Ctrl+I...) alone
     if (e.code === 'Comma' || e.code === 'Period') {           // , and . step the date a day; with Shift, a week
@@ -1536,6 +1537,14 @@
     vol: document.getElementById('vol'), storm: document.getElementById('storm'), loc: document.getElementById('loc'), brg: document.getElementById('brg'),
   };
 
+  function homeText() {                     // spoken distance and compass direction to Null Island (you always face north)
+    const dx = srcPos.x - player.x, dy = srcPos.y - player.y, km = Math.hypot(dx, dy) * 111;
+    if (km < 55) return 'You are at home, Null Island, where the equator meets the prime meridian.';
+    const pts = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
+    const dir = pts[Math.round(((Math.atan2(dx, dy) * 180 / Math.PI) + 360) % 360 / 45) % 8];
+    const r = km < 1000 ? Math.round(km / 10) * 10 : Math.round(km / 100) * 100;
+    return `Home is about ${r.toLocaleString()} kilometers away, to the ${dir}.`;
+  }
   function compass(dx, dy) {
     // direction from listener to source, as clock-style description
     if (Math.hypot(dx, dy) < 0.5) return 'here';
@@ -1939,7 +1948,7 @@
     return 'Guide open. To move, use the arrow keys or W A S D, and hold Shift to go faster. On a phone, drag on the map. ' +
       'A soft pulse plays from home, Null Island, where the equator meets the prime meridian. It moves to your left or right ear to show which side home is on, and gets quieter as you walk away. ' +
       `An instrument plays the data under you, louder where it is stronger. Press 1 to ${n} to switch layers and ${n + 1} for the whole orchestra. ` +
-      'H tells you where you are, comma and period change the day, T goes back to 2006, and V flips between flat and 3D. ' +
+      'H tells you where you are, O tells you how far home is and which way, comma and period change the day, T goes back to 2006, and V flips between flat and 3D. ' +
       'Type a question and press Enter, or press Escape to go back to the map.';
   }
   function openGuide() {
