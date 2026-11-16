@@ -1259,17 +1259,6 @@
     if (orchestra) return 'Earth Orchestra.';
     return `Layer ${LAYER_ORDER.indexOf(layerKey) + 1} of ${LAYER_ORDER.length}: ${LABEL[layerKey]}, played by the ${ORCHESTRA[layerKey].name}.`;
   }
-  // sound logo: the layer's instrument plays its note for a moment; the orchestra plays a quick roll call, then all together
-  let logo = null;
-  function startLogo() {
-    if (!ctx) return;
-    const keys = orchestra ? [...Object.keys(ORCHESTRA), '*'] : [layerKey], step = orchestra ? 380 : 1100;
-    logo = { t0: performance.now(), keys, step, end: performance.now() + keys.length * step + (orchestra ? 500 : 0) };
-  }
-  function logoLevel(k, now) {
-    const slot = logo.keys[Math.min(logo.keys.length - 1, Math.floor((now - logo.t0) / logo.step))];
-    return slot === k || slot === '*' ? 0.55 : 0;
-  }
 
   // ---------- spoken summary (on demand) ----------
   function summaryText() {                   // short on purpose: "Heavy rain. France, Europe."
@@ -1325,7 +1314,6 @@
       else if (wasOrch) { applyLayerUI(); loadWindow(); }   // back to this layer's own map
       else { say(layerAnnouncement()); return; }
     }
-    startLogo();
     say(layerAnnouncement());
   }
   layerBtns.forEach(b => b.addEventListener('click', () => { switchLayer(b.dataset.layer); toMap(b); }));
@@ -1844,13 +1832,11 @@
     Object.keys(LAYERS).forEach(k => { levels[k] = levelAt(k, player.x, player.y); });
     realStorm = orchestra ? Math.max(...Object.values(levels)) : levels[layerKey];
     stormLevel = previewLevel != null ? previewLevel : realStorm;
-    if (logo && now > logo.end) logo = null;
     if (ctx && orchBus) {
       const t = ctx.currentTime;
       Object.keys(voices).forEach(k => {
         const v = voices[k];
         let lv = (orchestra || k === layerKey) ? (previewLevel != null ? previewLevel : levels[k]) : 0;
-        if (logo) lv = logoLevel(k, now);        // while the sound logo plays, only it is heard
         v.cur = lv;
         v.level.gain.setTargetAtTime(1.2 * lv, t, 0.15);   // instruments ease in and out, they do not click
         // louder AND brighter as the data intensifies
