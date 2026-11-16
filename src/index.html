@@ -245,7 +245,7 @@
 
   <div class="row">
     <button type="button" class="pill" id="speak">Hear summary<kbd>H</kbd></button>
-    <button type="button" class="pill" id="guidebtn" aria-pressed="false">Guide<kbd>G</kbd></button>
+    <button type="button" class="pill" id="guidebtn" aria-pressed="false">GeoAssistant<kbd>G</kbd></button>
     <button type="button" class="pill" id="mute" aria-pressed="false">Mute<kbd>M</kbd></button>
     <button type="button" class="pill" id="haptics" aria-pressed="true" hidden>Vibration: on<kbd>B</kbd></button>
     <button type="button" class="pill" id="view" aria-pressed="true">3D terrain<kbd>V</kbd></button>
@@ -302,18 +302,18 @@
       <li><kbd>,</kbd> One day back. <kbd>.</kbd> One day forward. Add <kbd>Shift</kbd> for a week.</li>
       <li><kbd>T</kbd> Go back to 2006. Press again to return.</li>
       <li><kbd>7</kbd> <kbd>8</kbd> <kbd>9</kbd> <kbd>0</kbd> Sound key, from weakest to strongest.</li>
-      <li><kbd>V</kbd> 3D or flat map. <kbd>M</kbd> Mute. <kbd>G</kbd> Guide. <kbd>I</kbd> Replay intro.</li>
+      <li><kbd>V</kbd> 3D or flat map. <kbd>M</kbd> Mute. <kbd>G</kbd> GeoAssistant. <kbd>I</kbd> Replay intro.</li>
       <li><kbd>N</kbd> Voice. Choose "screen reader" if you use one.</li>
       <li><kbd>B</kbd> Vibration on or off (phones).</li>
     </ul>
   </details>
 </main>
 
-  <section class="group" id="guide" aria-label="Guide" hidden>
-    <span class="k">Guide <kbd>G</kbd></span>
+  <section class="group" id="guide" aria-label="GeoAssistant" hidden>
+    <span class="k">GeoAssistant <kbd>G</kbd></span>
     <div id="guidelog" aria-live="off"></div>
     <form id="guideform" autocomplete="off">
-      <label for="guideq" class="sr">Ask the guide</label>
+      <label for="guideq" class="sr">Ask GeoAssistant</label>
       <input id="guideq" type="text" maxlength="300" placeholder="Ask anything, or say what to do">
       <button type="submit" class="pill" id="guidego">Ask</button>
       <button type="button" class="pill" id="guidemic" hidden aria-pressed="false">Speak</button>
@@ -1338,7 +1338,9 @@
     let fired = false;
     return () => { if (fired || id !== speechId) return; fired = true; if (done) done(); };
   }
+  const sayable = t => String(t).replace(/GeoAssistant/g, 'Geo Assistant');   // so every voice says the name as two words
   function builtinSpeak(text, id, done) {
+    text = sayable(text);
     if (!('speechSynthesis' in window)) { if (done) done(); return; }
     speechSynthesis.cancel();
     const fin = onceDone(done, id);
@@ -1369,6 +1371,7 @@
   }
   // done: called when it finishes. patient: a fresh sentence the server has to make (guide answers) may take a few seconds, so wait for it
   function voiceSpeak(text, done, patient) {
+    text = sayable(text);
     stopSpeech();
     const id = speechId;
     if (ttsOff) { builtinSpeak(text, id, done); return; }   // no server voice (or it is down): the browser's own voice
@@ -1981,7 +1984,7 @@
   }
   function guideIntro() {                          // works with no internet and no key: this is how you learn to move
     const n = LAYER_ORDER.length - 1;
-    return 'Guide open. To move, use the arrow keys or W A S D, and hold Shift to go faster. On a phone, drag on the map. ' +
+    return 'GeoAssistant open. To move, use the arrow keys or W A S D, and hold Shift to go faster. On a phone, drag on the map. ' +
       'A soft pulse plays from home, Null Island, where the equator meets the prime meridian. It moves to your left or right ear to show which side home is on, and gets quieter as you walk away. ' +
       `An instrument plays the data under you, louder where it is stronger. Press 1 to ${n} to switch layers and ${n + 1} for the whole orchestra. ` +
       'H tells you where you are, O tells you how far home is and which way, comma and period change the day, T goes back to 2006, and V flips between flat and 3D. ' +
@@ -1993,9 +1996,9 @@
   let micBlocked = false;
   const canListen = () => !!SR && !micBlocked;
   function guideHello(first) {
-    if (!canListen()) return first ? guideIntro() : 'Guide. Type a question and press Enter.';
-    return first ? 'Guide open. Ask me anything out loud, like "where am I?" or "take me to Japan." Say "how do I move?" to hear the keys. Escape closes the guide.'
-                 : 'Guide. What would you like to know?';
+    if (!canListen()) return first ? guideIntro() : 'GeoAssistant. Type a question and press Enter.';
+    return first ? 'GeoAssistant open. Ask me anything out loud, like "where am I?" or "take me to Japan." Say "how do I move?" to hear the keys. Escape closes it.'
+                 : 'GeoAssistant. What would you like to know?';
   }
   function openGuide() {
     ensureAudio();
@@ -2013,7 +2016,7 @@
     resumeMic = false; try { stopMic(); } catch (e) {}
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     toMap(guideBtn);
-    say('Guide closed.');
+    say('GeoAssistant closed.');
   }
   function toggleGuide() { if (guideEl.hidden) openGuide(); else closeGuide(); }
   guideBtn.addEventListener('click', () => { toggleGuide(); });
@@ -2057,7 +2060,7 @@
     if (!text || guideBusy) return;
     guideSay('me', text); guideQ.value = '';
     if (/\b(how (do|can|to) (i )?(move|walk|use|play|get around)|help|instructions|what (are the )?keys|controls)\b/i.test(text)) {
-      const m = guideIntro().replace(/^Guide open\. /, '').replace(/ Type a question.*$/, '');   // answered here, so it works offline too
+      const m = guideIntro().replace(/^GeoAssistant open\. /, '').replace(/ Type a question.*$/, '');   // answered here, so it works offline too
       guideSay('bot', m); speakIt(m); return;
     }
     guideBusy = true;
@@ -2082,7 +2085,7 @@
       guideHistory.push({ role: 'user', text }, { role: 'assistant', text: reply });
     } catch (e) {
       wait.remove();
-      const m = 'The guide cannot answer right now. You can still move with the arrow keys, switch layers with the number keys, and press H to hear where you are.';
+      const m = 'GeoAssistant cannot answer right now. You can still move with the arrow keys, switch layers with the number keys, and press H to hear where you are.';
       guideSay('bot', m); speakIt(m);
     }
     guideBusy = false;

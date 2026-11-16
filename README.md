@@ -33,7 +33,7 @@ The notes are chosen from A and E, spread across each instrument's natural range
 
 You can also:
 
-- **Press G and just talk.** The guide teaches you how to move out loud, then listens after a soft beep, answers in a sentence or two, and listens again, so you never need a mouse or keyboard. You can also type. Ask things like "take me to Tokyo and switch to ocean heat" or "why is the ocean silent on land heat?", and it can switch layers, move you around and change the date.
+- **Press G and just talk to GeoAssistant.** It teaches you how to move out loud, then listens after a soft beep, answers in a sentence or two, and listens again, so you never need a mouse or keyboard. You can also type. Ask things like "take me to Tokyo and switch to ocean heat" or "why is the ocean silent on land heat?", and it can switch layers, move you around and change the date.
 - **Press H** to hear where you are and what's playing, for example "Heavy rain. France, Europe."
 - **Travel through time.** The date slider goes back 30 days, and *Then & now* (T) plays the same calendar day 20 years earlier, so you can hear how a place has changed.
 - **Switch between a flat map and a 3D terrain view** (V), where the data shapes the land and a beam of light marks home.
@@ -57,7 +57,7 @@ It's a static site with two small serverless functions, so there's no build step
 
 **Graphics.** The hero globe and the 3D terrain use [Three.js](https://threejs.org/). The terrain is fixed to the world and bends away from you on the graphics card as you walk, which keeps it smooth instead of popping when the view re-centres.
 
-**The guide.** `api/guide.js` sends your question, plus a small snapshot of what the app is doing, to a Claude model (Haiku 5.5 by default). It replies in plain speech and can ask the page to do things through a short list of tools. It needs an API key, but the rest of the app doesn't, and if the guide is offline the page still teaches you the controls.
+**GeoAssistant.** `api/guide.js` sends your question, plus a small snapshot of what the app is doing, to a Claude model (Haiku 5.5 by default). It replies in plain speech and can ask the page to do things through a short list of tools. It needs an API key, but the rest of the app doesn't, and if GeoAssistant is offline the page still teaches you the controls.
 
 ## Data and credits
 
@@ -74,7 +74,7 @@ Everything you hear comes from NASA data, accessed through GIBS:
 
 The data is courtesy of NASA's Earth Science Data Systems and GIBS. The wind layer is a monthly average of wind speed (the newest month NASA publishes), not the wind outside right now, because GIBS doesn't offer live wind or wind direction.
 
-Other pieces: [Three.js](https://threejs.org/) for graphics, OpenAI for the spoken voice, and Claude from Anthropic for the guide. The narrated intro was voiced with Gemini.
+Other pieces: [Three.js](https://threejs.org/) for graphics, OpenAI for the spoken voice, and Claude from Anthropic for GeoAssistant. The narrated intro was voiced with Gemini.
 
 ## Honest limits
 
@@ -97,14 +97,14 @@ python3 -m http.server 8000
 # open http://localhost:8000
 ```
 
-That gives you everything except the guide and the natural voice, which are serverless functions in `api/`. To run those too, use the [Vercel CLI](https://vercel.com/docs/cli) from the repo root with `vercel dev`.
+That gives you everything except GeoAssistant and the natural voice, which are serverless functions in `api/`. To run those too, use the [Vercel CLI](https://vercel.com/docs/cli) from the repo root with `vercel dev`.
 
-To deploy your own copy, import the repo into Vercel (the included `vercel.json` already points at `src/`). For the guide, add an `ANTHROPIC_API_KEY` environment variable in the project settings and set a small monthly spend limit in the Anthropic console, since the endpoint is public once deployed. An `OPENAI_API_KEY` turns on the natural voice (an `ELEVENLABS_API_KEY` works too); without one, the browser's own voice is used. Never put a key in the code.
+To deploy your own copy, import the repo into Vercel (the included `vercel.json` already points at `src/`). For GeoAssistant, add an `ANTHROPIC_API_KEY` environment variable in the project settings and set a small monthly spend limit in the Anthropic console, since the endpoint is public once deployed. An `OPENAI_API_KEY` turns on the natural voice (an `ELEVENLABS_API_KEY` works too); without one, the browser's own voice is used. Never put a key in the code.
 
 ## What's in the repo
 
 - `src/` is the app. `index.html` is the main page, `features.html` is the full feature tour, and `intro/` holds the narrated tutorial.
-- `api/guide.js` is the voice guide, and `api/tts.js` is the natural voice.
+- `api/guide.js` is GeoAssistant, the voice assistant, and `api/tts.js` is the natural voice.
 - `tools/` has helper scripts, and `data/` and `docs/` are for datasets and write-ups.
 
 ## Team
