@@ -1,4 +1,4 @@
-// Earth Jukebox Navigator (navigator.html): explore the whole world by ear.
+// Terra-fic Tunes Navigator (navigator.html): explore the whole world by ear.
 // A separate page from index.html for now; the two can be combined later.
 //
 // SOUND DEFINITIONS: each sound means exactly one thing.
@@ -682,7 +682,7 @@
   document.getElementById('start').addEventListener('click', async () => {
     await ensureAudio();
     document.getElementById('map').focus();
-    say('Earth Jukebox ready. ' + whereText(true) + ' Press H for help.');
+    say('Terra-fic Tunes ready. ' + whereText(true) + ' Press H for help.');
   });
 
   const HELP = 'Arrow keys move, hold Shift to go faster. Space goes home to zero, zero. ' +
