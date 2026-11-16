@@ -105,7 +105,7 @@ module.exports = async (req, res) => {
     const content = Array.isArray(j.content) ? j.content : [];
     const reply = content.filter(b => b.type === 'text').map(b => b.text).join(' ').trim();
     const actions = content.filter(b => b.type === 'tool_use').map(b => ({ tool: b.name, input: b.input }));
-    return res.status(200).json({ reply, actions });
+    return res.status(200).json({ reply, actions, stop: j.stop_reason, blocks: content.map(b => b.type), out_tokens: j.usage && j.usage.output_tokens });
   } catch (e) {
     return res.status(500).json({ error: 'guide failed' });
   }
