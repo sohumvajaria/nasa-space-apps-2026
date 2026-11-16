@@ -33,9 +33,9 @@ The notes are chosen from A and E, spread across each instrument's natural range
 
 You can also:
 
-- **Press G and just talk to GeoAssistant.** It teaches you how to move out loud, then listens after a soft beep, answers in a sentence or two, and listens again, so you never need a mouse or keyboard. You can also type. Ask things like "take me to Tokyo and switch to ocean heat" or "why is the ocean silent on land heat?", and it can switch layers, move you around and change the date.
+- **Press G and just talk to GeoAssistant.** It listens after a soft beep, answers in a sentence, and listens again, so you never need a mouse or keyboard. Say "how do I move?" to hear the keys. You can also type. Ask things like "take me to Tokyo and switch to ocean heat" or "why is the ocean silent on land heat?", and it can switch layers, move you around and change the date.
 - **Press H** to hear where you are and what's playing, for example "Heavy rain. France, Europe."
-- **Travel through time.** The date slider goes back 30 days, and *Then & now* (T) plays the same calendar day 20 years earlier, so you can hear how a place has changed.
+- **Travel through time.** The date slider (or the comma and period keys) goes back 30 days, and *Go back to 2006* (T) plays the same calendar day 20 years earlier, so you can hear how a place has changed.
 - **Switch between a flat map and a 3D terrain view** (V), where the data shapes the land and a beam of light marks home.
 - **Watch the sound** in a small wave display with one coloured line per instrument, taller when louder.
 
@@ -84,7 +84,7 @@ We'd rather you know what this can't do before you try it.
 - **Clouds leave gaps.** Satellites can't see through clouds for some layers, and gaps are silent on purpose, so quiet doesn't always mean "nothing there".
 - **Wind is a monthly average of speed only.** There's no direction and no today's-gusts.
 - **The natural voice needs the server.** If its key is missing, out of credit or the connection is slow, you hear the browser's own voice instead, which varies by device and sounds more robotic.
-- **Then & now compares single days.** Weather plays a part, so it's an impression of change, not a climate trend.
+- **Going back to 2006 compares single days.** Weather plays a part, so it's an impression of change, not a climate trend.
 
 ## Run it yourself
 

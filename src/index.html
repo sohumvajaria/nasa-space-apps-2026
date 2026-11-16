@@ -320,7 +320,7 @@
       <li>Violin is rain, cello is land heat, flute is plants, clarinet is ocean heat, and the breeze is wind. Louder means stronger.</li>
       <li>A shaking sound means extreme data.</li>
       <li><kbd>1</kbd> to <kbd>5</kbd> Change layer. <kbd>6</kbd> Earth Orchestra (all layers).</li>
-      <li><kbd>H</kbd> Where you are. <kbd>L</kbd> Current layer.</li>
+      <li><kbd>H</kbd> Where you are. <kbd>O</kbd> How far home is. <kbd>L</kbd> Current layer.</li>
       <li><kbd>,</kbd> One day back. <kbd>.</kbd> One day forward. Add <kbd>Shift</kbd> for a week.</li>
       <li><kbd>T</kbd> Go back to 2006. Press again to return.</li>
       <li><kbd>7</kbd> <kbd>8</kbd> <kbd>9</kbd> <kbd>0</kbd> Sound key, from weakest to strongest.</li>
@@ -535,7 +535,7 @@
     const L = curLayer(), el = document.getElementById('datastat');
     const d = new Date(dataTime + 'T00:00:00Z');
     const rows = [
-      ['Layer', orchestra ? 'Earth Orchestra (all 5 layers)' : L.noun],
+      ['Layer', orchestra ? 'Earth Orchestra (all 5 layers)' : ({ rain: 'Rain', heat: 'Land heat', plants: 'Plants', ocean: 'Ocean heat', wind: 'Wind' })[layerKey] || L.noun],   // same names as the buttons
       ['Data', orchestra ? 'NASA GPM IMERG, MODIS Terra, GHRSST MUR, MERRA-2' : 'NASA ' + L.dataset],
       ['Date', isNaN(d) ? dataTime : `${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`],
       ['Source', 'NASA GIBS'],
@@ -2212,8 +2212,13 @@
       if (!r.ok) throw new Error(String(r.status));
       const j = await r.json();
       wait.remove();
-      (j.actions || []).forEach(a => { try { runGuideAction(a); } catch (e) { console.warn(e); } });
-      const did = (j.actions || []).map(a => {                       // when Claude only acts, say what happened
+      const state = () => [muted, view3d, thenMode].join();
+      const changed = (j.actions || []).filter(a => {               // run each action; settings that were already right are not announced
+        const before = state();
+        try { runGuideAction(a); } catch (e) { console.warn(e); }
+        return !['set_muted', 'set_view', 'set_then_and_now'].includes(a.tool) || state() !== before;
+      });
+      const did = changed.map(a => {                       // when Claude only acts, say what happened
         const i = a.input || {};
         return ({ switch_layer: () => i.layer === 'all' ? 'Switched to the Earth Orchestra.' : `Switched to ${LABEL[i.layer] || i.layer}.`,
           go_to_place: () => `Took you to ${i.name || 'that place'}.`, go_home: () => 'Took you home to Null Island.',
@@ -2221,7 +2226,7 @@
           set_then_and_now: () => i.on ? 'Went back to 2006.' : 'Back to today.', set_view: () => i.mode === '3d' ? '3D terrain.' : 'Flat map.',
           set_muted: () => i.muted ? 'Muted.' : 'Unmuted.' }[a.tool] || (() => ''))();
       }).filter(Boolean).join(' ');
-      const reply = (j.actions || []).length && did ? did : (j.reply || did || 'I did not catch that.');   // after an action, a short confirmation beats the model reading out coordinates
+      const reply = (j.actions || []).length ? (did || 'Already done.') : (j.reply || 'I did not catch that.');   // after an action, a short confirmation beats the model reading out coordinates
       guideSay('bot', reply); speakIt(reply);
       guideHistory.push({ role: 'user', text }, { role: 'assistant', text: reply });
     } catch (e) {
