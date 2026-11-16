@@ -1422,8 +1422,8 @@
     renderer.outputEncoding = THREE.sRGBEncoding;
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(34, 1, 0.1, 200);
-    camera.position.set(0, 0, 5);
-    const root = new THREE.Group(); root.position.y = 0.35; scene.add(root);
+    camera.position.set(0, 0, 5.6);
+    const root = new THREE.Group(); root.position.y = 0.22; scene.add(root);
     const spin = new THREE.Group(); root.add(spin);
 
     const loader = new THREE.TextureLoader(); loader.setCrossOrigin('anonymous');
