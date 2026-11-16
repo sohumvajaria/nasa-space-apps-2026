@@ -1290,6 +1290,12 @@
       kokoroWorker = new Worker(URL.createObjectURL(new Blob([KOKORO_WORKER], { type: 'text/javascript' })), { type: 'module' });
     } catch (e) { kokoroState = 'failed'; return; }
     kokoroState = 'loading'; applyVoiceUI();
+    setTimeout(() => {                       // still not loaded after 3 minutes: give up and keep the browser voice
+      if (kokoroState !== 'loading') return;
+      kokoroState = 'failed'; applyVoiceUI();
+      kokoroJobs.forEach(j => j.reject(new Error('voice took too long to load'))); kokoroJobs.clear();
+      try { kokoroWorker.terminate(); } catch (e) {}
+    }, 180000);
     kokoroWorker.onmessage = e => {
       const m = e.data;
       if (m.type === 'ready') { kokoroState = 'ready'; applyVoiceUI(); warmKokoro(); }
@@ -1315,8 +1321,13 @@
     });
   }
   const kokoroCache = new Map();             // text -> Promise of an audio URL, made on this device
+  const kokoroDone = new Map();              // text -> audio URL, for phrases that are ready to play right now
   function kokoroUrl(text, warm) {
-    if (!kokoroCache.has(text)) { const pr = kokoroVoice(text, warm); pr.catch(() => kokoroCache.delete(text)); kokoroCache.set(text, pr); }
+    if (!kokoroCache.has(text)) {
+      const pr = kokoroVoice(text, warm);
+      pr.then(url => kokoroDone.set(text, url), () => kokoroCache.delete(text));
+      kokoroCache.set(text, pr);
+    }
     else if (!warm && kokoroJobIds.has(text) && kokoroWorker) kokoroWorker.postMessage({ bump: kokoroJobIds.get(text) });   // it was queued as warm-up: move it up
     return kokoroCache.get(text);
   }
@@ -1324,28 +1335,38 @@
   function warmKokoro() {                    // make the phrases you hear most ahead of time, so they start instantly
     const phrases = LAYER_ORDER.map(k => k === 'all' ? 'Earth Orchestra.' : `Layer ${LAYER_ORDER.indexOf(k) + 1} of ${LAYER_ORDER.length}: ${LABEL[k]}, played by the ${ORCHESTRA[k].name}.`);
     phrases.forEach(p => kokoroSentences(p).forEach(x => kokoroUrl(x, true).catch(() => {})));
+    Object.keys(ORCHESTRA).forEach(k => (LAYERS[k].say || []).forEach(x => kokoroUrl(x + '.', true).catch(() => {})));   // "Heavy rain." etc.
+    kokoroUrl('Quiet here.', true).catch(() => {});
   }
-  function kokoroSpeak(text, id) {           // no server voice: the free on-device voice, or the browser's if it is not ready in time
+  // As you walk, quietly prepare the summary for where you are, so pressing H speaks at once in the natural voice.
+  let summaryPrepared = '';
+  setInterval(() => {
+    if (kokoroState !== 'ready' || !ctx || readerVoice || !ttsOff || typeof summaryText !== 'function') return;
+    let t; try { t = summaryText(); } catch (e) { return; }
+    if (!t || t === summaryPrepared) return;
+    summaryPrepared = t;
+    kokoroSentences(t).forEach(x => kokoroUrl(x, true).catch(() => {}));
+  }, 1200);
+  function kokoroSpeak(text, id) {           // no server voice: the natural on-device voice if these words are ready, else the browser's, at once
     if (kokoroState === 'failed') { builtinSpeak(text, id); return; }
     const parts = kokoroSentences(text);
-    parts.forEach(x => kokoroUrl(x).catch(() => {}));    // start making every sentence now; the first one plays as soon as it is done
-    let started = false;
-    const giveUp = () => { clearTimeout(slow); if (id === speechId && !started) builtinSpeak(text, ++speechId); };
-    // too slow right now: the browser voice steps in. A phrase already being made (warm-up) is worth a little longer wait.
-    const slow = setTimeout(giveUp, kokoroState !== 'ready' ? 2500 : kokoroJobIds.has(parts[0]) ? 2400 : 1600);
-    const playNext = i => {
+    if (!parts.every(x => kokoroDone.has(x))) {
+      builtinSpeak(text, id);                 // never keep the listener waiting
+      parts.forEach(x => kokoroUrl(x, true).catch(() => {}));   // make it now, so next time it is the natural voice
+      return;
+    }
+    let i = 0;
+    const fallback = () => { if (id === speechId) builtinSpeak(parts.slice(Math.max(0, i - 1)).join(' '), ++speechId); };
+    const playNext = () => {
       if (id !== speechId) return;           // something newer was said meanwhile
       if (i >= parts.length) { duck(false); ttsAudio = null; return; }
-      kokoroUrl(parts[i]).then(url => {
-        if (id !== speechId) return;
-        const a = new Audio(url); ttsAudio = a;
-        a.onplaying = () => { if (!started) { started = true; clearTimeout(slow); duck(true); } };
-        a.onended = () => playNext(i + 1);
-        a.onerror = () => { if (!started) giveUp(); else if (id === speechId) { duck(false); ttsAudio = null; } };
-        a.play().catch(giveUp);
-      }).catch(() => { if (!started) giveUp(); else if (id === speechId) duck(false); });
+      const a = new Audio(kokoroDone.get(parts[i++])); ttsAudio = a;
+      a.onplaying = () => duck(true);
+      a.onended = playNext;
+      a.onerror = fallback;
+      a.play().catch(fallback);
     };
-    playNext(0);
+    playNext();
   }
   let bestVoice = null;
   function pickVoice() {                     // the most natural English voice this browser has
