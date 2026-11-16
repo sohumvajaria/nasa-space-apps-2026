@@ -36,9 +36,12 @@
   [hidden] { display: none !important; }
   #sky { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; display: block; }
   #waves { display: block; width: 100%; height: 132px; border: 1px solid var(--line); border-radius: 24px; background: rgba(233, 228, 214, .028); flex: none; }
-  #guide { display: flex; flex-direction: column; gap: 12px; text-align: left; }
+  #guide { display: flex; flex-direction: column; gap: 12px; text-align: left; position: fixed; z-index: 30; right: 18px; bottom: 18px;
+    width: min(430px, calc(100vw - 36px)); max-height: min(70vh, 560px); padding: 18px 18px 14px; background: rgba(12, 21, 22, .94);
+    box-shadow: 0 24px 70px -20px rgba(0, 0, 0, .8); }
+  @media (max-width: 700px) { #guide { right: 0; bottom: 0; width: 100%; border-radius: 22px 22px 0 0; padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px)); } }
   #guide[hidden] { display: none !important; }
-  #guidelog { max-height: 190px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; font: 400 14px/1.5 var(--sans); }
+  #guidelog { flex: 1 1 auto; min-height: 60px; max-height: 38vh; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; font: 400 14px/1.5 var(--sans); }
   #guidelog p { margin: 0; color: var(--mute); }
   #guidelog p.me { color: var(--ink); }
   #guideform { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -226,17 +229,6 @@
 
   <aside id="side" aria-label="Readings and controls">
   <canvas id="waves" aria-hidden="true"></canvas>
-  <section class="group" id="guide" aria-label="Guide" hidden>
-    <span class="k">Guide <kbd>G</kbd></span>
-    <div id="guidelog" aria-live="off"></div>
-    <form id="guideform" autocomplete="off">
-      <label for="guideq" class="sr">Ask the guide</label>
-      <input id="guideq" type="text" maxlength="300" placeholder="Ask anything, or say what to do">
-      <button type="submit" class="pill" id="guidego">Ask</button>
-      <button type="button" class="pill" id="guidemic" hidden aria-pressed="false">Speak</button>
-    </form>
-    <p class="note">Press Escape to close and go back to the map.</p>
-  </section>
   <section id="hud" aria-label="Current readings">
     <div class="primary"><span class="k" id="stormk">Rain</span><b id="storm">-</b></div>
     <div><span class="k">Direction</span><b id="brg">-</b></div>
@@ -312,6 +304,18 @@
     </ul>
   </details>
 </main>
+
+  <section class="group" id="guide" aria-label="Guide" hidden>
+    <span class="k">Guide <kbd>G</kbd></span>
+    <div id="guidelog" aria-live="off"></div>
+    <form id="guideform" autocomplete="off">
+      <label for="guideq" class="sr">Ask the guide</label>
+      <input id="guideq" type="text" maxlength="300" placeholder="Ask anything, or say what to do">
+      <button type="submit" class="pill" id="guidego">Ask</button>
+      <button type="button" class="pill" id="guidemic" hidden aria-pressed="false">Speak</button>
+    </form>
+    <p class="note">Press Escape to close and go back to the map.</p>
+  </section>
 
 <!-- [CLAUDE ADDITION] the 30-second intro tutorial (scene in intro/style.js). Plays on a first visit after "Begin listening". -->
 <div id="intro" hidden role="dialog" aria-modal="true" aria-label="30-second intro: how to listen">
@@ -1959,7 +1963,6 @@
     guideEl.hidden = false; guideBtn.setAttribute('aria-pressed', 'true');
     if (!guideLog.children.length) guideSay('bot', guideIntro());
     say(guideIntro());
-    guideEl.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
     setTimeout(() => guideQ.focus({ preventScroll: true }), 50);
   }
   function closeGuide() {
@@ -2002,7 +2005,8 @@
       case 'set_muted': if (!!i.muted !== muted) toggleMute(); break;
     }
   }
-  async function askGuide(text) {
+  async function askGuide(text, viaMic) {
+    const speakIt = t => { if (viaMic) { ensureAudio(); voiceSpeak(t); } else say(t); };   // a spoken question always gets a spoken answer
     text = String(text || '').trim();
     if (!text || guideBusy) return;
     guideBusy = true; guideSay('me', text); guideQ.value = '';
@@ -2023,12 +2027,12 @@
           set_muted: () => i.muted ? 'Muted.' : 'Unmuted.' }[a.tool] || (() => ''))();
       }).filter(Boolean).join(' ');
       const reply = j.reply || did || 'I did not catch that.';
-      guideSay('bot', reply); say(reply);
+      guideSay('bot', reply); speakIt(reply);
       guideHistory.push({ role: 'user', text }, { role: 'assistant', text: reply });
     } catch (e) {
       wait.remove();
       const m = 'The guide cannot answer right now. You can still move with the arrow keys, switch layers with the number keys, and press H to hear where you are.';
-      guideSay('bot', m); say(m);
+      guideSay('bot', m); speakIt(m);
     }
     guideBusy = false;
   }
@@ -2037,15 +2041,15 @@
   // speak a question instead of typing it (where the browser allows)
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   let rec = null;
-  function stopMic() { if (rec) { rec.onend = null; rec.stop(); rec = null; } guideMic.setAttribute('aria-pressed', 'false'); }
+  function stopMic() { if (rec) { rec.onend = null; rec.stop(); rec = null; } guideMic.setAttribute('aria-pressed', 'false'); guideMic.textContent = 'Speak'; }
   if (SR) {
     guideMic.hidden = false;
     guideMic.addEventListener('click', () => {
       if (rec) { stopMic(); return; }
       rec = new SR(); rec.lang = navigator.language || 'en-US'; rec.interimResults = false; rec.maxAlternatives = 1;
-      rec.onresult = ev => { const t = ev.results[0][0].transcript; stopMic(); askGuide(t); };
+      rec.onresult = ev => { const t = ev.results[0][0].transcript; stopMic(); askGuide(t, true); };
       rec.onerror = () => stopMic(); rec.onend = () => stopMic();
-      guideMic.setAttribute('aria-pressed', 'true'); try { rec.start(); } catch (e) { stopMic(); }
+      guideMic.setAttribute('aria-pressed', 'true'); guideMic.textContent = 'Listening...'; try { rec.start(); } catch (e) { stopMic(); }
     });
   }
 
