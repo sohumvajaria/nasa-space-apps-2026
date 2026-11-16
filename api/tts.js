@@ -41,7 +41,7 @@ module.exports = async (req, res) => {
   const q = req.query || {};
   if (q.probe) return provider ? res.status(204).end() : res.status(503).json({ error: 'No voice API key is set on the server' });
 
-  const text = String(q.text || '').trim().slice(0, 400);
+  const text = String(q.text || '').trim().slice(0, 900);
   if (!text) return res.status(400).json({ error: 'no text' });
 
   // only our own pages may use this (it costs money per request)
