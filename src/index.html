@@ -35,6 +35,7 @@
   }
   [hidden] { display: none !important; }
   #sky { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; display: block; }
+  #waves { display: block; width: 100%; height: 132px; border: 1px solid var(--line); border-radius: 24px; background: rgba(233, 228, 214, .028); flex: none; }
   #hero { position: relative; width: 100%; max-width: 980px; margin: 0 auto 10px; height: clamp(420px, 68vh, 620px); }
   #globe { position: absolute; inset: 0; width: 100%; height: 100%; display: block; mix-blend-mode: screen; cursor: grab; touch-action: pan-y; }
   #globe:active { cursor: grabbing; }
@@ -201,6 +202,7 @@
   <p id="touchhint">Touch or drag on the map to move. Pull farther to go faster.</p>
 
   <aside id="side" aria-label="Readings and controls">
+  <canvas id="waves" aria-hidden="true"></canvas>
   <section id="hud" aria-label="Current readings">
     <div class="primary"><span class="k" id="stormk">Rain</span><b id="storm">-</b></div>
     <div><span class="k">Direction</span><b id="brg">-</b></div>
@@ -1448,6 +1450,7 @@
     };
     const atm = mk('varying vec3 vN; uniform float uI; uniform vec3 uC; void main(){ float i = pow(max(0.0, 0.78 - dot(vN, vec3(0.0,0.0,1.0))), 2.2); gl_FragColor = vec4(uC, 1.0) * i * uI * 1.25; }', THREE.BackSide, 1.17);
     const rim = mk('varying vec3 vN; uniform float uI; uniform vec3 uC; void main(){ float f = pow(1.0 - max(dot(vN, vec3(0.0,0.0,1.0)), 0.0), 3.0); gl_FragColor = vec4(uC, 1.0) * f * uI * 0.9; }', THREE.FrontSide, 1.012);
+    atm.visible = false; rim.visible = false;   // no aura: it made the title hard to read
 
 
     // where the plane sits on the planet: a 40x40 degree outline and a pulsing beacon
@@ -1694,6 +1697,34 @@
   setView(!!relief);
 
   let last = performance.now();
+  // ---------- sound waves: one line per instrument, taller = louder, they cross each other ----------
+  const wavesEl = document.getElementById('waves'), wg = wavesEl.getContext('2d');
+  const waveAmp = {}; Object.keys(ORCHESTRA).forEach(k => { waveAmp[k] = 0; });
+  function drawWaves(now) {
+    const dpr = Math.min(devicePixelRatio || 1, 2), cw = wavesEl.clientWidth, ch = wavesEl.clientHeight;
+    if (!cw || !ch) return;
+    if (wavesEl.width !== Math.round(cw * dpr) || wavesEl.height !== Math.round(ch * dpr)) { wavesEl.width = Math.round(cw * dpr); wavesEl.height = Math.round(ch * dpr); }
+    wg.setTransform(dpr, 0, 0, dpr, 0, 0); wg.clearRect(0, 0, cw, ch);
+    const mid = ch / 2, half = ch * 0.4, tm = reduceMotion ? 0 : now / 1000, keys = Object.keys(ORCHESTRA), sum = new Float32Array(Math.ceil(cw / 3) + 1);
+    wg.lineCap = 'round'; wg.lineJoin = 'round';
+    keys.forEach((k, n) => {
+      const lv = voices[k] ? voices[k].cur : 0;
+      waveAmp[k] += (lv - waveAmp[k]) * 0.1;
+      const A = waveAmp[k], col = ORCHESTRA[k].color, cyc = 1.6 + (ORCHESTRA[k].semis + 12) / 31 * 5.2, sp = 0.6 + (ORCHESTRA[k].semis + 12) / 31 * 1.4;
+      wg.beginPath();
+      for (let x = 0, i = 0; x <= cw; x += 3, i++) {
+        const u = x / cw, env = Math.pow(Math.sin(Math.PI * u), 0.8);
+        const w = Math.sin(u * cyc * 6.2832 - tm * sp * 2 + n) + 0.28 * Math.sin(u * cyc * 12.57 - tm * sp * 3.1 + n * 2);
+        const y = (0.04 + A) * env * w * half;
+        sum[i] += y; wg.lineTo(x, mid + y);
+      }
+      wg.strokeStyle = `rgba(${col[0]},${col[1]},${col[2]},${(0.28 + 0.65 * Math.min(1, A * 1.6)).toFixed(3)})`;
+      wg.lineWidth = 1.2 + 1.4 * Math.min(1, A); wg.stroke();
+    });
+    wg.beginPath();                              // the sum of everything you hear, a soft cream line
+    for (let x = 0, i = 0; x <= cw; x += 3, i++) wg.lineTo(x, mid + sum[i] * 0.55);
+    wg.strokeStyle = 'rgba(233,228,214,.55)'; wg.lineWidth = 1; wg.stroke();
+  }
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000); last = now;
 
@@ -1740,6 +1771,7 @@
     hud.brg.textContent = compass(sdx, sdy);
 
     if (globe && vis.globe && !document.hidden) globe.render(now);
+    if (!document.hidden) drawWaves(now);
     if (view3d) { if (vis.relief && !document.hidden) relief.render(now, dt); } else draw(now);
     requestAnimationFrame(frame);
   }
