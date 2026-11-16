@@ -1097,7 +1097,6 @@
     const first = introWanted();
     ensureAudio();                                        // builds the app's sound at once (it stays silent under the intro)
     if (first) startIntro();                              // started inside the click, so the browser lets the video play with sound
-    else playReveal();                                    // no intro: go straight to the entrance motion
   });
   // [CLAUDE FIX] after a button is pressed, send focus back to the map (once listening has started) instead of dropping it
   // on the page, which would put screen readers back into reading mode and stop the arrow keys from walking.
@@ -1228,7 +1227,7 @@
     if (ctx && master) master.gain.setTargetAtTime(muted ? 0 : 0.9, ctx.currentTime, 0.3);   // the app's sound fades back in
     if (skipped) say('Intro skipped. Use the arrow keys to walk, and H to hear where you are.');
     if (wrapNode.getAttribute('role') === 'application') wrapNode.focus({ preventScroll: true });
-    playReveal();                                         // after the intro: the entrance motion
+    playReveal();                                         // the entrance motion: only after the intro (first visit, or "Replay intro"), not on every Begin
   }
   introSkip.addEventListener('click', () => endIntro(true));
   document.getElementById('replayintro').addEventListener('click', () => { ensureAudio(); startIntro(); });
@@ -1815,7 +1814,7 @@
   }
 
   // ---------- the entrance: a close-up of Earth pulls back to a small globe with rings and the layer names ----------
-  // Plays once after the intro (or after "Begin listening" when there is no intro), about 5 seconds.
+  // Plays right after the intro: on a first visit, and again after "Replay intro". About 6 seconds.
   // Only for the eyes: it never takes focus, keys and sound work during it, and any key or click ends it early.
   let revealOn = false;
   function playReveal() {
