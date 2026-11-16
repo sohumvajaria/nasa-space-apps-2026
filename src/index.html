@@ -1833,7 +1833,9 @@
     const scene = new THREE.Scene();
     const loader = new THREE.TextureLoader(); loader.setCrossOrigin('anonymous');
     const wms = (layer, extra) => `${GIBS}?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&LAYERS=${layer}&SRS=EPSG:4326&BBOX=-180,-90,180,90&WIDTH=2048&HEIGHT=1024&FORMAT=image/jpeg${extra || ''}`;
-    const tex = url => { const t = loader.load(url); t.encoding = THREE.sRGBEncoding; t.anisotropy = 8; return t; };   // same pictures as the globe above, so usually already downloaded
+    // same pictures as the globe above, so usually already downloaded; the motion waits for them (at most 2.5 s)
+    let toLoad = 2;
+    const tex = url => { const t = loader.load(url, () => { toLoad--; }, undefined, () => { toLoad--; }); t.encoding = THREE.sRGBEncoding; t.anisotropy = 8; return t; };
     const earth = new THREE.Group(); scene.add(earth);
     const geo = r => new THREE.SphereGeometry(r, 128, 96);
     earth.add(new THREE.Mesh(geo(1), new THREE.MeshBasicMaterial({ map: tex(wms('BlueMarble_ShadedRelief_Bathymetry')), color: 0x8da2ad })));
@@ -1884,7 +1886,10 @@
     requestAnimationFrame(() => el.classList.add('in'));
 
     const ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-    const t0 = performance.now();
+    const SLOW = Math.max(1, +new URLSearchParams(location.search).get('slowreveal') || 1);   // for checking the motion frame by frame
+    const tWait = performance.now();
+    let t0 = 0;
+    earth.visible = false;
     let raf = 0, ending = false, cleaned = false;
     const cleanup = () => {
       if (cleaned) return; cleaned = true;
@@ -1902,7 +1907,11 @@
     const skip = () => finish(true);                     // any key or click: get out of the way (the key still does its job)
     addEventListener('keydown', skip, true); addEventListener('pointerdown', skip, true);
     const frame = now => {
-      const t = (now - t0) / 1000;
+      if (!t0) {                                         // waiting for the pictures of Earth
+        if (toLoad > 0 && now - tWait < 2500) { renderer.render(scene, camera); raf = requestAnimationFrame(frame); return; }
+        t0 = now; earth.visible = true;
+      }
+      const t = (now - t0) / 1000 / SLOW;
       const p = ease(Math.min(1, Math.max(0, (t - 1.1) / 2.1)));   // hold the close-up, then pull back
       earth.position.y = -0.86 * (1 - p) + yShift * p;
       camera.position.set(0, 0, 1.9 + (zEnd - 1.9) * p);
