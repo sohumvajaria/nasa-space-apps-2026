@@ -6,7 +6,7 @@ Terra-fic Tunes turns real NASA Earth data into sound you can move through. You 
 
 **Live site:** https://nasa-space-apps-2026-sandy.vercel.app
 
-> Team name, local event and demo video are filled in at the bottom of this page.
+> Team 3W, Raleigh, NC. Team details are at the bottom of this page.
 
 ## Why we made it
 
@@ -111,8 +111,8 @@ To deploy your own copy, import the repo into Vercel (the included `vercel.json`
 
 Built by Sohum Vajaria ([@sohumvajaria](https://github.com/sohumvajaria)), [@pranav-ysv](https://github.com/pranav-ysv) and [@sid-darth-vater](https://github.com/sid-darth-vater), with a lot of help from Claude.
 
-- **Team name:** _to add_
-- **Local event:** _to add_
+- **Team name:** 3W
+- **Local event:** Raleigh, NC
 - **Demo video:** _to add_
 
 ## License
