@@ -188,7 +188,11 @@
     <button type="button" class="pill" data-layer="plants" aria-pressed="false">Plants<kbd>3</kbd></button>
     <button type="button" class="pill" data-layer="ocean" aria-pressed="false">Ocean heat<kbd>4</kbd></button>
     <button type="button" class="pill" data-layer="air" aria-pressed="false">Haze<kbd>5</kbd></button>
-    <button type="button" class="pill orch" data-layer="all" aria-pressed="false">Earth Orchestra<kbd>6</kbd></button>
+    <button type="button" class="pill" data-layer="fire" aria-pressed="false">Fires<kbd>6</kbd></button>
+    <button type="button" class="pill" data-layer="ice" aria-pressed="false">Snow &amp; ice<kbd>7</kbd></button>
+    <button type="button" class="pill" data-layer="smog" aria-pressed="false">Pollution<kbd>8</kbd></button>
+    <button type="button" class="pill" data-layer="wind" aria-pressed="false">Wind<kbd>9</kbd></button>
+    <button type="button" class="pill orch" data-layer="all" aria-pressed="false">Earth Orchestra<kbd>0</kbd></button>
   </nav>
   <p id="layerblurb" class="blurb"></p>
 
@@ -257,7 +261,7 @@
 
   <details>
     <summary>How to listen</summary>
-    <p>Use headphones. Move with <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> (or WASD). You always face up (north). A <b>soft pulse</b> beats steadily from Null Island (0, 0), where the equator meets the prime meridian (the glowing orb on the map), and you can walk anywhere on Earth: it gets quieter with distance and pans to show which side it is on, so you can always find your way back. An <b>instrument</b> plays the data under you: violin for rain, cello for land heat, flute for plants, clarinet for ocean heat and French horn for haze. The more intense the data where you stand, the louder and brighter it plays. Press <kbd>6</kbd> for the <b>Earth Orchestra</b>: all five at once, so every place on Earth has its own chord. Press <kbd>H</kbd> for a short summary of what is playing and where you are (for example "Heavy rain. France, Europe."), and <kbd>L</kbd> to hear which layer you are on. Use the sound key to preview each level. Switch layers with <kbd>1</kbd> to <kbd>6</kbd>; each switch is announced and plays that instrument. <kbd>V</kbd> switches between the 3D terrain and the flat map. Hold <kbd>Shift</kbd> to move faster, <kbd>M</kbd> to mute. When the data reaches its most extreme level (extreme rain, scorching land, very warm water, thick smoke), the instrument <b>trembles</b>, the way an orchestra's strings shiver to signal danger. Press <kbd>T</kbd> for <b>Then &amp; now</b>: hear the same day 20 years earlier, then press <kbd>T</kbd> again to come back. If you use a screen reader, set <b>Voice</b> to "screen reader" so announcements come only through your own reader.</p>
+    <p>Use headphones. Move with <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> (or WASD). You always face up (north). A <b>soft pulse</b> beats steadily from Null Island (0, 0), where the equator meets the prime meridian (the glowing orb on the map), and you can walk anywhere on Earth: it gets quieter with distance and pans to show which side it is on, so you can always find your way back. An <b>instrument</b> plays the data under you: violin for rain, cello for land heat, flute for plants, clarinet for ocean heat and French horn for haze, a crackle for fires, glass bells for snow and ice, an oboe for pollution and a breeze for wind. The more intense the data where you stand, the louder and brighter it plays. Press <kbd>0</kbd> for the <b>Earth Orchestra</b>: all nine at once, so every place on Earth has its own chord. Press <kbd>H</kbd> for a short summary of what is playing and where you are (for example "Heavy rain. France, Europe."), and <kbd>L</kbd> to hear which layer you are on. Use the sound key to preview each level. Switch layers with <kbd>1</kbd> to <kbd>9</kbd>; each switch is announced and plays that instrument. <kbd>V</kbd> switches between the 3D terrain and the flat map. Hold <kbd>Shift</kbd> to move faster, <kbd>M</kbd> to mute. When the data reaches its most extreme level (extreme rain, scorching land, very warm water, thick smoke), the instrument <b>trembles</b>, the way an orchestra's strings shiver to signal danger. Press <kbd>T</kbd> for <b>Then &amp; now</b>: hear the same day 20 years earlier, then press <kbd>T</kbd> again to come back. If you use a screen reader, set <b>Voice</b> to "screen reader" so announcements come only through your own reader.</p>
   </details>
 </main>
 
@@ -334,6 +338,43 @@
       anchors: [[0, 0.03], [0.25, 0.2], [0.5, 0.45], [0.7, 0.7], [0.85, 0.9], [1, 1]],
       ramp: 'fffdcdfffcc7fffbc1fffabcfff9b7fff8b2fff7adfff6a7fff5a2fff49dfff398fff293fff090ffef8dffee8affec87ffeb84ffea81ffe87effe77bffe678ffe576ffe373ffe271ffe16effdf6cffde6affdd67ffdb65ffda62ffd960ffd85effd65bffd459ffd257ffd055ffcf53ffcd50ffcb4effc94cffc74affc648ffc346ffc144ffbe42ffbc40ffb93effb73cffb43affb238ffaf36ffad35ffaa33ffa832ffa531ffa32fffa12eff9e2dff9c2bff992aff9729ff9528ff9227ff9026ff8e25ff8c25ff8a24ff8723ff8523ff8322ff8121ff7f21ff7c20ff791fff761fff731eff701eff6d1dff6a1cff671cff641bff621bff5e1aff5b19ff5818ff5518ff5217ff4e16ff4b16ff4815ff4514ff4214fe3f13fd3c13fc3a12fb3712fa3512f93211f82f11f72d10f62a10f52810f3260ff2240ff0220eef200eee1e0dec1c0deb1a0ce9180ce8160be7140be5120be3110be1100bdf0e0bdd0d0bdb0c0bd90a0bd7090bd5080bd3070cd0060cce050ccc040cc9040cc7030dc5020dc2020dc0010dbe000dbc000eb8000eb5000eb2000eae000eab000ea8000ea4000ea1000e9e000e9b000e98000e95000e92000e8f000e8c000e89000e86000e83000e80000e7d000e',
     },
+    fire: {
+      id: 'MODIS_Terra_Thermal_Anomalies_All', dataset: 'MODIS Terra thermal anomalies (active fires)', noun: 'Fires', centerName: 'Null Island',
+      blurb: 'Active fires seen from space, played as a crackle: a few pops where a few fires burn, a roar where many do. Silent where nothing burns.',
+      semis: -17, wave: 'sawtooth', trem: 0, tremDepth: 0, bright: 4000, home: null, boost: 5,
+      tiers: ['no fires', 'a few fires', 'some fires', 'many fires', 'widespread fires'],
+      say: ['No fires here', 'A few fires', 'Some fires', 'Many fires', 'Widespread fires'],
+      anchors: [[0, 1], [1, 1]],
+      ramp: 'f7aa4af5a344f49d3ff3963af29035f18a30f0832bef7d26ee7720ed701bec6a16eb6411e95e0ee55a0de1550cdd510bd94c0bd5480ad14309cd3f08c93a07c53606c13105be2d05'
+    },
+    ice: {
+      id: 'MODIS_Terra_NDSI_Snow_Cover', dataset: 'MODIS Terra snow cover and GHRSST sea ice concentration', noun: 'Snow and ice', centerName: 'Null Island',
+      blurb: 'Snow on land and ice on the sea, played by glass bells: a faint shimmer over a dusting of snow, bright and full over thick snow or solid ice. Bare ground and open water are silent.',
+      semis: 24, wave: 'sine', trem: 0, tremDepth: 0, bright: 6000, home: null,
+      tiers: ['no snow or ice', 'a dusting', 'patchy snow or ice', 'snow-covered', 'solid ice or deep snow'],
+      say: ['No snow or ice here', 'A dusting of snow or thin ice', 'Patchy snow or ice', 'Snow-covered ground or ice', 'Solid ice or deep snow'],
+      anchors: [[0, 0.35], [1, 0.9]],
+      ramp: 'f07880f07980f07a80f07b80f07c80f07d80f07e80f07f80f08080f08081f08181f08182f08282f08283f08383f08384f09680f09681f09682f09683f09684f09685f09686f09687f09688f09689f0968af0968bf0968cf0968df0968ef0968ff09690f09691f09692f09693f0b480f0b481f0b482f0b483f0b484f0b485f0b486f0b487f0b488f0b489f0b48af0b48bf0b48cf0b48df0b48ef0b48ff0b490f0b491f0b492f0b493f0d280f0d281f0d282f0d283f0d284f0d285f0d286f0d287f0d288f0d289f0d28af0d28bf0d28cf0d28df0d28ef0d28ff0d290f0d291f0d292f0d293f0f089f0f08af0f08bf0f08cf0f08df0f08ef0f08ff0f090f0f091f0f092f0f093',
+      extra: [{ id: 'GHRSST_L4_MUR_Sea_Ice_Concentration', anchors: [[0, 0.35], [1, 1]], ramp: 'ff0e00ff0909ff1c00ff2a00ff1a1aff4000ff4e00ff6300ff3333ff7100ff7f00ff4444ff9500ffa300ff55550faf0000ac07ffb1001eb4002db90044c10000b11553c600ffc60062cb0078d200ffd40087d700ff6f6f9edf0000b82aade400bce900ffea00d2f00000bd39e1f500fff8000700fff8fd00ff808000c2470010ff0021ff00c95c0031ffff999900cd6a004aff00d47fffaaaa005aff00d98e0073ffffbbbb00de9c0084ff0094ff00e5b100eabf00adffffd5d500bdff00f1d400ceffffe6e600f6e300e6ff00faf100f7ffffffff' }]
+    },
+    smog: {
+      id: 'TROPOMI_L2_Nitrogen_Dioxide_Tropospheric_Column', dataset: 'TROPOMI nitrogen dioxide (traffic and industry pollution)', noun: 'Pollution', centerName: 'Null Island',
+      blurb: 'Nitrogen dioxide, the gas from traffic, power plants and industry, played by the oboe: thin over clean air, loud and reedy over big cities and industrial regions.',
+      semis: 7, wave: 'sawtooth', trem: 0, tremDepth: 0, bright: 3200, home: null, fill: 3,
+      tiers: ['clean air', 'light pollution', 'moderate pollution', 'heavy pollution', 'severe pollution'],
+      say: ['Clean air here', 'Light pollution', 'Moderate pollution', 'Heavy pollution', 'Severe pollution'],
+      anchors: [[0, 0.03], [0.3, 0.2], [0.55, 0.5], [0.8, 0.8], [1, 1]],
+      ramp: 'fffcc7fff9c1fff6bbfff4b5fff1afffeea9ffeca4ffe99effe698ffe492ffe18cffdd86ffd980ffd57affd173ffcc6dffc866ffc460ffbf5affbb53ffb74dffb347ffad44ffa842ffa240ff9d3dff973bff9239ff8d37ff8734ff8232ff7c30fd762efa6f2cf7682af46129f15a27ee5326eb4c24e84522e53e21e2371fe0301ed92e22d22c26cc2a2ac5282ebf2632b82437b1223bab203fa41e439e1c47971b4a8f1a4c87184e80175078165170155368135561125659115851105a4a0f5c'
+    },
+    wind: {
+      id: 'MERRA2_Surface_Wind_Speed_Monthly', dataset: 'MERRA-2 surface wind speed (monthly average)', noun: 'Wind', centerName: 'Null Island', monthly: '2026-08-01',
+      blurb: 'How windy it usually is, played as a breeze that rises and falls: a soft whisper where the air is calm, a rushing roar where winds are strong. This is a monthly average of wind speed, not the wind right now.',
+      semis: 0, wave: 'sine', trem: 0, tremDepth: 0, bright: 3000, home: null,
+      tiers: ['calm', 'light breeze', 'windy', 'very windy', 'gale-force'],
+      say: ['Calm air here', 'A light breeze', 'Windy', 'Very windy', 'Gale-force winds'],
+      anchors: [[0, 0.03], [0.2, 0.2], [0.45, 0.45], [0.65, 0.7], [0.85, 0.9], [1, 1]],
+      ramp: '5e4fa23288bd348bbb378eba3a91b93c94b73f97b6429ab5459db447a0b24aa3b14da6b050a9af52acad55afac58b2ab5bb5aa5db8a860bba763bea666c2a569c3a46cc4a470c6a473c7a477c8a47acaa47ecba481cca485cea488cfa48bd0a48fd2a492d3a496d4a499d6a49dd7a4a0d8a4a4daa4a7dba4abdda4addea3b0dfa2b3e0a2b6e1a1b9e3a1bce4a0bfe59fc2e69fc5e79ec8e99ecbea9dceeb9cd1ec9cd4ed9bd7ef9bdaf09addf199e0f299e3f398e6f598e7f599e8f69be9f69debf79fecf7a1edf8a3eef8a5f0f9a7f1f9a9f2faabf3faadf5fbaff6fbb1f7fcb3f8fcb5fafdb7fbfdb9fcfebbfdfebdffffbffefdbcfefbb9fefab7fef8b4fef7b2fef5affef4acfef2aafef1a7feefa5feeda2feec9ffeea9dfee99afee798fee695fee492fee390fee18dfee08bfddd88fddb86fdd884fdd682fdd380fdd17efdce7cfdcc7afdc978fdc776fdc473fdc271fdbf6ffdbd6dfdba6bfdb869fdb567fdb365fdb063fdae61fcaa5ffca75efba45cfba15bfa9d59fa9a58f99756f99455f89053f88d52f88a50f7874ff7834df6804cf67d4af57a49f57647f47346f47044f46d43f26a43f06844ef6544ed6345ec6146ea5e46e95c47e75a47e65748e45549e25349e1504adf4e4ade4c4bdc494cdb474cd9454dd8424dd6404ed53e4f9e0142'
+    },
   };
   let layerKey = 'rain';                     // the layer on the map (in orchestra mode: the last one you picked)
   let orchestra = false;                     // key 6: every layer plays at once
@@ -350,8 +391,12 @@
     plants: { inst: 'flute',    name: 'flute',       semis: 19,  bright: 2500, color: [80, 225, 100] },   // E5, green
     ocean:  { inst: 'clarinet', name: 'clarinet',    semis: -5,  bright: 2200, color: [40, 215, 215] },   // E3, teal
     air:    { inst: 'horn',     name: 'French horn', semis: 4,   bright: 1600, color: [255, 200, 60] },   // C sharp 4, gold
+    fire:   { inst: 'crackle',  name: 'crackling fire', semis: -17, bright: 4000, color: [255, 70, 130] },  // unpitched, with a low E2 rumble, hot pink
+    ice:    { inst: 'glass',    name: 'glass bells', semis: 24,  bright: 6000, color: [220, 240, 255] },  // A5, icy white
+    smog:   { inst: 'oboe',     name: 'oboe',        semis: 7,   bright: 3200, color: [175, 120, 255] },  // E4, violet
+    wind:   { inst: 'breeze',   name: 'wind',        semis: 0,   bright: 3000, color: [160, 255, 210] },  // unpitched breath, mint
   };
-  const ORCH_BLURB = 'The Earth Orchestra: all five layers at once, so every place on Earth has its own chord. Violin for rain (blue on the map), cello for land heat (red), flute for plants (green), clarinet for ocean heat (teal) and French horn for haze (gold). Each plays louder where its data is more intense.';
+  const ORCH_BLURB = 'The Earth Orchestra: all nine layers at once, so every place on Earth has its own chord. Violin for rain (blue on the map), cello for land heat (red), flute for plants (green), clarinet for ocean heat (teal), French horn for haze (gold), a crackling fire (pink), glass bells for snow and ice (white), an oboe for pollution (violet) and a breeze for wind (mint). Each plays louder where its data is more intense.';
 
   let center = { lon: 0, lat: 0 }, field = null, dataImg = null, stormLevel = 0;
   const srcPos = { x: 0, y: 0 };            // the sound source sits at Null Island (0, 0) for every layer
@@ -359,22 +404,30 @@
   let placed = false;                        // the player is placed once; switching layers keeps your spot
   let realStorm = 0, previewLevel = null, previewTimer = null, loadToken = 0;
 
-  const gibsUrl = (key, date, w, s, e, n, px, py) => `${GIBS}?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1` +
-    `&LAYERS=${LAYERS[key].id}&SRS=EPSG:4326&BBOX=${w},${s},${e},${n}&WIDTH=${px}&HEIGHT=${py}` +
-    `&FORMAT=image/png&TRANSPARENT=TRUE&TIME=${date}`;
+  // monthly layers (wind) are published as one frame per month: ask for the month that holds the day, or the newest month NASA has
+  const timeFor = (key, date) => {
+    const m = LAYERS[key].monthly;
+    if (!m) return date;
+    const mm = date.slice(0, 7) + '-01';
+    return mm > m ? m : mm;
+  };
+  const dayBefore = date => new Date(Date.parse(date + 'T00:00:00Z') - 864e5).toISOString().slice(0, 10);
+  const gibsUrl = (key, date, w, s, e, n, px, py, spec) => `${GIBS}?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1` +
+    `&LAYERS=${(spec || LAYERS[key]).id}&SRS=EPSG:4326&BBOX=${w},${s},${e},${n}&WIDTH=${px}&HEIGHT=${py}` +
+    `&FORMAT=image/png&TRANSPARENT=TRUE&TIME=${timeFor(key, date)}`;
   const loadImg = url => new Promise((res, rej) => {
     const i = new Image(); i.crossOrigin = 'anonymous';
     i.onload = () => res(i); i.onerror = () => rej(new Error('image load failed')); i.src = url;
   });
 
-  const ramps = {};                          // per-layer legend colors (low -> high) + a color lookup cache
-  function rampFor(key) {
-    if (ramps[key]) return ramps[key];
-    const str = LAYERS[key].ramp, rgb = [];
+  const ramps = new Map();                   // per-source legend colors (low -> high) + a color lookup cache
+  function rampFor(spec) {
+    if (ramps.has(spec)) return ramps.get(spec);
+    const str = spec.ramp, rgb = [];
     for (let i = 0; i < str.length; i += 6) {
       rgb.push([parseInt(str.substr(i, 2), 16), parseInt(str.substr(i + 2, 2), 16), parseInt(str.substr(i + 4, 2), 16)]);
     }
-    return (ramps[key] = { rgb, cache: new Map() });
+    const made = { rgb, cache: new Map() }; ramps.set(spec, made); return made;
   }
   function rampPos(R, r, g, b) {             // nearest legend color -> position 0..1 along the legend
     const k = (r << 16) | (g << 8) | b;
@@ -400,11 +453,11 @@
     return anchors[anchors.length - 1][1];
   }
 
-  function toScores(img, w, h, key) {
+  function toScores(img, w, h, spec) {
     const c = document.createElement('canvas'); c.width = w; c.height = h;
     const x = c.getContext('2d', { willReadFrequently: true });
     x.drawImage(img, 0, 0, w, h);
-    const d = x.getImageData(0, 0, w, h).data, out = new Float32Array(w * h), A = LAYERS[key].anchors, R = rampFor(key);
+    const d = x.getImageData(0, 0, w, h).data, out = new Float32Array(w * h), A = spec.anchors, R = rampFor(spec);
     for (let i = 0; i < out.length; i++) {
       out[i] = d[4 * i + 3] < 20 ? 0 : Math.max(0.03, levelOf(rampPos(R, d[4 * i], d[4 * i + 1], d[4 * i + 2]), A));
     }
@@ -431,7 +484,7 @@
 
   function statText() {
     const L = curLayer();
-    if (orchestra) return `Data: five NASA layers from GIBS (GPM IMERG rain, MODIS land temperature, MODIS vegetation, GHRSST ocean temperature, MODIS aerosols), frame for ${dataTime}. ` +
+    if (orchestra) return `Data: nine NASA layers from GIBS (GPM IMERG rain, MODIS land temperature, vegetation, aerosols, fires and snow, GHRSST ocean temperature and sea ice, TROPOMI pollution, MERRA-2 wind), frame for ${dataTime}. ` +
       `The center pulse sits at Null Island (0, 0), where the equator meets the prime meridian.`;
     return `Data: NASA ${L.dataset} (GIBS layer ${L.id}), frame for ${dataTime}. ` +
       `The center pulse sits at Null Island (0, 0), where the equator meets the prime meridian. The whole world is walkable: 1 unit is 1 degree.`;
@@ -460,8 +513,34 @@
     if (dataCache.has(id)) return dataCache.get(id);
     const L = LAYERS[key];
     const p = (async () => {
-      const img = await loadImg(gibsUrl(key, date, -180, -90, 180, 90, GW, GH));          // the whole world in one image
-      const f = boxBlur(toScores(img, GW, GH, key), GW, GH, 2);                           // about 0.5 degrees of smoothing
+      const parts = [L, ...(L.extra || [])];                                              // some layers combine two NASA products (snow + sea ice)
+      const imgs = await Promise.all(parts.map(sp => loadImg(gibsUrl(key, date, -180, -90, 180, 90, GW, GH, sp))));   // the whole world in one image each
+      let raw = toScores(imgs[0], GW, GH, parts[0]);
+      for (let j = 1; j < parts.length; j++) { const g = toScores(imgs[j], GW, GH, parts[j]); for (let i = 0; i < raw.length; i++) if (g[i] > raw[i]) raw[i] = g[i]; }
+      let img = imgs[0];
+      if (imgs.length > 1) {                                                              // draw all sources on one picture for the map
+        const cv = document.createElement('canvas'); cv.width = GW; cv.height = GH;
+        const cx = cv.getContext('2d'); imgs.forEach(im => cx.drawImage(im, 0, 0, GW, GH)); img = cv;
+      }
+      if (L.fill) {                                                                       // satellites see the Earth in stripes: fill the gaps from the days before
+        const under = document.createElement('canvas'); under.width = GW; under.height = GH;
+        const ux = under.getContext('2d');
+        let day = date;
+        for (let n = 0; n < L.fill; n++) {
+          day = dayBefore(day);
+          try {
+            const im = await loadImg(gibsUrl(key, day, -180, -90, 180, 90, GW, GH));
+            const prev = toScores(im, GW, GH, L);
+            for (let i = 0; i < raw.length; i++) if (!raw[i]) raw[i] = prev[i];
+            ux.globalCompositeOperation = 'destination-over'; ux.drawImage(im, 0, 0, GW, GH);   // older days go underneath
+          } catch (e) { /* the gaps just stay silent */ }
+        }
+        ux.globalCompositeOperation = 'source-over'; ux.drawImage(img, 0, 0, GW, GH);
+        ux.globalCompositeOperation = 'destination-over'; 
+        img = under;
+      }
+      const f = boxBlur(raw, GW, GH, L.blur || 2);                                        // about 0.5 degrees of smoothing
+      if (L.boost) for (let i = 0; i < f.length; i++) f[i] = Math.min(1, f[i] * L.boost); // small, sparse things (fires) need a lift to be heard
       centerOf[key] = NULL_ISLAND;                                                        // every layer is centered on Null Island
       const out = { center: centerOf[key], img, field: f };
       ready.set(id, out);
@@ -693,6 +772,10 @@
     else if (kind === 'flute') flute(f, shake);
     else if (kind === 'horn') horn(f, shake);
     else if (kind === 'clarinet') clarinet(f, shake);
+    else if (kind === 'crackle') crackle(f, shake);
+    else if (kind === 'glass') glass(f, shake);
+    else if (kind === 'oboe') oboe(f, shake);
+    else if (kind === 'breeze') breeze(f, shake);
     return { key, level, tone, depth, f, kind, cur: 0 };
   }
   function vibrato(o, rate, cents) {
@@ -758,6 +841,45 @@
     });
     chain(mix, [['lowpass', 900, 1.6], ['peaking', 450, 1, 4]], dest);
   }
+  function crackle(f, dest) {                // fire: a soft low rumble with random pops and snaps
+    const len = 4, sr = ctx.sampleRate, buf = ctx.createBuffer(1, sr * len, sr), d = buf.getChannelData(0);
+    for (let n = 0; n < 70 * len; n++) {      // about 70 pops a second, each a short, quickly fading burst of noise
+      const at = Math.floor(Math.random() * (sr * len - sr * 0.05)), size = Math.floor(sr * (0.004 + Math.random() * 0.02)), amp = 0.25 + Math.random() * 0.75;
+      for (let i = 0; i < size; i++) d[at + i] += (Math.random() * 2 - 1) * amp * Math.pow(1 - i / size, 2.5);
+    }
+    const pops = ctx.createBufferSource(); pops.buffer = buf; pops.loop = true;
+    const mix = ctx.createGain();
+    const pg = ctx.createGain(); pg.gain.value = 0.55; pops.connect(pg).connect(mix); pops.start();
+    const rum = ctx.createBufferSource(); rum.buffer = noise(); rum.loop = true;
+    const rl = ctx.createBiquadFilter(); rl.type = 'lowpass'; rl.frequency.value = 150; rl.Q.value = 0.7;
+    const rg = ctx.createGain(); rg.gain.value = 0.5; rum.connect(rl).connect(rg).connect(mix); rum.start();
+    chain(mix, [['highpass', 50, 0.7], ['peaking', 1800, 0.9, 4]], dest);
+  }
+  function glass(f, dest) {                  // snow and ice: glass bells, a few slowly shimmering partials
+    const mix = ctx.createGain(); mix.gain.value = 0.5;
+    const sh = ctx.createOscillator(), sd = ctx.createGain(); sh.frequency.value = 0.35; sd.gain.value = 0.35; sh.connect(sd); sh.start();
+    [[1, 0.3, -3], [1, 0.3, 3], [2.01, 0.12, 0], [3.98, 0.05, 0], [5.42, 0.025, 0]].forEach(([m, gain, detune], i) => {
+      const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f * m; o.detune.value = detune;
+      const g = ctx.createGain(); g.gain.value = gain; sd.connect(g.gain); o.connect(g).connect(mix); o.start();
+    });
+    mix.connect(dest);
+  }
+  function oboe(f, dest) {                   // pollution: a reedy, slightly nasal tone with vibrato
+    const mix = ctx.createGain();
+    [-5, 5].forEach(detune => {
+      const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = detune; vibrato(o, 5.4, 9);
+      const g = ctx.createGain(); g.gain.value = 0.17; o.connect(g).connect(mix); o.start();
+    });
+    chain(mix, [['highpass', 220, 0.7], ['peaking', 1100, 2.2, 9], ['peaking', 2400, 1.5, 3], ['lowpass', 3600, 0.7]], dest);
+  }
+  function breeze(f, dest) {                 // wind: filtered air that slowly swells and drifts in pitch
+    const air = ctx.createBufferSource(); air.buffer = noise(); air.loop = true;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 520; bp.Q.value = 0.9;
+    const drift = ctx.createOscillator(), dd = ctx.createGain(); drift.frequency.value = 0.13; dd.gain.value = 260; drift.connect(dd).connect(bp.frequency); drift.start();
+    const swell = ctx.createOscillator(), sg = ctx.createGain(), out = ctx.createGain(); out.gain.value = 0.55;
+    swell.frequency.value = 0.21; sg.gain.value = 0.25; swell.connect(sg).connect(out.gain); swell.start();
+    air.connect(bp).connect(out).connect(dest); air.start();
+  }
   function strike(t, freq, amp, len) {       // one soft, round tone
     [[1, 1, 1], [2, 0.1, 0.5], [3, 0.02, 0.3]].forEach(([ratio, gain, decay]) => {
       const o = ctx.createOscillator(), g = ctx.createGain();
@@ -820,7 +942,7 @@
     if (e.key === 'Shift') keys.add('shift');
     if (e.key.toLowerCase() === 'h') speak();
     if (e.key.toLowerCase() === 'v') setView(!view3d);
-    const li = ['1', '2', '3', '4', '5', '6'].indexOf(e.key);
+    const li = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'].indexOf(e.key);
     if (li >= 0) switchLayer(LAYER_ORDER[li]);
     if (e.key.toLowerCase() === 'l') say(layerAnnouncement());     // which layer am I on?
     if (e.key.toLowerCase() === 'm') toggleMute();
@@ -898,7 +1020,7 @@
       // [CLAUDE FIX] screen readers (NVDA, JAWS) normally keep the arrow keys for reading the page. Marking the map as an
       // "application" and moving focus onto it hands the arrow keys to the app, so the listener can walk.
       wrapNode.setAttribute('role', 'application');
-      wrapNode.setAttribute('aria-label', 'Earth Jukebox map. Arrow keys or W A S D to walk, H for a summary, 1 to 6 to change layer, T for then and now. Press Tab to leave the map.');
+      wrapNode.setAttribute('aria-label', 'Earth Jukebox map. Arrow keys or W A S D to walk, H for a summary, 1 to 9 and 0 to change layer, T for then and now. Press Tab to leave the map.');
       wrapNode.tabIndex = 0;
       wrapNode.focus();
       warmVoice();                           // get the narrator's most common phrases ready
@@ -1099,7 +1221,7 @@
   }
   const kokoroSentences = t => (t.match(/[^.!?]+[.!?]*\s*/g) || [t]).map(x => x.trim()).filter(Boolean);
   function warmKokoro() {                    // make the phrases you hear most ahead of time, so they start instantly
-    const phrases = LAYER_ORDER.map(k => k === 'all' ? 'Earth Orchestra.' : `Layer ${LAYER_ORDER.indexOf(k) + 1} of 6: ${LABEL[k]}, played by the ${ORCHESTRA[k].name}.`);
+    const phrases = LAYER_ORDER.map(k => k === 'all' ? 'Earth Orchestra.' : `Layer ${LAYER_ORDER.indexOf(k) + 1} of ${LAYER_ORDER.length}: ${LABEL[k]}, played by the ${ORCHESTRA[k].name}.`);
     phrases.forEach(p => kokoroSentences(p).forEach(x => kokoroUrl(x, true).catch(() => {})));
   }
   function kokoroSpeak(text, id) {           // no server voice: the free on-device voice, or the browser's if it is not ready in time
@@ -1177,17 +1299,17 @@
     live.textContent = '';                    // our own voice: keep the live region quiet so nothing is spoken twice
     voiceSpeak(text);
   }
-  const LABEL = { rain: 'Rain', heat: 'Land heat', plants: 'Plants', ocean: 'Ocean heat', air: 'Haze' };
-  const LAYER_ORDER = ['rain', 'heat', 'plants', 'ocean', 'air', 'all'];
+  const LABEL = { rain: 'Rain', heat: 'Land heat', plants: 'Plants', ocean: 'Ocean heat', air: 'Haze', fire: 'Fires', ice: 'Snow and ice', smog: 'Pollution', wind: 'Wind' };
+  const LAYER_ORDER = ['rain', 'heat', 'plants', 'ocean', 'air', 'fire', 'ice', 'smog', 'wind', 'all'];
   function warmVoice() {                     // prepare the phrases you hear most, so they play instantly
     if (ttsOff && kokoroState === 'failed') return;
     const prep = ttsOff ? kokoroUrl : fetchVoice;   // server voice if set up, otherwise make them on this device
     LAYER_ORDER.forEach(k => prep(k === 'all' ? 'Earth Orchestra.'
-      : `Layer ${LAYER_ORDER.indexOf(k) + 1} of 6: ${LABEL[k]}, played by the ${ORCHESTRA[k].name}.`).catch(() => {}));
+      : `Layer ${LAYER_ORDER.indexOf(k) + 1} of ${LAYER_ORDER.length}: ${LABEL[k]}, played by the ${ORCHESTRA[k].name}.`).catch(() => {}));
   }
   function layerAnnouncement() {
     if (orchestra) return 'Earth Orchestra.';
-    return `Layer ${LAYER_ORDER.indexOf(layerKey) + 1} of 6: ${LABEL[layerKey]}, played by the ${ORCHESTRA[layerKey].name}.`;
+    return `Layer ${LAYER_ORDER.indexOf(layerKey) + 1} of ${LAYER_ORDER.length}: ${LABEL[layerKey]}, played by the ${ORCHESTRA[layerKey].name}.`;
   }
   // sound logo: the layer's instrument plays its note for a moment; the orchestra plays a quick roll call, then all together
   let logo = null;
@@ -1264,7 +1386,7 @@
   const timeEl = document.getElementById('time'), timeOut = document.getElementById('timeout');
   const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   // [CLAUDE ADDITION] Then & now: the same calendar day, THEN_YEARS earlier. Every layer's NASA record reaches back
-  // past 2006 (MODIS Terra and IMERG to 2000, GHRSST MUR to mid-2002), so 20 years works for all five.
+  // past 2006 (MODIS Terra and IMERG to 2000, GHRSST MUR to mid-2002), so 20 years works for most layers (pollution only goes back to 2018, so it is silent in 2006).
   const THEN_YEARS = 20;
   let thenMode = false;
   const dayFor = off => {
@@ -1699,6 +1821,7 @@
   let last = performance.now();
   // ---------- sound waves: one line per instrument, taller = louder, they cross each other ----------
   const wavesEl = document.getElementById('waves'), wg = wavesEl.getContext('2d');
+  const SEMI_MIN = Math.min(...Object.values(ORCHESTRA).map(o => o.semis)), SEMI_MAX = Math.max(...Object.values(ORCHESTRA).map(o => o.semis));
   const waveAmp = {}; Object.keys(ORCHESTRA).forEach(k => { waveAmp[k] = 0; });
   function drawWaves(now) {
     const dpr = Math.min(devicePixelRatio || 1, 2), cw = wavesEl.clientWidth, ch = wavesEl.clientHeight;
@@ -1710,7 +1833,7 @@
     keys.forEach((k, n) => {
       const lv = voices[k] ? voices[k].cur : 0;
       waveAmp[k] += (lv - waveAmp[k]) * 0.1;
-      const A = waveAmp[k], col = ORCHESTRA[k].color, cyc = 1.6 + (ORCHESTRA[k].semis + 12) / 31 * 5.2, sp = 0.6 + (ORCHESTRA[k].semis + 12) / 31 * 1.4;
+      const pn = (ORCHESTRA[k].semis - SEMI_MIN) / (SEMI_MAX - SEMI_MIN), A = waveAmp[k], col = ORCHESTRA[k].color, cyc = 1.6 + pn * 5.2, sp = 0.6 + pn * 1.4;
       wg.beginPath();
       for (let x = 0, i = 0; x <= cw; x += 3, i++) {
         const u = x / cw, env = Math.pow(Math.sin(Math.PI * u), 0.8);
