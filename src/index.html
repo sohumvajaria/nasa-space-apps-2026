@@ -962,7 +962,11 @@
       return;
     }
     if (e.target && e.target.type === 'range' && /^(Arrow|Home|End|Page)/.test(e.key)) return;   // let the date slider use the arrow keys
-    if (e.key === 'Escape' && !document.getElementById('guide').hidden) { e.preventDefault(); closeGuide(); return; }
+    if (!document.getElementById('guide').hidden) {           // guide open, focus on the map
+      if (e.key === 'Escape') { e.preventDefault(); closeGuide(); return; }
+      if (e.key === 'Enter') { e.preventDefault(); listenNow(); return; }
+      if (e.key === '/') { e.preventDefault(); stopMic(); guideQ.focus(); return; }
+    }
     if ((e.key || '').toLowerCase() === 'g' && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); toggleGuide(); return; }
     const k = KEYMAP[e.key] || KEYMAP[e.key.toLowerCase?.()];
     if (k) { keys.add(k); e.preventDefault(); }
@@ -1274,6 +1278,7 @@
   // [CLAUDE FIX] Announcements used to go to BOTH the built-in voice and the screen reader, so screen reader users heard
   // two voices at once. "Voice" now chooses one: built-in (default, for people without a screen reader) or screen reader.
   let readerVoice = false;
+  let rec = null, silentRounds = 0, relisten = 0, resumeMic = false;   // the guide's microphone (see the guide below)
   let ttsOff = false, ttsAudio = null, speechId = 0;   // declared before first use (the voice button reads ttsOff when the page loads)
   try { readerVoice = localStorage.getItem('ej-voice') === 'reader'; } catch (e) {}
   const voiceBtn = document.getElementById('voice');
@@ -1302,7 +1307,8 @@
   voiceBtn.addEventListener('click', () => {
     readerVoice = !readerVoice; applyVoiceUI();
     try { localStorage.setItem('ej-voice', readerVoice ? 'reader' : 'builtin'); } catch (e) {}
-    say(readerVoice ? 'Announcements now come through your screen reader.' : 'Announcements now use the built-in voice.');
+    // said with the app's own voice either way, so pressing N by accident is never silent
+    voiceSpeak(readerVoice ? 'Voice off. Your screen reader will read everything now. Press N to turn the voice back on.' : 'Voice on.');
   });
   applyVoiceUI();
   // ---------- the voice: a soft, human-sounding narrator, with the browser's best voice as a backup ----------
@@ -1385,6 +1391,10 @@
 
   function say(text, done) {
     const live = document.getElementById('announce');
+    if (rec || resumeMic) {                   // the guide is listening: pause the mic so it does not hear the app, then listen again
+      stopMic(); resumeMic = true;
+      const d = done; done = () => { resumeMic = false; if (d) d(); silentRounds = 0; listen(); };
+    }
     if (readerVoice || !('speechSynthesis' in window)) {   // re-set the text so the same words are announced again
       live.textContent = ''; setTimeout(() => { live.textContent = text; }, 50);
       // the screen reader does the talking, so we can only guess when it is done: about 2.6 words a second
@@ -1992,14 +2002,15 @@
     guideEl.hidden = false; guideBtn.setAttribute('aria-pressed', 'true');
     const first = !guideLog.children.length, hello = guideHello(first);
     guideSay('bot', hello);
-    document.getElementById('guidenote').textContent = canListen() ? 'Talk after the beep. Enter on an empty box listens again. Escape closes.' : 'Type a question and press Enter. Escape closes.';
+    document.getElementById('guidenote').textContent = canListen() ? 'Talk after the beep. Enter: listen again. /: type. Escape: close.' : 'Type a question and press Enter. Escape closes.';
     silentRounds = 0;
     say(hello, () => listen());
-    setTimeout(() => guideQ.focus({ preventScroll: true }), 50);
+    // with the mic, keys keep working (H, arrows...) while it listens; / jumps to the box to type. Without a mic, go straight to the box.
+    setTimeout(() => { if (canListen()) toMap(guideBtn); else guideQ.focus({ preventScroll: true }); }, 50);
   }
   function closeGuide() {
     guideEl.hidden = true; guideBtn.setAttribute('aria-pressed', 'false');
-    try { stopMic(); } catch (e) {}
+    resumeMic = false; try { stopMic(); } catch (e) {}
     if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
     toMap(guideBtn);
     say('Guide closed.');
@@ -2083,7 +2094,6 @@
   });
 
   // speak a question instead of typing it (where the browser allows)
-  let rec = null, silentRounds = 0, relisten = 0;
   function beep() {                          // a soft rising two-note chime: "your turn to talk"
     if (!ctx) return;
     const t = ctx.currentTime;
@@ -2122,7 +2132,7 @@
       stopMic();
       if (guideEl.hidden) return;
       if (++silentRounds < 3) relisten = setTimeout(listen, 250);   // keep listening quietly for a little longer
-      else { silentRounds = 0; say('I stopped listening. Press Enter to talk again.'); }
+      else { silentRounds = 0; say('I stopped listening. Press Enter to talk again.'); }   // (rec is null here, so this does not restart it)
     };
     try { r.start(); } catch (e) { stopMic(); return; }
     guideMic.setAttribute('aria-pressed', 'true'); guideMic.textContent = 'Listening...';
