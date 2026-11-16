@@ -1,8 +1,8 @@
-# Terra-fic Tunes
+# GeoSonix
 
 **Walk across the whole planet by ear, and hear what NASA's satellites see.**
 
-Terra-fic Tunes turns real NASA Earth data into sound you can move through. You steer around a map of the world with the arrow keys, and wherever you stand, an instrument plays what the satellites measured there: rain, heat, vegetation, ocean temperature, wind. The stronger the data, the louder and brighter it plays. It was built for the 2026 NASA International Space Apps Challenge, for the challenge called **The Earth Information Jukebox**.
+GeoSonix turns real NASA Earth data into sound you can move through. You steer around a map of the world with the arrow keys, and wherever you stand, an instrument plays what the satellites measured there: rain, heat, vegetation, ocean temperature, wind. The stronger the data, the louder and brighter it plays. It was built for the 2026 NASA International Space Apps Challenge, for the challenge called **The Earth Information Jukebox**.
 
 **Live site:** https://nasa-space-apps-2026-sandy.vercel.app
 
