@@ -2071,7 +2071,15 @@
       const j = await r.json();
       wait.remove();
       (j.actions || []).forEach(a => { try { runGuideAction(a); } catch (e) { console.warn(e); } });
-      const reply = j.reply || ((j.actions || []).length ? 'Done.' : 'I did not catch that.');
+      const did = (j.actions || []).map(a => {                       // when Claude only acts, say what happened
+        const i = a.input || {};
+        return ({ switch_layer: () => i.layer === 'all' ? 'Switched to the Earth Orchestra.' : `Switched to ${LABEL[i.layer] || i.layer}.`,
+          go_to_place: () => `Took you to ${i.name || 'that place'}.`, go_home: () => 'Took you home to Null Island.',
+          change_date: () => `Moved the date ${Math.abs(i.steps || 0)} day${Math.abs(i.steps || 0) === 1 ? '' : 's'} ${(i.steps || 0) < 0 ? 'back' : 'forward'}.`,
+          set_then_and_now: () => i.on ? 'Then and now is on.' : 'Then and now is off.', set_view: () => i.mode === '3d' ? '3D terrain.' : 'Flat map.',
+          set_muted: () => i.muted ? 'Muted.' : 'Unmuted.' }[a.tool] || (() => ''))();
+      }).filter(Boolean).join(' ');
+      const reply = j.reply || did || 'I did not catch that.';
       guideSay('bot', reply); say(reply);
       guideHistory.push({ role: 'user', text }, { role: 'assistant', text: reply });
     } catch (e) {
