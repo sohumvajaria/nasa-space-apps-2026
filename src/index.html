@@ -2066,7 +2066,7 @@
           set_then_and_now: () => i.on ? 'Went back to 2006.' : 'Back to today.', set_view: () => i.mode === '3d' ? '3D terrain.' : 'Flat map.',
           set_muted: () => i.muted ? 'Muted.' : 'Unmuted.' }[a.tool] || (() => ''))();
       }).filter(Boolean).join(' ');
-      const reply = j.reply || did || 'I did not catch that.';
+      const reply = (j.actions || []).length && did ? did : (j.reply || did || 'I did not catch that.');   // after an action, a short confirmation beats the model reading out coordinates
       guideSay('bot', reply); speakIt(reply);
       guideHistory.push({ role: 'user', text }, { role: 'assistant', text: reply });
     } catch (e) {
