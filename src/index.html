@@ -7,25 +7,45 @@
 <link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>Terra-fic Tunes</title>
+<!-- [CLAUDE ADDITION] Pin Wall theme fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Oswald:wght@500;600&display=swap">
 <style>
+  /* [CLAUDE ADDITION] "Pin Wall" theme: a wall of steel pins in a black powder-coated, bolted frame.
+     Raking light from the left, a blue fill from the right, warm glints, captions on small screwed plates.
+     Colors come from the Pin Wall style card: deep #46689e (sea), pale #bfe9ff (shallows), land #ffc890 (rock), hot #ff5a12 (lava).
+     Only the look changed: every layout rule, id and class is the same as before. */
   :root {
     color-scheme: dark;
-    --bg: #0a1112;
-    --bg2: #101b1c;
-    --ink: #e9e4d6;
-    --mute: #8c9893;
-    --faint: #5d6b67;
-    --line: rgba(233, 228, 214, .13);
-    --accent: #dcbf8f;
-    --moss: #86aa9a;
-    --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
-    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --bg: #050506;
+    --bg2: #0b0c0f;
+    --coat: #0a0a0b;               /* powder-coated frame */
+    --coat2: #141518;
+    --steel: #c3c7cf;
+    --steel-hi: #eef1f6;
+    --steel-lo: #8b919b;
+    --ink: #eef1f6;
+    --mute: #b9c3d2;
+    --faint: #8d95a3;              /* still 6:1 on the background, so small notes stay readable */
+    --line: rgba(200, 210, 225, .22);
+    --line2: rgba(200, 210, 225, .38);
+    --accent: #ffc890;             /* warm glint (land tint) */
+    --deep: #46689e;
+    --pale: #bfe9ff;
+    --hot: #ff5a12;
+    --plate: rgba(9, 10, 13, .86);
+    --display: "Oswald", "Bebas Neue", "Arial Narrow", "Roboto Condensed", Impact, sans-serif;
+    --serif: var(--display);
+    --sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    /* four bolts, one in each corner of a framed panel */
+    --bolt: radial-gradient(circle, #5d626b 0 2.2px, #24262b 2.8px 3.6px, transparent 4.2px);
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; min-height: 100%; }
   body {
     background: var(--bg);
-    background-image: radial-gradient(40vmax 40vmax at 15% 20%, rgba(70, 140, 130, .12), transparent 70%), radial-gradient(45vmax 45vmax at 85% 75%, rgba(220, 170, 110, .07), transparent 70%), radial-gradient(120% 80% at 50% 0%, var(--bg2) 0%, var(--bg) 60%);
+    background-image: radial-gradient(60vmax 50vmax at 0% 30%, rgba(255, 236, 210, .05), transparent 70%), radial-gradient(50vmax 50vmax at 100% 80%, rgba(90, 152, 255, .07), transparent 70%), radial-gradient(120% 80% at 50% 0%, var(--bg2) 0%, var(--bg) 65%);
     background-attachment: fixed;
     color: var(--ink);
     font: 15px/1.6 var(--sans);
@@ -35,117 +55,174 @@
   }
   [hidden] { display: none !important; }
   #sky { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; display: block; }
-  #waves { display: block; width: 100%; height: 132px; border: 1px solid var(--line); border-radius: 24px; background: rgba(233, 228, 214, .028); flex: none; }
+  /* framed panel: black coat, a fine highlight on the top edge from the raking light, a bolt in each corner */
+  #waves, #hud, .group {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background:
+      var(--bolt) 6px 6px / 12px 12px no-repeat, var(--bolt) calc(100% - 6px) 6px / 12px 12px no-repeat,
+      var(--bolt) 6px calc(100% - 6px) / 12px 12px no-repeat, var(--bolt) calc(100% - 6px) calc(100% - 6px) / 12px 12px no-repeat,
+      linear-gradient(180deg, var(--coat2), var(--coat));
+    box-shadow: inset 0 1px 0 rgba(255, 244, 230, .08), inset 1px 0 0 rgba(255, 244, 230, .05), inset -1px 0 0 rgba(90, 152, 255, .08), 0 24px 50px -28px rgba(0, 0, 0, .9);
+  }
+  #waves { display: block; width: 100%; height: 132px; flex: none; }
   #guide { display: flex; flex-direction: column; gap: 12px; text-align: left; }
   #guide[hidden] { display: none !important; }
   #guidelog { max-height: 190px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; font: 400 14px/1.5 var(--sans); }
   #guidelog p { margin: 0; color: var(--mute); }
   #guidelog p.me { color: var(--ink); }
   #guideform { display: flex; gap: 8px; flex-wrap: wrap; }
-  #guideq { flex: 1 1 160px; min-width: 0; padding: 9px 14px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--ink); font: inherit; font-size: 14px; }
+  #guideq { flex: 1 1 160px; min-width: 0; padding: 9px 14px; border-radius: 8px; border: 1px solid var(--line2); background: #060607; color: var(--ink); font: inherit; font-size: 14px; box-shadow: inset 0 2px 6px rgba(0,0,0,.6); }
   #guideq:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   #hero { position: relative; width: 100%; max-width: 980px; margin: 0 auto 10px; height: clamp(420px, 68vh, 620px); }
   #globe { position: absolute; inset: 0; width: 100%; height: 100%; display: block; mix-blend-mode: screen; cursor: grab; touch-action: pan-y; }
   #globe:active { cursor: grabbing; }
-  #hero header { position: absolute; left: 0; right: 0; bottom: 0; padding: 120px 0 4px; pointer-events: none; text-shadow: 0 0 18px rgba(10,17,18,.95), 0 0 6px rgba(10,17,18,.8); }
+  #hero header { position: absolute; left: 0; right: 0; bottom: 0; padding: 120px 0 4px; pointer-events: none; text-shadow: 0 0 18px rgba(5,5,6,.95), 0 0 6px rgba(5,5,6,.8); }
   #hero header a { pointer-events: auto; }
   #hero.nogl { height: auto; margin-top: 0; }
   #hero.nogl header { position: static; padding: 0; background: none; }
-  #hud, .group { border: 1px solid var(--line); border-radius: 24px; background: rgba(233, 228, 214, .028); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
-  #hud { padding: 26px 18px; box-shadow: 0 20px 60px -30px rgba(0,0,0,.6); }
+  #hud { padding: 26px 18px; }
   .group { padding: 22px 18px; }
   main { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; gap: 34px; }
 
   header { text-align: center; }
-  .eyebrow { margin: 0 0 14px; font-size: 11px; letter-spacing: .32em; text-transform: uppercase; color: var(--faint); }
-  h1 { margin: 0; font: 400 clamp(36px, 7vw, 56px)/1.05 var(--serif); letter-spacing: .05em; text-shadow: 0 2px 40px rgba(0,0,0,.6); }
-  .sub { margin: 12px 0 0; color: var(--mute); font: italic 400 16px/1.4 var(--serif); }
+  .eyebrow { margin: 0 0 14px; font: 500 12px/1 var(--display); letter-spacing: .32em; text-transform: uppercase; color: var(--faint); }
+  /* the title is cut from polished steel: lit from the upper left, a blue cast underneath */
+  h1 {
+    margin: 0; font: 600 clamp(38px, 7.4vw, 60px)/1.02 var(--display); letter-spacing: .06em; text-transform: uppercase;
+    color: var(--steel-hi);
+    background: linear-gradient(172deg, #ffffff 0%, #e7ebf1 38%, #9aa2ae 52%, #dfe5ee 62%, #8fb2e6 100%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    text-shadow: none; filter: drop-shadow(-3px 4px 10px rgba(0,0,0,.85));
+  }
+  .sub { margin: 12px 0 0; color: var(--mute); font: 400 15px/1.4 var(--sans); }
 
   #wrap { position: relative; width: min(100%, 540px); aspect-ratio: 1; }
   #wrap.flat { width: min(94vw, 980px); aspect-ratio: 2 / 1; }
+  /* the map sits in the pin wall's frame: a thick black bezel with bolts */
   #wrap canvas {
-    width: 100%; height: 100%; display: block; border-radius: 28px;
-    border: 1px solid var(--line);
-    box-shadow: 0 30px 80px -30px rgba(0,0,0,.7), 0 0 0 8px rgba(233,228,214,.025);
+    width: 100%; height: 100%; display: block; border-radius: 14px;
+    border: 12px solid var(--coat);
+    background: #060607;
+    box-shadow: inset 0 0 0 1px var(--line), 0 0 0 1px rgba(200,210,225,.16), 0 1px 0 1px rgba(255,244,230,.06), 0 34px 80px -30px rgba(0,0,0,.95);
+  }
+  #wrap::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 3; border-radius: 14px;
+    background:
+      var(--bolt) 0 0 / 12px 12px, var(--bolt) 100% 0 / 12px 12px, var(--bolt) 0 100% / 12px 12px, var(--bolt) 100% 100% / 12px 12px,
+      var(--bolt) 50% 0 / 12px 12px, var(--bolt) 50% 100% / 12px 12px, var(--bolt) 0 50% / 12px 12px, var(--bolt) 100% 50% / 12px 12px;
+    background-repeat: no-repeat;
   }
   #start {
-    position: absolute; inset: 0; width: 100%; height: 100%; border: 0; border-radius: 28px; cursor: pointer;
-    background: rgba(10, 17, 18, .62); -webkit-backdrop-filter: blur(7px); backdrop-filter: blur(7px);
-    color: var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+    position: absolute; inset: 0; width: 100%; height: 100%; border: 0; border-radius: 14px; cursor: pointer;
+    background: radial-gradient(circle at 50% 50%, rgba(5,5,6,.45), rgba(5,5,6,.78)); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+    color: var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
     font: inherit; transition: background .4s ease;
   }
-  #start:hover { background: rgba(10, 17, 18, .5); }
-  #start:focus-visible { outline: 2px solid var(--accent); outline-offset: -6px; }
+  #start:hover { background: radial-gradient(circle at 50% 50%, rgba(5,5,6,.3), rgba(5,5,6,.66)); }
+  #start:focus-visible { outline: 2px solid var(--accent); outline-offset: -18px; }
   /* [CLAUDE FIX] the map is focusable after "Begin listening", so screen readers hand it the arrow keys */
-  #wrap:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 30px; }
+  #wrap:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 16px; }
   /* [CLAUDE ADDITION] the intro tutorial: a full-screen stage over the app, with a skip button */
   #intro { position: fixed; inset: 0; z-index: 50; background: #030304; display: flex; align-items: center; justify-content: center; }
   #intro[hidden] { display: none; }
   #introcanvas, #introvideo { width: 100%; height: 100%; object-fit: contain; display: block; }
   #introcanvas[hidden], #introvideo[hidden] { display: none; }
-  #introskip { position: absolute; top: 18px; right: 18px; font: 500 15px/1 var(--sans, system-ui), sans-serif; color: #eef1f6; background: rgba(9,10,13,.8); border: 1px solid rgba(200,210,225,.4); border-radius: 999px; padding: 10px 18px; cursor: pointer; }
+  #introskip { position: absolute; top: 18px; right: 18px; font: 500 16px/1 var(--display); letter-spacing: .12em; text-transform: uppercase; color: #eef1f6; background: rgba(9,10,13,.86); border: 2px solid rgba(200,210,225,.34); border-radius: 12px; padding: 12px 20px; cursor: pointer; }
   #introskip:focus-visible { outline: 2px solid #ffd36a; outline-offset: 3px; }
   #introskip kbd { margin-left: 8px; }
-  #introstatus { position: absolute; color: #9aa3b2; letter-spacing: .08em; }
-  #intromark { position: absolute; right: 18px; bottom: 14px; font-size: 11px; color: rgba(200,210,225,.55); letter-spacing: .04em; }
-  .pill.then[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
-  #start .go { font: 400 24px/1 var(--serif); letter-spacing: .08em; padding: 14px 34px; border: 1px solid var(--accent); border-radius: 999px; color: var(--accent); }
-  #start .hint { font-size: 12px; letter-spacing: .14em; color: var(--mute); text-transform: uppercase; }
+  #introstatus { position: absolute; color: #9aa3b2; font-family: var(--display); letter-spacing: .14em; text-transform: uppercase; }
+  #intromark { position: absolute; right: 18px; bottom: 14px; font-size: 11px; color: rgba(200,210,225,.6); letter-spacing: .04em; }
+  /* the big start control: a caption plate held by two screws, like the plates in the intro */
+  #start .go {
+    position: relative; font: 500 clamp(24px, 3.4vw, 34px)/1 var(--display); letter-spacing: .14em; text-transform: uppercase;
+    padding: 20px 52px; border: 2px solid rgba(200,210,225,.34); border-radius: 12px; color: var(--steel-hi);
+    background:
+      radial-gradient(circle, rgba(200,210,225,.6) 0 4px, transparent 5px) 18px 50% / 12px 12px no-repeat,
+      radial-gradient(circle, rgba(200,210,225,.6) 0 4px, transparent 5px) calc(100% - 18px) 50% / 12px 12px no-repeat,
+      var(--plate);
+    box-shadow: inset 0 1px 0 rgba(255,244,230,.12), 0 0 0 1px rgba(0,0,0,.6), 0 18px 40px -16px rgba(0,0,0,.9), 0 0 60px -10px rgba(255,200,144,.25);
+  }
+  #start:hover .go, #start:focus-visible .go { border-color: var(--accent); color: #fff; }
+  #start .hint { font: 500 12px/1.3 var(--display); letter-spacing: .2em; color: var(--mute); text-transform: uppercase; }
 
   #hud { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px 12px; text-align: center; font-variant-numeric: tabular-nums; }
   #hud > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-  #hud .k { font-size: 10px; letter-spacing: .24em; text-transform: uppercase; color: var(--faint); }
-  #hud b { font: 400 18px/1.25 var(--serif); font-weight: 400; color: var(--ink); overflow-wrap: anywhere; }
-  #hud .primary b { color: var(--accent); font-size: 21px; }
+  #hud .k { font: 500 11px/1.2 var(--display); letter-spacing: .24em; text-transform: uppercase; color: var(--faint); }
+  #hud b { font: 600 17px/1.25 var(--sans); color: var(--ink); overflow-wrap: anywhere; }
+  #hud .primary b { color: var(--accent); font: 500 23px/1.15 var(--display); letter-spacing: .04em; text-transform: uppercase; text-shadow: 0 0 18px rgba(255,200,144,.35); }
 
-  #sound { display: inline-flex; padding: 4px; gap: 2px; border: 1px solid var(--line); border-radius: 999px; }
+  #sound { display: inline-flex; padding: 4px; gap: 2px; border: 1px solid var(--line); border-radius: 10px; background: var(--coat); }
   #sound .lbl { display: none; }
   #sound button {
-    background: transparent; color: var(--mute); border: 0; padding: 8px 20px; border-radius: 999px; cursor: pointer;
-    font: inherit; font-size: 13px; letter-spacing: .08em; transition: background .3s, color .3s;
+    background: transparent; color: var(--mute); border: 0; padding: 8px 20px; border-radius: 8px; cursor: pointer;
+    font: 500 14px/1.2 var(--display); letter-spacing: .12em; text-transform: uppercase; transition: background .3s, color .3s;
   }
   #sound button:hover { color: var(--ink); }
-  #sound button[aria-pressed="true"] { background: rgba(220,191,143,.14); color: var(--accent); }
+  #sound button[aria-pressed="true"] { background: linear-gradient(180deg, #f4f6f9, #b9bfc8 55%, #d9dee5); color: #0a0a0b; }
   #sound button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  kbd { font: 11px var(--sans); color: var(--faint); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; margin-left: 6px; }
+  /* key caps: little steel keys */
+  kbd {
+    font: 600 11px/1.5 var(--sans); color: var(--mute); letter-spacing: 0; text-transform: none;
+    border: 1px solid var(--line2); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; margin-left: 8px;
+    background: linear-gradient(180deg, #24262b, #121316); box-shadow: inset 0 1px 0 rgba(255,255,255,.08); vertical-align: 1px;
+  }
 
   #datastat { margin: 0; text-align: center; max-width: 440px; color: var(--faint); font-size: 12px; line-height: 1.7; }
 
   details { width: 100%; max-width: 440px; border-top: 1px solid var(--line); padding-top: 18px; text-align: center; }
-  summary { cursor: pointer; list-style: none; font-size: 11px; letter-spacing: .28em; text-transform: uppercase; color: var(--mute); }
+  summary { cursor: pointer; list-style: none; font: 500 13px/1.4 var(--display); letter-spacing: .28em; text-transform: uppercase; color: var(--mute); }
   summary::-webkit-details-marker { display: none; }
   summary:hover { color: var(--ink); }
   summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 6px; border-radius: 4px; }
   details p { margin: 16px 0 0; color: var(--mute); font-size: 14px; line-height: 1.8; text-align: left; }
   .howto { margin: 16px 0 0; padding: 0 0 0 20px; color: var(--mute); font-size: 14.5px; line-height: 1.6; text-align: left; }
   .howto li { margin: 0 0 10px; padding-left: 4px; }
+  .howto li::marker { color: var(--steel-lo); }
   .howto b { color: var(--ink); font-weight: 600; }
-  details b { color: var(--ink); font-weight: 500; }
+  details b { color: var(--ink); font-weight: 600; }
 
   .row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
-  .pill { background: transparent; color: var(--mute); border: 1px solid var(--line); padding: 8px 18px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 13px; letter-spacing: .06em; transition: background .3s, color .3s, border-color .3s; }
-  .pill:hover { color: var(--ink); border-color: var(--faint); }
-  .pill[aria-pressed="true"] { background: rgba(220,191,143,.14); color: var(--accent); border-color: rgba(220,191,143,.4); }
-  .pill.orch { border-color: rgba(220,191,143,.45); color: var(--accent); }   /* the Earth Orchestra: the centerpiece */
-  .pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  /* buttons are small screwed caption plates; a pressed one turns into polished steel */
+  .pill {
+    background: var(--plate); color: var(--mute); border: 1px solid var(--line2); padding: 9px 16px; border-radius: 10px; cursor: pointer;
+    font: 500 14px/1.2 var(--display); letter-spacing: .12em; text-transform: uppercase;
+    box-shadow: inset 0 1px 0 rgba(255,244,230,.07), 0 6px 14px -8px rgba(0,0,0,.9);
+    transition: background .25s, color .25s, border-color .25s, box-shadow .25s, transform .1s;
+  }
+  .pill:hover { color: var(--ink); border-color: rgba(200,210,225,.6); }
+  .pill:active { transform: translateY(1px); }
+  .pill[aria-pressed="true"] {
+    background: linear-gradient(180deg, #f6f8fb 0%, #c7ccd4 48%, #a9afb8 52%, #dfe4ea 100%); color: #0a0a0b; border-color: #e9edf3;
+    box-shadow: inset 0 1px 0 #fff, 0 0 0 1px rgba(0,0,0,.5), 0 0 22px -4px rgba(255,236,210,.45);
+  }
+  .pill[aria-pressed="true"] kbd { color: #1a1b1e; background: linear-gradient(180deg, #ffffff, #d4d9e0); border-color: rgba(0,0,0,.35); }
+  /* the Earth Orchestra: the centrepiece, glowing like the hot pins */
+  .pill.orch { border-color: rgba(255,90,18,.6); color: #ffb48a; box-shadow: inset 0 1px 0 rgba(255,244,230,.07), 0 0 18px -6px rgba(255,90,18,.6); }
+  .pill.orch[aria-pressed="true"] { background: linear-gradient(180deg, #ffd2b0 0%, #ff9a5a 50%, #ff5a12 100%); color: #140600; border-color: #ffc7a0; box-shadow: 0 0 0 1px rgba(0,0,0,.5), 0 0 30px -2px rgba(255,90,18,.7); }
+  .pill.orch[aria-pressed="true"] kbd { color: #140600; background: #ffe2cc; border-color: rgba(0,0,0,.3); }
+  .pill.then[aria-pressed="true"] { background: linear-gradient(180deg, #e6f6ff 0%, #bfe9ff 50%, #8fb4e8 100%); color: #06101c; border-color: #dff3ff; }
+  .pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   #wrap, #wrap canvas { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
-  #stick { position: absolute; width: 112px; height: 112px; margin: -56px 0 0 -56px; border-radius: 50%; border: 1.5px solid rgba(220,191,143,.5); background: radial-gradient(circle, rgba(220,191,143,.10), rgba(220,191,143,.03)); pointer-events: none; z-index: 2; }
-  #knob { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; background: rgba(220,191,143,.55); box-shadow: 0 0 24px rgba(220,191,143,.4); }
+  #stick { position: absolute; width: 112px; height: 112px; margin: -56px 0 0 -56px; border-radius: 50%; border: 2px solid rgba(200,210,225,.5); background: radial-gradient(circle, rgba(9,10,13,.6), rgba(9,10,13,.35)); pointer-events: none; z-index: 2; }
+  #knob { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffffff, #c3c7cf 45%, #6b717b 100%); box-shadow: 0 0 20px rgba(255,236,210,.35), 0 4px 10px rgba(0,0,0,.7); }
   #touchhint { margin: -14px 0 0; text-align: center; font-size: 12px; color: var(--faint); }
-  .links { margin: 14px 0 0; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; }
-  .links a { color: var(--mute); text-decoration: none; border-bottom: 1px solid var(--line); padding-bottom: 2px; }
+  .links { margin: 14px 0 0; font: 500 13px/1.4 var(--display); letter-spacing: .16em; text-transform: uppercase; }
+  .links a { color: var(--mute); text-decoration: none; border-bottom: 1px solid var(--line2); padding-bottom: 2px; }
   .links a:hover { color: var(--accent); border-color: var(--accent); }
   .links a:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 3px; }
-  .blurb { margin: -12px 0 0; max-width: 460px; text-align: center; color: var(--mute); font: italic 400 15px/1.6 var(--serif); }
+  .blurb { margin: -12px 0 0; max-width: 480px; text-align: center; color: var(--mute); font: 400 15px/1.6 var(--sans); }
   .group { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; }
-  .group .k { font-size: 10px; letter-spacing: .24em; text-transform: uppercase; color: var(--faint); }
-  .group .note { margin: 0; font-size: 12px; color: var(--faint); }
+  .group .k { font: 500 12px/1.2 var(--display); letter-spacing: .24em; text-transform: uppercase; color: var(--faint); }
+  .group .note, .note { margin: 0; font-size: 12px; color: var(--faint); }
   input[type=range] { width: min(100%, 360px); accent-color: var(--accent); background: transparent; }
   input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 4px; }
-  output { font: 400 16px/1.3 var(--serif); color: var(--ink); }
+  output { font: 500 18px/1.3 var(--display); letter-spacing: .06em; color: var(--ink); }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   @media (max-width: 420px) { #hud { grid-template-columns: repeat(2, 1fr); } }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  /* Windows high contrast / forced colors: let the system draw plain borders */
+  @media (forced-colors: active) { h1 { -webkit-text-fill-color: CanvasText; background: none; filter: none; } .pill[aria-pressed="true"] { border: 2px solid Highlight; } #wrap::after { display: none; } }
 
   /* ---------- layouts by device ----------
      phones: one column (the default above). tablets: a wider single column.
@@ -163,7 +240,7 @@
     #hero { max-width: 1240px; height: clamp(270px, 33vh, 350px); margin-bottom: 14px; }
     #globe { left: 38%; width: 62%; top: 2%; height: 106%; }
     #hero header { right: auto; top: 0; bottom: 0; width: 44%; padding: 0 0 0 8px; background: none; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; text-align: left; }
-    #hero header h1 { font-size: clamp(44px, 4.6vw, 68px); }
+    #hero header h1 { font-size: clamp(48px, 5vw, 76px); }
     #hero header .links { text-align: left; }
     main {
       max-width: 1240px; display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 22px 32px; align-items: start; justify-items: stretch;
@@ -1619,50 +1696,50 @@
   function draw(t) {
     const K = 1.8;                                           // sizes below are tuned for a smaller canvas
     g.clearRect(0, 0, W, H);
-    g.fillStyle = '#0b1415'; g.fillRect(0, 0, W, H);
+    g.fillStyle = '#060607'; g.fillRect(0, 0, W, H);
     if (baseImg) { g.globalAlpha = 0.5; g.drawImage(baseImg, 0, 0, W, H); g.globalAlpha = 1; }
     if (dataImg) { g.globalAlpha = 0.88; g.drawImage(dataImg, 0, 0, W, H); g.globalAlpha = 1; }   // in orchestra mode: every layer
 
     // soft vignette pulls the eye to the middle
     const vg = g.createRadialGradient(W / 2, H / 2, H * 0.45, W / 2, H / 2, W * 0.62);
-    vg.addColorStop(0, 'rgba(8,14,15,0)'); vg.addColorStop(1, 'rgba(8,14,15,0.5)');
+    vg.addColorStop(0, 'rgba(5,5,6,0)'); vg.addColorStop(1, 'rgba(5,5,6,0.5)');
     g.fillStyle = vg; g.fillRect(0, 0, W, H);
 
     // graticule every 30 degrees; the equator and prime meridian in gold
     g.lineWidth = 1.2;
-    for (let lon = -150; lon <= 150; lon += 30) { g.strokeStyle = lon === 0 ? 'rgba(220,191,143,0.55)' : 'rgba(233,228,214,0.10)'; g.beginPath(); g.moveTo(toPx(lon), 0); g.lineTo(toPx(lon), H); g.stroke(); }
-    for (let lat = -60; lat <= 60; lat += 30) { g.strokeStyle = lat === 0 ? 'rgba(220,191,143,0.55)' : 'rgba(233,228,214,0.10)'; g.beginPath(); g.moveTo(0, toPy(lat)); g.lineTo(W, toPy(lat)); g.stroke(); }
+    for (let lon = -150; lon <= 150; lon += 30) { g.strokeStyle = lon === 0 ? 'rgba(191,233,255,0.5)' : 'rgba(200,210,225,0.10)'; g.beginPath(); g.moveTo(toPx(lon), 0); g.lineTo(toPx(lon), H); g.stroke(); }
+    for (let lat = -60; lat <= 60; lat += 30) { g.strokeStyle = lat === 0 ? 'rgba(191,233,255,0.5)' : 'rgba(200,210,225,0.10)'; g.beginPath(); g.moveTo(0, toPy(lat)); g.lineTo(W, toPy(lat)); g.stroke(); }
 
     const sx = toPx(srcPos.x), sy = toPy(srcPos.y);
 
     // quiet distance rings every 10 degrees around the source
-    g.lineWidth = 1.5 * K / 1.8; g.setLineDash([2 * K, 9 * K]); g.strokeStyle = 'rgba(233,228,214,0.20)';
+    g.lineWidth = 1.5 * K / 1.8; g.setLineDash([2 * K, 9 * K]); g.strokeStyle = 'rgba(200,210,225,0.22)';
     for (let r = 10; r <= 30; r += 10) { g.beginPath(); g.arc(sx, sy, r * UNIT, 0, Math.PI * 2); g.stroke(); }
     g.setLineDash([]);
 
     // the source: a warm orb with slow ripples
     for (let i = 0; i < 3; i++) {
       const ph = reduceMotion ? (0.25 + i * 0.3) : (((t / 3600) + i / 3) % 1);
-      g.strokeStyle = `rgba(236,208,160,${0.5 * (1 - ph)})`;
+      g.strokeStyle = `rgba(255,200,144,${0.5 * (1 - ph)})`;
       g.lineWidth = 2 * K;
       g.beginPath(); g.arc(sx, sy, (10 + ph * 110) * K / 1.8 * 1.2, 0, Math.PI * 2); g.stroke();
     }
     const glow = g.createRadialGradient(sx, sy, 0, sx, sy, 34 * K);
-    glow.addColorStop(0, 'rgba(244,222,176,0.65)'); glow.addColorStop(1, 'rgba(244,222,176,0)');
+    glow.addColorStop(0, 'rgba(255,214,170,0.65)'); glow.addColorStop(1, 'rgba(255,214,170,0)');
     g.fillStyle = glow; g.beginPath(); g.arc(sx, sy, 34 * K, 0, Math.PI * 2); g.fill();
-    g.fillStyle = '#f6e3b6'; g.beginPath(); g.arc(sx, sy, 5.5 * K, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#fff0de'; g.beginPath(); g.arc(sx, sy, 5.5 * K, 0, Math.PI * 2); g.fill();
 
     // you: a pale dot with the direction you face (always north)
     const px = toPx(player.x), py = toPy(player.y);
-    g.strokeStyle = 'rgba(233,228,214,0.30)'; g.lineWidth = 1.5 * K; g.setLineDash([3 * K, 8 * K]);
+    g.strokeStyle = 'rgba(200,210,225,0.32)'; g.lineWidth = 1.5 * K; g.setLineDash([3 * K, 8 * K]);
     g.beginPath(); g.moveTo(px, py); g.lineTo(sx, sy); g.stroke(); g.setLineDash([]);
     const wedge = g.createRadialGradient(px, py, 0, px, py, 38 * K);
-    wedge.addColorStop(0, 'rgba(176,222,206,0.40)'); wedge.addColorStop(1, 'rgba(176,222,206,0)');
+    wedge.addColorStop(0, 'rgba(191,233,255,0.40)'); wedge.addColorStop(1, 'rgba(191,233,255,0)');
     g.fillStyle = wedge;
     g.beginPath(); g.moveTo(px, py); g.arc(px, py, 38 * K, -Math.PI * 0.75, -Math.PI * 0.25); g.closePath(); g.fill();
-    g.strokeStyle = 'rgba(214,240,228,0.7)'; g.lineWidth = 1.5 * K;
+    g.strokeStyle = 'rgba(223,243,255,0.7)'; g.lineWidth = 1.5 * K;
     g.beginPath(); g.arc(px, py, 6 * K, 0, Math.PI * 2); g.stroke();
-    g.fillStyle = '#d6f0e4'; g.beginPath(); g.arc(px, py, 3 * K, 0, Math.PI * 2); g.fill();
+    g.fillStyle = '#e6f6ff'; g.beginPath(); g.arc(px, py, 3 * K, 0, Math.PI * 2); g.fill();
   }
 
   // ---------- 3D (Three.js): the globe above, and the terrain view of the map ----------
@@ -1711,7 +1788,7 @@
     const mk = (frag, side, r) => {
       const m = new THREE.Mesh(geo(r), new THREE.ShaderMaterial({
         vertexShader: vert, fragmentShader: frag, side, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
-        uniforms: { uI: { value: 1 }, uC: { value: new THREE.Color(0x6fc3b4) } },
+        uniforms: { uI: { value: 1 }, uC: { value: new THREE.Color(0x7fb0ff) } },
       }));
       root.add(m); return m;
     };
@@ -1722,7 +1799,7 @@
 
     // where the plane sits on the planet: a 40x40 degree outline and a pulsing beacon
     const outlineGeo = new THREE.BufferGeometry();
-    const outline = new THREE.LineLoop(outlineGeo, new THREE.LineBasicMaterial({ color: 0xdcbf8f, transparent: true, opacity: 0.9 }));
+    const outline = new THREE.LineLoop(outlineGeo, new THREE.LineBasicMaterial({ color: 0xbfe9ff, transparent: true, opacity: 0.9 }));
     spin.add(outline);
     const beacon = new THREE.Mesh(new THREE.SphereGeometry(0.018, 16, 16), new THREE.MeshBasicMaterial({ color: 0xffe7b0 }));
     const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
@@ -1732,7 +1809,7 @@
     const BEAM_LEN = 0.9;
     const beamMat = new THREE.ShaderMaterial({
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
-      uniforms: { uI: { value: 1 }, uC: { value: new THREE.Color(0xf3d9a0) } },
+      uniforms: { uI: { value: 1 }, uC: { value: new THREE.Color(0xffc890) } },
       vertexShader: 'varying float vH; varying vec3 vN2; void main(){ vH = uv.y; vN2 = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
       fragmentShader: 'varying float vH; varying vec3 vN2; uniform float uI; uniform vec3 uC; void main(){ float fade = pow(1.0 - vH, 1.6); float edge = pow(abs(vN2.z), 0.7) * 0.6 + 0.4; gl_FragColor = vec4(uC, 1.0) * fade * edge * uI * 0.75; }',
     });
@@ -1744,7 +1821,7 @@
       const n = c.clone().normalize();
       [beam, beamCore].forEach(m => { m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), n); m.position.copy(n).multiplyScalar(1.0 + BEAM_LEN / 2); });
     };
-    const meDot = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, color: 0x9fe0cc }));
+    const meDot = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, color: 0xbfe9ff }));
     meDot.scale.set(0.12, 0.12, 1); spin.add(meDot);
     outline.visible = false;
 
@@ -1815,16 +1892,16 @@
     try { renderer = new THREE.WebGLRenderer({ canvas: reliefEl, antialias: true }); } catch (e) { return null; }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.outputEncoding = THREE.sRGBEncoding;
-    renderer.setClearColor(0x0a1112);
+    renderer.setClearColor(0x050506);
     const scene = new THREE.Scene();
     // the sky: deep night overhead, a soft blue-green glow of atmosphere at the horizon, like Earth seen from orbit
     const skyCanvas = document.createElement('canvas'); skyCanvas.width = 2; skyCanvas.height = 256;
     const skx = skyCanvas.getContext('2d'), skg = skx.createLinearGradient(0, 0, 0, 256);
-    skg.addColorStop(0, '#02040a'); skg.addColorStop(0.22, '#04101a'); skg.addColorStop(0.36, '#0f3442');
-    skg.addColorStop(0.43, '#1f5560'); skg.addColorStop(0.5, '#0d2a30'); skg.addColorStop(0.7, '#0a1416'); skg.addColorStop(1, '#0a1112');
+    skg.addColorStop(0, '#030304'); skg.addColorStop(0.22, '#06080c'); skg.addColorStop(0.36, '#121a28');
+    skg.addColorStop(0.43, '#24385a'); skg.addColorStop(0.5, '#111a28'); skg.addColorStop(0.7, '#08090c'); skg.addColorStop(1, '#050506');
     skx.fillStyle = skg; skx.fillRect(0, 0, 2, 256);
     scene.background = new THREE.CanvasTexture(skyCanvas); scene.background.encoding = THREE.sRGBEncoding;
-    scene.fog = new THREE.Fog(0x16444f, 30, 78);    // far land fades into the glowing atmosphere, not into gray
+    scene.fog = new THREE.Fog(0x1b2a40, 30, 78);    // far land fades into the glowing atmosphere, not into gray
     const stars = (() => {                          // a dome of faint stars that travels with the camera
       const n = 700, pts = new Float32Array(n * 3);
       for (let i = 0; i < n; i++) {
@@ -1865,35 +1942,35 @@
     };
     const mesh = new THREE.Mesh(geo, followYou(new THREE.MeshStandardMaterial({ map, roughness: 0.92, metalness: 0, transparent: true })));
     scene.add(mesh);
-    const wire = new THREE.Mesh(geo, followYou(new THREE.MeshBasicMaterial({ wireframe: true, color: 0xdcbf8f, transparent: true, opacity: 0.05, depthWrite: false })));
+    const wire = new THREE.Mesh(geo, followYou(new THREE.MeshBasicMaterial({ wireframe: true, color: 0xbfe9ff, transparent: true, opacity: 0.05, depthWrite: false })));
     wire.position.y = 0.02; scene.add(wire);
-    scene.add(new THREE.AmbientLight(0x9ab4ac, 0.7));
+    scene.add(new THREE.AmbientLight(0x8a9bb5, 0.7));
     const sun = new THREE.DirectionalLight(0xffe1b0, 1.05); sun.position.set(-30, 45, 25); scene.add(sun);
-    scene.add(new THREE.HemisphereLight(0x7fbcc0, 0x1a2224, 0.35));
+    scene.add(new THREE.HemisphereLight(0x5a98ff, 0x0a0a0b, 0.35));
 
     const glow = glowTexture();
     // the sound source: an orb, a light beam and ripples
     const src = new THREE.Group(); scene.add(src);
-    src.add(new THREE.Mesh(new THREE.SphereGeometry(0.9, 24, 24), new THREE.MeshBasicMaterial({ color: 0xf6e3b6 })));
+    src.add(new THREE.Mesh(new THREE.SphereGeometry(0.9, 24, 24), new THREE.MeshBasicMaterial({ color: 0xfff0de })));
     const sh = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); sh.scale.set(10, 10, 1); src.add(sh);
-    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.55, 18, 20, 1, true), new THREE.MeshBasicMaterial({ color: 0xf3d9a0, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.55, 18, 20, 1, true), new THREE.MeshBasicMaterial({ color: 0xffc890, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }));
     beam.position.y = 9; src.add(beam);
     const rings = [0, 1, 2].map(() => {
-      const r = new THREE.Mesh(new THREE.RingGeometry(0.95, 1.05, 72), new THREE.MeshBasicMaterial({ color: 0xf3d9a0, transparent: true, opacity: 0.4, side: THREE.DoubleSide, depthWrite: false }));
+      const r = new THREE.Mesh(new THREE.RingGeometry(0.95, 1.05, 72), new THREE.MeshBasicMaterial({ color: 0xffc890, transparent: true, opacity: 0.4, side: THREE.DoubleSide, depthWrite: false }));
       r.rotation.x = -Math.PI / 2; src.add(r); return r;
     });
 
     // you: a marker that points north, tinted by how intense the data is where you stand
     const me = new THREE.Group(); scene.add(me);
-    me.add(new THREE.Mesh(new THREE.SphereGeometry(0.55, 20, 20), new THREE.MeshBasicMaterial({ color: 0xd6f0e4 })));
-    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.42, 1.7, 14), new THREE.MeshBasicMaterial({ color: 0xb0dece, transparent: true, opacity: 0.8 }));
+    me.add(new THREE.Mesh(new THREE.SphereGeometry(0.55, 20, 20), new THREE.MeshBasicMaterial({ color: 0xe6f6ff })));
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(0.42, 1.7, 14), new THREE.MeshBasicMaterial({ color: 0xbfe9ff, transparent: true, opacity: 0.8 }));
     cone.rotation.x = -Math.PI / 2; cone.position.z = -1.5; me.add(cone);
-    const ring = new THREE.Mesh(new THREE.RingGeometry(0.9, 1.0, 40), new THREE.MeshBasicMaterial({ color: 0x86aa9a, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false }));
+    const ring = new THREE.Mesh(new THREE.RingGeometry(0.9, 1.0, 40), new THREE.MeshBasicMaterial({ color: 0x8fb4e8, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false }));
     ring.rotation.x = -Math.PI / 2; me.add(ring);
-    const mh = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, color: 0x9fe0cc })); mh.scale.set(5, 5, 1); me.add(mh);
+    const mh = new THREE.Sprite(new THREE.SpriteMaterial({ map: glow, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, color: 0xbfe9ff })); mh.scale.set(5, 5, 1); me.add(mh);
 
     const st = { renderer, scene, camera, mesh, dataRef: null, camPos: new THREE.Vector3(12, 16, 24), camLook: new THREE.Vector3(12, 1, 0), t: 0 };
-    const cool = new THREE.Color(0x86aa9a), hot = new THREE.Color(0xff6a3c);
+    const cool = new THREE.Color(0x8fb4e8), hot = new THREE.Color(0xff5a12);
     const patch = { cx: 1e9, cy: 1e9 };        // world position (degrees) the patch is centered on
 
     const heightAt = (x, north) => {
@@ -1923,7 +2000,7 @@
 
     function rebuild() {                  // new data, or you walked far enough: repaint the color map and raise the terrain
       patch.cx = Math.round(player.x * 2) / 2; patch.cy = Math.round(player.y * 2) / 2;   // snapped to the vertex grid, so nothing shimmers
-      cx.fillStyle = '#0b1415'; cx.fillRect(0, 0, 512, 512);
+      cx.fillStyle = '#060607'; cx.fillRect(0, 0, 512, 512);
       paintImage(baseImg, 0.45, patch.cx, patch.cy);      // dim NASA relief so coastlines show
       paintImage(dataImg, 1, patch.cx, patch.cy);
       map.needsUpdate = true;
@@ -2133,7 +2210,7 @@
     });
     wg.beginPath();                              // the sum of everything you hear, a soft cream line
     for (let x = 0, i = 0; x <= cw; x += 3, i++) wg.lineTo(x, mid + sum[i] * 0.55);
-    wg.strokeStyle = 'rgba(233,228,214,.55)'; wg.lineWidth = 1; wg.stroke();
+    wg.strokeStyle = 'rgba(223,229,238,.6)'; wg.lineWidth = 1; wg.stroke();
   }
   function frame(now) {
     if (introOn) { last = now; requestAnimationFrame(frame); return; }   // [CLAUDE ADDITION] the app rests under the intro
@@ -2189,29 +2266,50 @@
 </script>
 
 <script>
-// Page-wide starfield: one cheap 2D canvas fixed behind everything, with a gentle twinkle.
+// [CLAUDE ADDITION] Pin Wall background: a dim wall of steel pins in a honeycomb, lit by a low raking light from the
+// left. A slow swell rolls across it; pins on a crest stand out, catch the light and throw a longer shadow to the right.
+// Purely decorative (aria-hidden), throttled to about 24 fps, and still when reduced motion is on.
 (() => {
   const cv = document.getElementById('sky'), g = cv.getContext('2d');
   const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  let W = 0, H = 0, stars = [];
+  const LEVELS = 10;
+  let W = 0, H = 0, P = 18, pins = [], heads = [], shadow = null, last = 0;
+  const mix = (a, b, u) => a.map((v, i) => Math.round(v + (b[i] - v) * u));
+  function sprite(r, paint) { const c = document.createElement('canvas'); c.width = c.height = Math.ceil(r * 2 + 4); paint(c.getContext('2d'), c.width / 2, r); return c; }
   function build() {
     const dpr = Math.min(devicePixelRatio || 1, 2);
     W = innerWidth; H = innerHeight; cv.width = W * dpr; cv.height = H * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const n = Math.round(W * H / 5500);
-    stars = Array.from({ length: n }, () => ({ x: Math.random() * W, y: Math.random() * H, r: Math.random() < 0.08 ? 1.4 : 0.5 + Math.random() * 0.7,
-      a: 0.25 + Math.random() * 0.55, f: 0.3 + Math.random() * 1.2, p: Math.random() * 6.28, warm: Math.random() < 0.2 }));
+    P = W < 700 ? 15 : 19;
+    const r = P * 0.42, rowH = P * Math.sqrt(3) / 2;
+    // pin heads from dark blue steel (resting) to pale, glinting steel (on a crest); the glint sits up and to the left
+    heads = Array.from({ length: LEVELS }, (_, i) => sprite(r, (x, c, R) => {
+      const u = i / (LEVELS - 1), base = mix([28, 36, 52], [150, 190, 225], u), hi = mix([90, 104, 128], [255, 250, 240], u);
+      const gr = x.createRadialGradient(c - R * 0.38, c - R * 0.42, R * 0.05, c, c, R);
+      gr.addColorStop(0, `rgb(${hi})`); gr.addColorStop(0.35, `rgb(${base})`); gr.addColorStop(1, `rgb(${mix(base, [6, 7, 9], 0.7)})`);
+      x.fillStyle = gr; x.beginPath(); x.arc(c, c, R, 0, 6.2832); x.fill();
+    }));
+    shadow = sprite(r * 1.1, (x, c, R) => { const gr = x.createRadialGradient(c, c, 0, c, c, R); gr.addColorStop(0, 'rgba(0,0,0,.75)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = gr; x.beginPath(); x.arc(c, c, R, 0, 6.2832); x.fill(); });
+    pins = [];
+    for (let row = 0, y = P / 2; y < H + P; row++, y += rowH)
+      for (let x = (row % 2 ? P / 2 : 0); x < W + P; x += P) pins.push({ x, y, h: Math.sin(x * 12.9898 + y * 78.233) * 43758.5453 % 1 });
   }
-  function draw(t) {
-    g.clearRect(0, 0, W, H);
-    for (const s of stars) {
-      const a = calm ? s.a : s.a * (0.65 + 0.35 * Math.sin(t * 0.001 * s.f + s.p));
-      g.fillStyle = (s.warm ? 'rgba(255,232,196,' : 'rgba(221,230,223,') + a.toFixed(3) + ')';
-      g.beginPath(); g.arc(s.x, s.y, s.r, 0, 6.2832); g.fill();
-    }
+  function draw(now) {
     if (!calm) requestAnimationFrame(draw);
+    if (now - last < 42) return; last = now;
+    const t = calm ? 2 : now / 1000;
+    g.clearRect(0, 0, W, H);
+    const sw = shadow.width / 2, hw = heads[0].width / 2;
+    for (const p of pins) {
+      // two wave trains crossing, the same idea as the pin wall's swell
+      let lift = 0.5 + 0.32 * Math.sin(p.x * 0.006 - p.y * 0.0045 - t * 0.55) + 0.14 * Math.sin(p.x * 0.013 + p.y * 0.004 - t * 0.9) + 0.04 * p.h;
+      lift = Math.max(0, Math.min(1, lift));
+      g.globalAlpha = 0.4; g.drawImage(shadow, p.x - sw + 1 + lift * P * 0.45, p.y - sw + 1);
+      g.globalAlpha = 0.1 + 0.3 * lift; g.drawImage(heads[Math.round(lift * (LEVELS - 1))], p.x - hw, p.y - hw);
+    }
+    g.globalAlpha = 1;
   }
   build(); requestAnimationFrame(draw);
-  let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { build(); if (calm) requestAnimationFrame(draw); }, 150); });
+  let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { build(); if (calm) { last = 0; requestAnimationFrame(draw); } }, 150); });
 })();
 </script>
 </body>
