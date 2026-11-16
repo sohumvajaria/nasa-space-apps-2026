@@ -8,6 +8,9 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>GeoSonix</title>
 <style>
+  /* [CLAUDE ADDITION] Great Vibes (SIL Open Font License, see fonts/GreatVibes-OFL.txt): a free modern calligraphy
+     script, used for the name wrapped around the globe. */
+  @font-face { font-family: "Great Vibes"; src: url("fonts/great-vibes-latin-400-normal.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
   :root {
     color-scheme: dark;
     --bg: #0a1112;
@@ -55,6 +58,8 @@
   #hero header a { pointer-events: auto; }
   #hero.nogl { height: auto; margin-top: 0; }
   #hero.nogl header { position: static; padding: 0; background: none; }
+  /* [CLAUDE ADDITION] the name is drawn wrapped around the globe, so the text title is kept for screen readers only */
+  #hero:not(.nogl) header { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   #hud, .group { border: 1px solid var(--line); border-radius: 24px; background: rgba(233, 228, 214, .028); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
   #hud { padding: 26px 18px; box-shadow: 0 20px 60px -30px rgba(0,0,0,.6); }
   .group { padding: 22px 18px; }
@@ -174,6 +179,9 @@
     /* the hero is one centered row: the name beside the globe, close together, instead of pinned to opposite edges */
     #hero { max-width: 1240px; height: auto; margin: 0 auto -18px; padding-left: calc(clamp(240px, 24vw, 340px) * 0.2); display: flex; align-items: center; justify-content: center; gap: clamp(28px, 5vw, 80px); }
     #globe { position: relative; inset: auto; order: 2; flex: none; margin-top: 14px; width: clamp(240px, 24vw, 340px); height: clamp(230px, 21vw, 300px); }
+    /* [CLAUDE ADDITION] the globe and its wrapped name: one emblem in the middle */
+    #hero:not(.nogl) { padding-left: 0; }
+    #hero:not(.nogl) #globe { width: clamp(560px, 50vw, 760px); height: clamp(300px, 27vw, 400px); margin-top: 0; }
     #hero header { position: static; order: 1; padding: 0; display: block; text-align: left; text-shadow: none; }
     #hero header h1 { font-size: clamp(48px, 5.4vw, 84px); }
     #hero header .links { text-align: left; }
@@ -1669,6 +1677,38 @@
     const root = new THREE.Group(); root.position.y = 0.22; scene.add(root);
     const spin = new THREE.Group(); root.add(spin);
 
+    // [CLAUDE ADDITION] the name wraps around the planet: "GEOSONIX" in bold steel letters on a curved band that sits
+    // in front of the globe and bends away round its sides, so the title and the globe read as one emblem.
+    // The band does not spin with the Earth. The page's <h1> stays for screen readers.
+    const TITLE_R = 1.6, TITLE_ARC = Math.PI * 0.82, TITLE_TEX_W = 4096, TITLE_TEX_H = 900;
+    const TITLE_H = TITLE_R * TITLE_ARC * TITLE_TEX_H / TITLE_TEX_W;   // band height that keeps the letters' true proportions
+    const TITLE_FAMILY = '"Great Vibes", "Snell Roundhand", "Segoe Script", cursive', TITLE_FONT = '400 100px ' + TITLE_FAMILY;
+    const titleCanvas = document.createElement('canvas'); titleCanvas.width = TITLE_TEX_W; titleCanvas.height = TITLE_TEX_H;
+    const titleTex = new THREE.CanvasTexture(titleCanvas); titleTex.encoding = THREE.sRGBEncoding; titleTex.anisotropy = 8;
+    const drawTitle = () => {
+      const c = titleCanvas, x = c.getContext('2d'), word = 'GeoSonix';
+      x.clearRect(0, 0, c.width, c.height);
+      x.font = TITLE_FONT; x.textAlign = 'center'; x.textBaseline = 'alphabetic';
+      const size = Math.min(c.height * 0.75, 100 * c.width * 0.6 / x.measureText(word).width);   // the word fills about 60% of the band
+      x.font = '400 ' + Math.round(size) + 'px ' + TITLE_FAMILY;
+      // center the letters' actual ink box on the texture, so the word sits exactly on the globe's center
+      const m = x.measureText(word), asc = m.actualBoundingBoxAscent || 220, desc = m.actualBoundingBoxDescent || 0;
+      const ink = (m.actualBoundingBoxRight || m.width / 2) - (m.actualBoundingBoxLeft || m.width / 2);
+      const cx = c.width / 2 - ink / 2, cy = c.height / 2 + (asc - desc) / 2;
+      // clean and modern: a soft dark glow behind for legibility over the globe, then a plain warm-white script
+      x.save(); x.shadowColor = 'rgba(2,6,14,0.85)'; x.shadowBlur = 28; x.shadowOffsetY = 6; x.fillStyle = 'rgba(2,6,14,0.6)'; x.fillText(word, cx, cy); x.restore();
+      x.fillStyle = '#fbf8f2'; x.fillText(word, cx, cy);
+      x.lineWidth = 5; x.lineJoin = 'round'; x.strokeStyle = '#fbf8f2'; x.strokeText(word, cx, cy);   // a touch heavier, like a brush pen
+      titleTex.needsUpdate = true;
+    };
+    drawTitle();
+    if (document.fonts && document.fonts.load) document.fonts.load(TITLE_FONT).then(drawTitle).catch(() => {});   // redraw once the font arrives
+    const title = new THREE.Mesh(
+      new THREE.CylinderGeometry(TITLE_R, TITLE_R, TITLE_H, 160, 1, true, -TITLE_ARC / 2, TITLE_ARC),
+      new THREE.MeshBasicMaterial({ map: titleTex, transparent: true, alphaTest: 0.03, side: THREE.FrontSide }));
+    title.renderOrder = 2;
+    scene.add(title);
+
     const loader = new THREE.TextureLoader(); loader.setCrossOrigin('anonymous');
     const tex = (url, srgb) => { const t = loader.load(url); t.anisotropy = 4; if (srgb) t.encoding = THREE.sRGBEncoding; return t; };
     const wms = (layer, extra) => `${GIBS}?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&LAYERS=${layer}&SRS=EPSG:4326&BBOX=-180,-90,180,90&WIDTH=2048&HEIGHT=1024&FORMAT=image/jpeg${extra || ''}`;
@@ -1761,6 +1801,9 @@
       }
       const wide = matchMedia('(min-width: 1000px)').matches;      // the desktop banner is shorter, so the planet comes closer to fill it
       camera.position.z = wide ? 4.6 : 5.6; root.position.y = wide ? 0.08 : 0.22;
+      // [CLAUDE ADDITION] step back on narrow screens so the wrapped name always fits across
+      camera.position.z = Math.max(camera.position.z, 1.75 / (Math.tan(17 * Math.PI / 180) * camera.aspect));
+      title.position.y = root.position.y * (camera.position.z - TITLE_R) / camera.position.z;   // projects onto the globe's exact center
       sync();
       // ease toward the layer's center unless the listener is dragging the globe
       const lonC = player.x, latC = player.y;      // the hero globe follows you around the planet
