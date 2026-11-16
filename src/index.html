@@ -906,6 +906,7 @@
   window.addEventListener('keydown', e => {
     if (introOn) {                                       // [CLAUDE ADDITION] during the intro only S or Escape do anything: skip it
       if (e.key === 'Escape' || (e.key && e.key.toLowerCase() === 's')) { e.preventDefault(); endIntro(true); }
+      else if (e.key && e.key.toLowerCase() === 'h' && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); endIntro(true); speak(); }   // H always tells you where you are
       return;
     }
     if (e.target && e.target.type === 'range') return;   // let the date slider use the arrow keys
@@ -1354,6 +1355,7 @@
     return vs.find(v => v.localService) || vs[0] || null;
   }
   if ('speechSynthesis' in window) { bestVoice = pickVoice(); speechSynthesis.addEventListener('voiceschanged', () => { bestVoice = pickVoice(); }); }
+  let lastUtterance = null;                  // kept so Chrome does not throw the sentence away before it finishes
   function builtinSpeak(text, id) {
     if (!('speechSynthesis' in window)) return;
     speechSynthesis.cancel();
@@ -1362,7 +1364,14 @@
     u.rate = 0.92; u.pitch = 0.95; u.volume = 0.9;    // calmer: a touch slower and lower
     u.onstart = () => duck(true);
     u.onend = u.onerror = () => { if (id === speechId) duck(false); };
-    speechSynthesis.speak(u);
+    lastUtterance = u;
+    // Chrome can silently drop a sentence started in the same instant the previous one was cancelled,
+    // or stay stuck in "paused": wake the engine and start a moment later.
+    setTimeout(() => {
+      if (id !== speechId) return;           // something newer was said meanwhile
+      speechSynthesis.resume();
+      speechSynthesis.speak(u);
+    }, 60);
   }
   function stopSpeech() {
     speechId++;
