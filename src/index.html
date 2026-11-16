@@ -1098,12 +1098,15 @@
   const introEl = document.getElementById('intro'), introCanvas = document.getElementById('introcanvas');
   const introVideoEl = document.getElementById('introvideo');
   const introSkip = document.getElementById('introskip'), introStatus = document.getElementById('introstatus');
-  fetch('intro/intro.json').then(r => (r.ok ? r.json() : null)).then(j => { if (j && j.video && Array.isArray(j.beats)) introVideo = j; }).catch(() => {});
-  // [CLAUDE ADDITION] recorded narration: intro/voice.json lists one audio file per beat (e.g. made with Gemini text-to-speech).
-  // When it exists, each beat plays its file instead of the app's voice (screen reader users still get the words).
+  // [CLAUDE ADDITION] recorded narration: if intro/intro.json has "voices": "intro/voice.json", that file lists one audio file per beat
+  // (e.g. made with Gemini text-to-speech) and each beat plays its file instead of the app's voice (screen reader users still get the words).
+  // It is only requested when listed, so a site without it makes no failing request.
   let introVoices = null;
-  fetch('intro/voice.json').then(r => (r.ok ? r.json() : null)).then(j => {
-    if (j && Array.isArray(j.files)) introVoices = j.files.map(f => { const a = new Audio(); a.preload = 'auto'; a.src = f; return a; });
+  fetch('intro/intro.json').then(r => (r.ok ? r.json() : null)).then(j => {
+    if (j && j.video && Array.isArray(j.beats)) introVideo = j;
+    if (j && j.voices) return fetch(j.voices).then(r => (r.ok ? r.json() : null)).then(v => {
+      if (v && Array.isArray(v.files)) introVoices = v.files.map(f => { const a = new Audio(); a.preload = 'auto'; a.src = f; return a; });
+    });
   }).catch(() => {});
   function introSpeak(i, text, baked) {
     if (readerVoice) { say(text); return; }               // screen reader users: the words, in their own reader
