@@ -98,7 +98,7 @@ module.exports = async (req, res) => {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model: MODEL, max_tokens: 300, system: SYSTEM, tools: TOOLS, messages }),
+      body: JSON.stringify({ model: MODEL, max_tokens: 500, thinking: { type: 'disabled' }, system: SYSTEM, tools: TOOLS, messages }),   // no hidden thinking: it used up the whole budget and left no answer
     });
     if (!r.ok) return res.status(502).json({ error: 'Claude API error', status: r.status });
     const j = await r.json();
