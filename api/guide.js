@@ -1,3 +1,4 @@
+// SI disclosure: this file was written with SI assistance (Claude, Anthropic). The answers it returns are SI-generated (Claude).
 // Vercel serverless function: POST /api/guide
 // GeoAssistant, the voice assistant for the main GeoSonix page. The browser sends what the user said plus the live state of the app;
 // Claude answers in short, speakable sentences and can ask the page to do things (switch layer, go somewhere, change the date).
@@ -107,6 +108,7 @@ module.exports = async (req, res) => {
     // never speak half a sentence: if the answer was cut off, end it at the last full stop
     if (j.stop_reason === 'max_tokens') { const end = Math.max(reply.lastIndexOf('. '), reply.lastIndexOf('? '), reply.lastIndexOf('! ')); if (end > 0) reply = reply.slice(0, end + 1); }
     const actions = content.filter(b => b.type === 'tool_use').map(b => ({ tool: b.name, input: b.input }));
+    res.setHeader('X-SI-Generated', 'true; provider=Anthropic Claude');
     return res.status(200).json({ reply, actions, stop: j.stop_reason, blocks: content.map(b => b.type), out_tokens: j.usage && j.usage.output_tokens });
   } catch (e) {
     return res.status(500).json({ error: 'guide failed' });

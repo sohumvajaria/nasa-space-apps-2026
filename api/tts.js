@@ -1,3 +1,4 @@
+// SI disclosure: this file was written with SI assistance (Claude, Anthropic). The audio it returns is SI-generated speech.
 // Vercel serverless function: GET /api/tts?text=...  ->  streamed audio/mpeg
 // Turns the app's short announcements into speech with a calm, natural neural voice.
 //
@@ -77,6 +78,7 @@ module.exports = async (req, res) => {
 
     res.statusCode = 200;
     res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('X-SI-Generated', 'true; provider=OpenAI gpt-4o-mini-tts (text to speech)');   // disclosure: this audio is SI-generated
     res.setHeader('Cache-Control', 'public, max-age=86400, s-maxage=31536000, immutable');
     const stream = Readable.fromWeb(r.body);
     stream.on('error', () => res.end());       // if the voice service drops mid-way, end cleanly instead of hanging

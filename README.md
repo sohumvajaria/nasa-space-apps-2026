@@ -107,6 +107,17 @@ To deploy your own copy, import the repo into Vercel (the included `vercel.json`
 - `api/guide.js` is GeoAssistant, the voice assistant, and `api/tts.js` is the natural voice.
 - `tools/` has helper scripts, and `data/` and `docs/` are for datasets and write-ups.
 
+## How we used Super Intelligence (SI)
+
+The idea, the concept and the decisions about what to build were ours. We used SI tools as assistants, and we're listing where.
+
+- **Code and debugging.** Most of the code, including the page, the audio engine, the 3D views and the two serverless functions, was written and debugged with Claude (Anthropic) in Claude Code. A person on the team directed the work and reviewed and tested the results.
+- **Text and design.** This README, the features page and the on-screen wording were drafted and edited with Claude, and the visual design was developed with it.
+- **Research and data analysis.** Claude helped look up NASA data sources and API pricing, and helped work out how to turn the colours of NASA's map images back into numbers using each layer's published legend.
+- **SI inside the product.** The GeoAssistant (G key) uses a Claude model, and the natural spoken voice is OpenAI text-to-speech. Everything the voice says and every assistant answer is SI-generated. The server marks these responses with an `X-SI-Generated` header.
+- **Audio and video.** The narration in the intro video was generated with Google Gemini text-to-speech and is SI-generated audio, labelled in the video file's metadata. The intro's visuals were rendered by code (Three.js), not by an image or video generator, so they carry no SI watermark.
+- **Not SI.** All map data is NASA's, and the site icon is a NASA photograph. We didn't use or alter any NASA logos, flags or mission identifiers.
+
 ## Team
 
 Built by Sohum Vajaria ([@sohumvajaria](https://github.com/sohumvajaria)), [@pranav-ysv](https://github.com/pranav-ysv) and [@sid-darth-vater](https://github.com/sid-darth-vater), with a lot of help from Claude.
