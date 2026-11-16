@@ -99,6 +99,9 @@
   summary:hover { color: var(--ink); }
   summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 6px; border-radius: 4px; }
   details p { margin: 16px 0 0; color: var(--mute); font-size: 14px; line-height: 1.8; text-align: left; }
+  .howto { margin: 16px 0 0; padding: 0 0 0 20px; color: var(--mute); font-size: 14.5px; line-height: 1.6; text-align: left; }
+  .howto li { margin: 0 0 10px; padding-left: 4px; }
+  .howto b { color: var(--ink); font-weight: 600; }
   details b { color: var(--ink); font-weight: 500; }
 
   .row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
@@ -155,7 +158,7 @@
     #wrap.flat { aspect-ratio: 2 / 1; }
     #touchhint { grid-area: hint; margin: 0; text-align: center; }
     #under { grid-area: under; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: stretch; justify-items: stretch; }
-    #side { grid-area: side; gap: 20px; position: sticky; top: 16px; max-height: calc(100vh - 32px); overflow-y: auto; padding-right: 2px; scrollbar-width: thin; }
+    #side { grid-area: side; gap: 20px; }   /* scrolls with the page, so it never covers the sections below */
     #datastat { grid-area: data; justify-self: center; }
     main > details { grid-area: help; justify-self: center; max-width: 720px; }
     #hud { grid-template-columns: repeat(2, 1fr); }
@@ -173,10 +176,7 @@
 <div id="hero">
   <canvas id="globe" aria-hidden="true"></canvas>
   <header>
-      <p class="eyebrow">NASA Space Apps &middot; 2026</p>
       <h1>Terra-fic Tunes</h1>
-      <p class="sub">Listen to the planet.</p>
-      <p class="links"><a href="features.html">All features</a><span aria-hidden="true"> &middot; </span><a href="navigator.html">Navigator: NASA EIC sea temperature</a><span aria-hidden="true"> &middot; </span><a href="https://github.com/sohumvajaria/nasa-space-apps-2026">GitHub</a></p>
     </header>
 </div>
 
@@ -187,10 +187,8 @@
     <button type="button" class="pill" data-layer="heat" aria-pressed="false">Land heat<kbd>2</kbd></button>
     <button type="button" class="pill" data-layer="plants" aria-pressed="false">Plants<kbd>3</kbd></button>
     <button type="button" class="pill" data-layer="ocean" aria-pressed="false">Ocean heat<kbd>4</kbd></button>
-    <button type="button" class="pill" data-layer="fire" aria-pressed="false">Fires<kbd>5</kbd></button>
-    <button type="button" class="pill" data-layer="ice" aria-pressed="false">Snow &amp; ice<kbd>6</kbd></button>
-    <button type="button" class="pill" data-layer="wind" aria-pressed="false">Wind<kbd>7</kbd></button>
-    <button type="button" class="pill orch" data-layer="all" aria-pressed="false">Earth Orchestra<kbd>8</kbd></button>
+    <button type="button" class="pill" data-layer="wind" aria-pressed="false">Wind<kbd>5</kbd></button>
+    <button type="button" class="pill orch" data-layer="all" aria-pressed="false">Earth Orchestra<kbd>6</kbd></button>
   </nav>
   <p id="layerblurb" class="blurb"></p>
 
@@ -259,7 +257,18 @@
 
   <details>
     <summary>How to listen</summary>
-    <p>Use headphones. Move with <kbd>←</kbd><kbd>↑</kbd><kbd>↓</kbd><kbd>→</kbd> (or WASD). You always face up (north). A <b>soft pulse</b> beats steadily from Null Island (0, 0), where the equator meets the prime meridian (the glowing orb on the map), and you can walk anywhere on Earth: it gets quieter with distance and pans to show which side it is on, so you can always find your way back. An <b>instrument</b> plays the data under you: violin for rain, cello for land heat, flute for plants, clarinet for ocean heat and a crackle for fires, glass bells for snow and ice and a breeze for wind. The more intense the data where you stand, the louder and brighter it plays. Press <kbd>8</kbd> for the <b>Earth Orchestra</b>: all seven at once, so every place on Earth has its own chord. Press <kbd>H</kbd> for a short summary of what is playing and where you are (for example "Heavy rain. France, Europe."), and <kbd>L</kbd> to hear which layer you are on. Use the sound key to preview each level. Switch layers with <kbd>1</kbd> to <kbd>8</kbd>; each switch is announced and plays that instrument. <kbd>V</kbd> switches between the 3D terrain and the flat map. Hold <kbd>Shift</kbd> to move faster, <kbd>M</kbd> to mute. When the data reaches its most extreme level (extreme rain, scorching land, very warm water, widespread fires), the instrument <b>trembles</b>, the way an orchestra's strings shiver to signal danger. Press <kbd>T</kbd> for <b>Then &amp; now</b>: hear the same day 20 years earlier, then press <kbd>T</kbd> again to come back. If you use a screen reader, set <b>Voice</b> to "screen reader" so announcements come only through your own reader.</p>
+    <ul class="howto">
+      <li><b>Wear headphones.</b> You always face north.</li>
+      <li><b>Move:</b> arrow keys or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>. Hold <kbd>Shift</kbd> to go faster.</li>
+      <li><b>Find your way back:</b> a soft pulse beats from Null Island (0, 0). It pans toward it and fades as you walk away.</li>
+      <li><b>Hear the data:</b> each layer has an instrument (violin for rain, cello for land heat, flute for plants, clarinet for ocean heat, a breeze for wind). Louder and brighter means more intense.</li>
+      <li><b>Change layer:</b> <kbd>1</kbd> to <kbd>5</kbd>. <kbd>6</kbd> is the <b>Earth Orchestra</b>: every layer at once.</li>
+      <li><b>Where am I?</b> <kbd>H</kbd> for a short summary, <kbd>L</kbd> for the current layer.</li>
+      <li><b>Then &amp; now:</b> <kbd>T</kbd> plays the same day 20 years ago. Press it again to come back.</li>
+      <li><b>Extreme data</b> makes the instrument tremble, like strings warning of danger.</li>
+      <li><b>More:</b> <kbd>V</kbd> 3D or flat map, <kbd>M</kbd> mute.</li>
+      <li><b>Screen reader?</b> Set <b>Voice</b> to "screen reader" so you hear announcements only once.</li>
+    </ul>
   </details>
 </main>
 
@@ -327,25 +336,6 @@
       anchors: [[0, 0.03], [0.3, 0.06], [0.5, 0.25], [0.7, 0.5], [0.85, 0.8], [1, 1]],
       ramp: '2b001a2d001c30001f3300223500243800273b002b3f012e4201324501354801394b023d4e024151024555024958024d5b03515f035562035965035d6904616c046670056a73056e7606717806737906757a06777906777807777507757207746f07726b087067086e62086c5e08695a09675609655109634d0961490a5e450a5c410a5a3d0a58390a56350b54300b512c0b4f280b4d250c4c220d4b200e4b1e104d1e124e1e14511e16541e18571e1a5a1f1c5d1e1e601e21631f23661f25691f276c1f2a701f2c731f2e761f30791f327c1f357f1f3782203985203b88203d8b20408e20429120449420469721499b214b9e214ea12151a42254a72257aa235aad235db02460b32464b62567b9256abb266ebe2671c22775c52878c8287bcb297fce2982d12a85d42a88d72a8bda2b8edd2b92e02c95e32c98e62d9ce92e9fec2ea3ef2fa6f230aaf530acf42fadf02eaee82daede2badd029abbf27a8ab25a69823a48520a3711ea35d1ba54819a7351aaa251caf1720b30d26b7062dbb0137be0042c2004cc50057c90062cc006dcf0078d30083d7008eda0099de00a5e100b0e500bbe800c5ec00d0ef00dbf300e5f600edf700f3f700f8f500fcf300feef00ffea00ffe400ffdf00ffd900ffd400ffce00ffc900ffc400ffbf00ffb900ffb400ffaf00ffaa00ffa400ff9f00ff9900ff9400ff8e00ff8900ff8300fe7e00fd7a00fc7500fb7100fa6d00f86a00f66600f46200f25f00f05b00ee5700ec5300ea5000e84c00e64900e44500e24200e03e00de3b00dc3700da3300d83000d52d00d22a00ce2700ca2500c52200c02000bb1f00b51d00b01b00ab1900a61700a115009c14009712009110008c0e00870c00820a007c08007807007305006e03006b0200',
     },
-    fire: {
-      id: 'MODIS_Terra_Thermal_Anomalies_All', dataset: 'MODIS Terra thermal anomalies (active fires)', noun: 'Fires', centerName: 'Null Island',
-      blurb: 'Active fires seen from space, played as a crackle: a few pops where a few fires burn, a roar where many do. Silent where nothing burns.',
-      semis: -17, wave: 'sawtooth', trem: 0, tremDepth: 0, bright: 4000, home: null, boost: 5,
-      tiers: ['no fires', 'a few fires', 'some fires', 'many fires', 'widespread fires'],
-      say: ['No fires here', 'A few fires', 'Some fires', 'Many fires', 'Widespread fires'],
-      anchors: [[0, 1], [1, 1]],
-      ramp: 'f7aa4af5a344f49d3ff3963af29035f18a30f0832bef7d26ee7720ed701bec6a16eb6411e95e0ee55a0de1550cdd510bd94c0bd5480ad14309cd3f08c93a07c53606c13105be2d05'
-    },
-    ice: {
-      id: 'MODIS_Terra_NDSI_Snow_Cover', dataset: 'MODIS Terra snow cover and GHRSST sea ice concentration', noun: 'Snow and ice', centerName: 'Null Island',
-      blurb: 'Snow on land and ice on the sea, played by glass bells: a faint shimmer over a dusting of snow, bright and full over thick snow or solid ice. Bare ground and open water are silent.',
-      semis: 24, wave: 'sine', trem: 0, tremDepth: 0, bright: 6000, home: null,
-      tiers: ['no snow or ice', 'a dusting', 'patchy snow or ice', 'snow-covered', 'solid ice or deep snow'],
-      say: ['No snow or ice here', 'A dusting of snow or thin ice', 'Patchy snow or ice', 'Snow-covered ground or ice', 'Solid ice or deep snow'],
-      anchors: [[0, 0.35], [1, 0.9]],
-      ramp: 'f07880f07980f07a80f07b80f07c80f07d80f07e80f07f80f08080f08081f08181f08182f08282f08283f08383f08384f09680f09681f09682f09683f09684f09685f09686f09687f09688f09689f0968af0968bf0968cf0968df0968ef0968ff09690f09691f09692f09693f0b480f0b481f0b482f0b483f0b484f0b485f0b486f0b487f0b488f0b489f0b48af0b48bf0b48cf0b48df0b48ef0b48ff0b490f0b491f0b492f0b493f0d280f0d281f0d282f0d283f0d284f0d285f0d286f0d287f0d288f0d289f0d28af0d28bf0d28cf0d28df0d28ef0d28ff0d290f0d291f0d292f0d293f0f089f0f08af0f08bf0f08cf0f08df0f08ef0f08ff0f090f0f091f0f092f0f093',
-      extra: [{ id: 'GHRSST_L4_MUR_Sea_Ice_Concentration', anchors: [[0, 0.35], [1, 1]], ramp: 'ff0e00ff0909ff1c00ff2a00ff1a1aff4000ff4e00ff6300ff3333ff7100ff7f00ff4444ff9500ffa300ff55550faf0000ac07ffb1001eb4002db90044c10000b11553c600ffc60062cb0078d200ffd40087d700ff6f6f9edf0000b82aade400bce900ffea00d2f00000bd39e1f500fff8000700fff8fd00ff808000c2470010ff0021ff00c95c0031ffff999900cd6a004aff00d47fffaaaa005aff00d98e0073ffffbbbb00de9c0084ff0094ff00e5b100eabf00adffffd5d500bdff00f1d400ceffffe6e600f6e300e6ff00faf100f7ffffffff' }]
-    },
     wind: {
       id: 'MERRA2_Surface_Wind_Speed_Monthly', dataset: 'MERRA-2 surface wind speed (monthly average)', noun: 'Wind', centerName: 'Null Island', monthly: '2026-08-01',
       blurb: 'How windy it usually is, played as a breeze that rises and falls: a soft whisper where the air is calm, a rushing roar where winds are strong. This is a monthly average of wind speed, not the wind right now.',
@@ -370,11 +360,9 @@
     heat:   { inst: 'cello',    name: 'cello',       semis: -12, bright: 2600, color: [255, 90, 50] },    // A2, red
     plants: { inst: 'flute',    name: 'flute',       semis: 19,  bright: 2500, color: [80, 225, 100] },   // E5, green
     ocean:  { inst: 'clarinet', name: 'clarinet',    semis: -5,  bright: 2200, color: [40, 215, 215] },   // E3, teal
-    fire:   { inst: 'crackle',  name: 'crackling fire', semis: -17, bright: 4000, color: [255, 70, 130] },  // unpitched, with a low E2 rumble, hot pink
-    ice:    { inst: 'glass',    name: 'glass bells', semis: 24,  bright: 6000, color: [220, 240, 255] },  // A5, icy white
-    wind:   { inst: 'breeze',   name: 'wind',        semis: 0,   bright: 3000, color: [160, 255, 210] },  // unpitched breath, mint
+    wind:   { inst: 'breeze',   name: 'breeze',      semis: 0,   bright: 3000, color: [160, 255, 210] },  // unpitched breath, mint
   };
-  const ORCH_BLURB = 'The Earth Orchestra: all seven layers at once, so every place on Earth has its own chord. Violin for rain (blue on the map), cello for land heat (red), flute for plants (green), clarinet for ocean heat (teal), a crackling fire (pink), glass bells for snow and ice (white) and a breeze for wind (mint). Each plays louder where its data is more intense.';
+  const ORCH_BLURB = 'The Earth Orchestra: all five layers at once, so every place on Earth has its own chord. Violin for rain (blue on the map), cello for land heat (red), flute for plants (green), clarinet for ocean heat (teal) and a breeze for wind (mint). Each plays louder where its data is more intense.';
 
   let center = { lon: 0, lat: 0 }, field = null, dataImg = null, stormLevel = 0;
   const srcPos = { x: 0, y: 0 };            // the sound source sits at Null Island (0, 0) for every layer
@@ -462,7 +450,7 @@
 
   function statText() {
     const L = curLayer();
-    if (orchestra) return `Data: seven NASA layers from GIBS (GPM IMERG rain, MODIS land temperature, vegetation, fires and snow, GHRSST ocean temperature and sea ice, MERRA-2 wind), frame for ${dataTime}. ` +
+    if (orchestra) return `Data: five NASA layers from GIBS (GPM IMERG rain, MODIS land temperature and vegetation, GHRSST ocean temperature, MERRA-2 wind), frame for ${dataTime}. ` +
       `The center pulse sits at Null Island (0, 0), where the equator meets the prime meridian.`;
     return `Data: NASA ${L.dataset} (GIBS layer ${L.id}), frame for ${dataTime}. ` +
       `The center pulse sits at Null Island (0, 0), where the equator meets the prime meridian. The whole world is walkable: 1 unit is 1 degree.`;
@@ -654,7 +642,7 @@
   // Two sounds, one job each:
   //   CENTER PULSE  a soft, round tone on a steady beat, placed in 3D at Null Island (0, 0) (the glowing orb).
   //                 It tells you WHERE Null Island is: it pans to its side and fades with distance.
-  //   ORCHESTRA     one instrument per layer (violin, cello, flute, clarinet, crackle, bells, breeze), not placed in 3D.
+  //   ORCHESTRA     one instrument per layer (violin, cello, flute, clarinet, breeze), not placed in 3D.
   //                 It tells you WHAT is under you: louder and brighter where the data is more intense.
   function buildAudio() {
     ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -798,7 +786,7 @@
     mix.connect(dest);
   }
   function clarinet(f, dest) {               // clarinet: hollow and woody (a square wave is mostly odd overtones, like a clarinet)
-    const mix = ctx.createGain();
+    const mix = ctx.createGain(); mix.gain.value = 0.5;   // sits back in the mix: its square wave is naturally loud
     const sq = ctx.createOscillator(), tri = ctx.createOscillator(), gs = ctx.createGain(), gt = ctx.createGain();
     sq.type = 'square'; sq.frequency.value = f; tri.type = 'triangle'; tri.frequency.value = f;
     gs.gain.value = 0.16; gt.gain.value = 0.25;
@@ -902,7 +890,7 @@
     if (e.key === 'Shift') keys.add('shift');
     if (e.key.toLowerCase() === 'h') speak();
     if (e.key.toLowerCase() === 'v') setView(!view3d);
-    const li = ['1', '2', '3', '4', '5', '6', '7', '8'].indexOf(e.key);
+    const li = ['1', '2', '3', '4', '5', '6'].indexOf(e.key);
     if (li >= 0) switchLayer(LAYER_ORDER[li]);
     if (e.key.toLowerCase() === 'l') say(layerAnnouncement());     // which layer am I on?
     if (e.key.toLowerCase() === 'm') toggleMute();
@@ -980,7 +968,7 @@
       // [CLAUDE FIX] screen readers (NVDA, JAWS) normally keep the arrow keys for reading the page. Marking the map as an
       // "application" and moving focus onto it hands the arrow keys to the app, so the listener can walk.
       wrapNode.setAttribute('role', 'application');
-      wrapNode.setAttribute('aria-label', 'Terra-fic Tunes map. Arrow keys or W A S D to walk, H for a summary, 1 to 8 to change layer, T for then and now. Press Tab to leave the map.');
+      wrapNode.setAttribute('aria-label', 'Terra-fic Tunes map. Arrow keys or W A S D to walk, H for a summary, 1 to 6 to change layer, T for then and now. Press Tab to leave the map.');
       wrapNode.tabIndex = 0;
       wrapNode.focus();
       warmVoice();                           // get the narrator's most common phrases ready
@@ -1259,8 +1247,8 @@
     live.textContent = '';                    // our own voice: keep the live region quiet so nothing is spoken twice
     voiceSpeak(text);
   }
-  const LABEL = { rain: 'Rain', heat: 'Land heat', plants: 'Plants', ocean: 'Ocean heat', fire: 'Fires', ice: 'Snow and ice', wind: 'Wind' };
-  const LAYER_ORDER = ['rain', 'heat', 'plants', 'ocean', 'fire', 'ice', 'wind', 'all'];
+  const LABEL = { rain: 'Rain', heat: 'Land heat', plants: 'Plants', ocean: 'Ocean heat', wind: 'Wind' };
+  const LAYER_ORDER = ['rain', 'heat', 'plants', 'ocean', 'wind', 'all'];
   function warmVoice() {                     // prepare the phrases you hear most, so they play instantly
     if (ttsOff && kokoroState === 'failed') return;
     const prep = ttsOff ? kokoroUrl : fetchVoice;   // server voice if set up, otherwise make them on this device
