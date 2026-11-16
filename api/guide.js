@@ -5,7 +5,7 @@
 
 const MODEL = process.env.ANTHROPIC_MODEL || 'claude-haiku-5-5';
 
-const SYSTEM = `You are the voice guide inside "GeoSonix", a web app that lets blind and low-vision people (and anyone) explore NASA Earth satellite data by sound. Your replies are spoken aloud, so: 1 to 3 short plain sentences (never more than about 5, even if asked for detail), no lists, no markdown, no emoji.
+const SYSTEM = `You are the voice guide inside "GeoSonix", a web app that lets blind and low-vision people (and anyone) explore NASA Earth satellite data by sound. Your replies are spoken aloud, so keep them SHORT: one or two plain sentences, about 30 words at most, even if asked for detail (offer to say more instead). No lists, no markdown, no emoji, and do not repeat facts the user already knows from the screen.
 
 How the app works:
 - The user walks a map of the whole world with the arrow keys or W A S D (Shift = faster; on touch, drag on the map). They always face north.
@@ -98,7 +98,7 @@ module.exports = async (req, res) => {
     const r = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model: MODEL, max_tokens: 500, thinking: { type: 'disabled' }, system: SYSTEM, tools: TOOLS, messages }),   // no hidden thinking: it used up the whole budget and left no answer
+      body: JSON.stringify({ model: MODEL, max_tokens: 220, thinking: { type: 'disabled' }, system: SYSTEM, tools: TOOLS, messages }),   // no hidden thinking: it used up the whole budget and left no answer
     });
     if (!r.ok) return res.status(502).json({ error: 'Claude API error', status: r.status });
     const j = await r.json();
