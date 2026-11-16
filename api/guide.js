@@ -103,7 +103,9 @@ module.exports = async (req, res) => {
     if (!r.ok) return res.status(502).json({ error: 'Claude API error', status: r.status });
     const j = await r.json();
     const content = Array.isArray(j.content) ? j.content : [];
-    const reply = content.filter(b => b.type === 'text').map(b => b.text).join(' ').trim();
+    let reply = content.filter(b => b.type === 'text').map(b => b.text).join(' ').trim();
+    // never speak half a sentence: if the answer was cut off, end it at the last full stop
+    if (j.stop_reason === 'max_tokens') { const end = Math.max(reply.lastIndexOf('. '), reply.lastIndexOf('? '), reply.lastIndexOf('! ')); if (end > 0) reply = reply.slice(0, end + 1); }
     const actions = content.filter(b => b.type === 'tool_use').map(b => ({ tool: b.name, input: b.input }));
     return res.status(200).json({ reply, actions, stop: j.stop_reason, blocks: content.map(b => b.type), out_tokens: j.usage && j.usage.output_tokens });
   } catch (e) {

@@ -44,6 +44,7 @@
   #guidelog { flex: 1 1 auto; min-height: 60px; max-height: 38vh; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; font: 400 14px/1.5 var(--sans); }
   #guidelog p { margin: 0; color: var(--mute); }
   #guidelog p.me { color: var(--ink); }
+  #guidemic[aria-pressed="true"] { background: rgba(220,191,143,.14); color: var(--accent); border-color: var(--accent); }
   #guideform { display: flex; gap: 8px; flex-wrap: wrap; }
   #guideq { flex: 1 1 160px; min-width: 0; padding: 9px 14px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--ink); font: inherit; font-size: 14px; }
   #guideq:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -314,7 +315,7 @@
       <button type="submit" class="pill" id="guidego">Ask</button>
       <button type="button" class="pill" id="guidemic" hidden aria-pressed="false">Speak</button>
     </form>
-    <p class="note">Press Escape to close and go back to the map.</p>
+    <p class="note" id="guidenote">Talk after the beep. Escape closes.</p>
   </section>
 
 <!-- [CLAUDE ADDITION] the 30-second intro tutorial (scene in intro/style.js). Plays on a first visit after "Begin listening". -->
@@ -1323,15 +1324,26 @@
   }
   if ('speechSynthesis' in window) { bestVoice = pickVoice(); speechSynthesis.addEventListener('voiceschanged', () => { bestVoice = pickVoice(); }); }
   let lastUtterance = null;                  // kept so Chrome does not throw the sentence away before it finishes
-  function builtinSpeak(text, id) {
-    if (!('speechSynthesis' in window)) return;
+  // done(): called once when this sentence has finished (not if something newer interrupts it)
+  function onceDone(done, id) {
+    let fired = false;
+    return () => { if (fired || id !== speechId) return; fired = true; if (done) done(); };
+  }
+  function builtinSpeak(text, id, done) {
+    if (!('speechSynthesis' in window)) { if (done) done(); return; }
     speechSynthesis.cancel();
+    const fin = onceDone(done, id);
     const u = new SpeechSynthesisUtterance(text);
     if (bestVoice) u.voice = bestVoice;
     u.rate = 0.92 * rateNow(); u.pitch = 0.95; u.volume = 0.9;    // calmer: a touch slower and lower
     u.onstart = () => duck(true);
-    u.onend = u.onerror = () => { if (id === speechId) duck(false); };
+    u.onend = u.onerror = () => { if (id === speechId) duck(false); fin(); };
     lastUtterance = u;
+    // Chrome sometimes never fires onend: also check every half second whether it has stopped talking
+    const t0 = Date.now(), est = 2500 + text.split(/\s+/).length * 450 / rateNow();   // if it never even starts, give up after a while
+    const poll = setInterval(() => { if (id !== speechId) return clearInterval(poll);
+      if (!speechSynthesis.speaking && (u.__started || Date.now() - t0 > est)) { clearInterval(poll); fin(); } }, 500);
+    u.addEventListener('start', () => { u.__started = true; });
     // Chrome can silently drop a sentence started in the same instant the previous one was cancelled,
     // or stay stuck in "paused": wake the engine and start a moment later.
     setTimeout(() => {
@@ -1346,10 +1358,12 @@
     if ('speechSynthesis' in window) speechSynthesis.cancel();
     duck(false);
   }
-  function voiceSpeak(text, patient) {      // patient: a fresh sentence the server has to make (guide answers) may take a few seconds, so wait for it
+  // done: called when it finishes. patient: a fresh sentence the server has to make (guide answers) may take a few seconds, so wait for it
+  function voiceSpeak(text, done, patient) {
     stopSpeech();
     const id = speechId;
-    if (ttsOff) { builtinSpeak(text, id); return; }   // no server voice (or it is down): the browser's own voice
+    if (ttsOff) { builtinSpeak(text, id, done); return; }   // no server voice (or it is down): the browser's own voice
+    const fin = onceDone(done, id);
     // The audio element streams the voice: it starts playing as soon as the first bytes arrive.
     const a = new Audio(); ttsAudio = a; a.preload = 'auto'; a.playbackRate = rateNow(); a.src = voiceUrl(text);
     let started = false;
@@ -1357,23 +1371,25 @@
       clearTimeout(slow);
       if (started || id !== speechId) return;
       a.pause(); a.removeAttribute('src'); ttsAudio = null;
-      builtinSpeak(text, ++speechId);
+      builtinSpeak(text, ++speechId, done);
     };
     const slow = setTimeout(fallback, patient ? 9000 : 1800);
     a.onplaying = () => { started = true; clearTimeout(slow); if (id === speechId) duck(true); };
-    a.onended = () => { if (id === speechId) { duck(false); ttsAudio = null; } };
-    a.onerror = () => { if (started) { if (id === speechId) { duck(false); ttsAudio = null; } } else fallback(); };
+    a.onended = () => { if (id === speechId) { duck(false); ttsAudio = null; } fin(); };
+    a.onerror = () => { if (started) { if (id === speechId) { duck(false); ttsAudio = null; } fin(); } else fallback(); };
     a.play().catch(fallback);
   }
 
-  function say(text) {
+  function say(text, done) {
     const live = document.getElementById('announce');
     if (readerVoice || !('speechSynthesis' in window)) {   // re-set the text so the same words are announced again
       live.textContent = ''; setTimeout(() => { live.textContent = text; }, 50);
+      // the screen reader does the talking, so we can only guess when it is done: about 2.6 words a second
+      if (done) { const id = speechId; setTimeout(() => { if (id === speechId) done(); }, 1200 + text.split(/\s+/).length * 380); }
       return;
     }
     live.textContent = '';                    // our own voice: keep the live region quiet so nothing is spoken twice
-    voiceSpeak(text);
+    voiceSpeak(text, done);
   }
   const LABEL = { rain: 'Rain', heat: 'Land heat', plants: 'Plants', ocean: 'Ocean heat', wind: 'Wind' };
   const LAYER_ORDER = ['rain', 'heat', 'plants', 'ocean', 'wind', 'all'];
@@ -1958,11 +1974,24 @@
       'H tells you where you are, O tells you how far home is and which way, comma and period change the day, T goes back to 2006, and V flips between flat and 3D. ' +
       'Type a question and press Enter, or press Escape to go back to the map.';
   }
+  // Hands-free: the guide says hello, then listens. Ask out loud, it answers out loud, then listens again.
+  // Typing still works, and Enter on an empty box starts listening again.
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let micBlocked = false;
+  const canListen = () => !!SR && !micBlocked;
+  function guideHello(first) {
+    if (!canListen()) return first ? guideIntro() : 'Guide. Type a question and press Enter.';
+    return first ? 'Guide open. Ask me anything out loud, like "where am I?" or "take me to Japan." Say "how do I move?" to hear the keys. Escape closes the guide.'
+                 : 'Guide. What would you like to know?';
+  }
   function openGuide() {
     ensureAudio();
     guideEl.hidden = false; guideBtn.setAttribute('aria-pressed', 'true');
-    if (!guideLog.children.length) guideSay('bot', guideIntro());
-    say(guideIntro());
+    const first = !guideLog.children.length, hello = guideHello(first);
+    guideSay('bot', hello);
+    document.getElementById('guidenote').textContent = canListen() ? 'Talk after the beep. Enter on an empty box listens again. Escape closes.' : 'Type a question and press Enter. Escape closes.';
+    silentRounds = 0;
+    say(hello, () => listen());
     setTimeout(() => guideQ.focus({ preventScroll: true }), 50);
   }
   function closeGuide() {
@@ -2006,11 +2035,18 @@
     }
   }
   async function askGuide(text, viaMic) {
+    // a spoken question always gets a spoken answer, and then the guide listens for the next one.
     // answers are new text, so the natural voice needs a moment: wait for it instead of giving up after 1.8 seconds
-    const speakIt = t => { if (readerVoice && !viaMic) say(t); else { ensureAudio(); voiceSpeak(t, true); } };
+    const after = () => { if (viaMic) listen(); };
+    const speakIt = t => { if (readerVoice && !viaMic) say(t); else { ensureAudio(); voiceSpeak(t, after, true); } };
     text = String(text || '').trim();
     if (!text || guideBusy) return;
-    guideBusy = true; guideSay('me', text); guideQ.value = '';
+    guideSay('me', text); guideQ.value = '';
+    if (/\b(how (do|can|to) (i )?(move|walk|use|play|get around)|help|instructions|what (are the )?keys|controls)\b/i.test(text)) {
+      const m = guideIntro().replace(/^Guide open\. /, '').replace(/ Type a question.*$/, '');   // answered here, so it works offline too
+      guideSay('bot', m); speakIt(m); return;
+    }
+    guideBusy = true;
     const wait = document.createElement('p'); wait.textContent = 'Thinking...'; guideLog.appendChild(wait);
     try {
       const r = await fetch('/api/guide', { method: 'POST', headers: { 'content-type': 'application/json' },
@@ -2037,21 +2073,63 @@
     }
     guideBusy = false;
   }
-  document.getElementById('guideform').addEventListener('submit', e => { e.preventDefault(); askGuide(guideQ.value); });
+  document.getElementById('guideform').addEventListener('submit', e => {
+    e.preventDefault();
+    if (!guideQ.value.trim()) { if (canListen()) listenNow(); return; }   // Enter on an empty box: talk instead
+    stopMic(); askGuide(guideQ.value);
+  });
 
   // speak a question instead of typing it (where the browser allows)
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  let rec = null;
-  function stopMic() { if (rec) { rec.onend = null; rec.stop(); rec = null; } guideMic.setAttribute('aria-pressed', 'false'); guideMic.textContent = 'Speak'; }
+  let rec = null, silentRounds = 0, relisten = 0;
+  function beep() {                          // a soft rising two-note chime: "your turn to talk"
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    [660, 880].forEach((f, i) => {
+      const o = ctx.createOscillator(), gn = ctx.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      gn.gain.setValueAtTime(0, t + i * 0.11); gn.gain.linearRampToValueAtTime(0.09, t + i * 0.11 + 0.015);
+      gn.gain.exponentialRampToValueAtTime(0.0001, t + i * 0.11 + 0.16);
+      o.connect(gn).connect(ctx.destination); o.start(t + i * 0.11); o.stop(t + i * 0.11 + 0.18);
+    });
+  }
+  function stopMic() {
+    clearTimeout(relisten);
+    if (rec) { const r = rec; rec = null; r.onend = r.onresult = r.onerror = null; try { r.abort(); } catch (e) {} }
+    guideMic.setAttribute('aria-pressed', 'false'); guideMic.textContent = 'Speak';
+  }
+  function listen() {
+    if (!canListen() || guideEl.hidden || rec || guideBusy) return;
+    let heard = false;
+    const r = new SR(); rec = r;
+    r.lang = navigator.language || 'en-US'; r.interimResults = false; r.maxAlternatives = 1;
+    r.onresult = ev => {
+      const t = ev.results[0][0].transcript; heard = true; silentRounds = 0;
+      stopMic(); askGuide(t, true);
+    };
+    r.onerror = ev => {
+      if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') {
+        micBlocked = true; stopMic(); guideMic.hidden = true;
+        document.getElementById('guidenote').textContent = 'Type a question and press Enter. Escape closes.';
+        const m = 'The microphone is blocked, so type your question and press Enter.';
+        guideSay('bot', m); say(m);
+      }
+    };
+    r.onend = () => {                        // it stops by itself after a few seconds of silence
+      if (rec !== r || heard) return;
+      stopMic();
+      if (guideEl.hidden) return;
+      if (++silentRounds < 3) relisten = setTimeout(listen, 250);   // keep listening quietly for a little longer
+      else { silentRounds = 0; say('I stopped listening. Press Enter to talk again.'); }
+    };
+    try { r.start(); } catch (e) { stopMic(); return; }
+    guideMic.setAttribute('aria-pressed', 'true'); guideMic.textContent = 'Listening...';
+    if (silentRounds === 0) beep();
+  }
+  function listenNow() { stopSpeech(); silentRounds = 0; ensureAudio(); listen(); }
   if (SR) {
     guideMic.hidden = false;
-    guideMic.addEventListener('click', () => {
-      if (rec) { stopMic(); return; }
-      rec = new SR(); rec.lang = navigator.language || 'en-US'; rec.interimResults = false; rec.maxAlternatives = 1;
-      rec.onresult = ev => { const t = ev.results[0][0].transcript; stopMic(); askGuide(t, true); };
-      rec.onerror = () => stopMic(); rec.onend = () => stopMic();
-      guideMic.setAttribute('aria-pressed', 'true'); guideMic.textContent = 'Listening...'; try { rec.start(); } catch (e) { stopMic(); }
-    });
+    guideMic.addEventListener('click', () => { if (rec) stopMic(); else listenNow(); });
+    guideQ.addEventListener('input', () => { if (rec && guideQ.value) stopMic(); });   // typing instead: stop listening
   }
 
   // ---------- sound waves: one line per instrument, taller = louder, they cross each other ----------
