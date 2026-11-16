@@ -1557,12 +1557,70 @@
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const UNIT = W / (2 * WX);                                 // pixels per degree
 
+  // [CLAUDE ADDITION] Pin Wall look for the map: the picture is redrawn as a honeycomb of steel pins, each pin tinted
+  // by the NASA color under it, lit by a low raking light from the left (glint up-left, shadow to the right). Pins
+  // over stronger data stand out further, so they throw a longer shadow. Only the picture changes; the data,
+  // the sound and everything the app reads stay exactly the same. Built once per new map, never per frame.
+  const PIN_STEEL = [58, 64, 74];
+  function pinify(src, w, h, pitch, opts = {}) {
+    const out = document.createElement('canvas'); out.width = w; out.height = h;
+    try {
+      const sc = document.createElement('canvas'); sc.width = w; sc.height = h;
+      const sx = sc.getContext('2d'); if (opts.bg) { sx.fillStyle = opts.bg; sx.fillRect(0, 0, w, h); }
+      sx.drawImage(src, 0, 0, w, h);
+      const px = sx.getImageData(0, 0, w, h).data;
+      const o = out.getContext('2d');
+      if (opts.bg) { o.fillStyle = '#050607'; o.fillRect(0, 0, w, h); }
+      const r = pitch * 0.46, S = Math.ceil(r * 2 + 4), c = S / 2;
+      const shine = document.createElement('canvas'); shine.width = shine.height = S;
+      { const x = shine.getContext('2d'), gr = x.createRadialGradient(c - r * 0.4, c - r * 0.45, r * 0.04, c, c, r);
+        gr.addColorStop(0, 'rgba(255,250,240,.75)'); gr.addColorStop(0.3, 'rgba(255,250,240,.12)'); gr.addColorStop(0.62, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,.55)');
+        x.fillStyle = gr; x.beginPath(); x.arc(c, c, r, 0, 6.2832); x.fill(); }
+      const shadow = document.createElement('canvas'); shadow.width = shadow.height = S;
+      { const x = shadow.getContext('2d'), gr = x.createRadialGradient(c, c, 0, c, c, r * 1.05);
+        gr.addColorStop(0, 'rgba(0,0,0,.7)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = gr; x.beginPath(); x.arc(c, c, r * 1.05, 0, 6.2832); x.fill(); }
+      const pins = [], rowH = pitch * Math.sqrt(3) / 2;
+      for (let row = 0, y = pitch / 2; y < h; row++, y += rowH)
+        for (let x = (row % 2 ? pitch : pitch / 2); x < w; x += pitch) {
+          const i = (Math.floor(y) * w + Math.floor(x)) * 4, a = px[i + 3];
+          if (a < 24) continue;                                   // see-through stays see-through (no data)
+          const lum = (px[i] * 0.3 + px[i + 1] * 0.59 + px[i + 2] * 0.11) / 255;
+          const lift = opts.lift ? opts.lift(x / w, y / h) : lum;
+          // dark spots still read as bare steel pins, so the wall never goes flat black
+          const k = 0.22 * (1 - Math.min(1, lum * 2.5));
+          pins.push([x, y, Math.round(px[i] + (PIN_STEEL[0] - px[i]) * k), Math.round(px[i + 1] + (PIN_STEEL[1] - px[i + 1]) * k), Math.round(px[i + 2] + (PIN_STEEL[2] - px[i + 2]) * k), a / 255, lift]);
+        }
+      for (const p of pins) { o.globalAlpha = 0.55 * p[5]; o.drawImage(shadow, p[0] - c + 1 + p[6] * pitch * 0.55, p[1] - c + pitch * 0.12); }
+      for (const p of pins) {
+        o.globalAlpha = p[5]; o.fillStyle = `rgb(${p[2]},${p[3]},${p[4]})`;
+        o.beginPath(); o.arc(p[0], p[1], r, 0, 6.2832); o.fill();
+        o.drawImage(shine, p[0] - c, p[1] - c);
+      }
+      o.globalAlpha = 1;
+      return out;
+    } catch (e) { return src; }                                   // if the browser won't let us read the pixels, show the plain map
+  }
+  let pinMap = null, pinKey = null;
+  function pinnedMap() {                                          // the 2D map as pins, rebuilt only when the data changes
+    const key = [dataImg, baseImg, orchVersion].map(v => v && typeof v === 'object' ? (v.__pinId || (v.__pinId = Math.random())) : v).join('|');
+    if (key === pinKey && pinMap) return pinMap;
+    const comp = document.createElement('canvas'); comp.width = 900; comp.height = 450;
+    const cc = comp.getContext('2d'); cc.fillStyle = '#0b1415'; cc.fillRect(0, 0, 900, 450);
+    if (baseImg) { cc.globalAlpha = 0.5; cc.drawImage(baseImg, 0, 0, 900, 450); }
+    if (dataImg) { cc.globalAlpha = 0.88; cc.drawImage(dataImg, 0, 0, 900, 450); }
+    cc.globalAlpha = 1;
+    const f = field;
+    pinMap = pinify(comp, W, H, 15, { bg: '#0b1415', lift: f ? (u, v) => Math.min(1, f[Math.min(GH - 1, Math.floor(v * GH)) * GW + Math.min(GW - 1, Math.floor(u * GW))] || 0) : null });
+    pinKey = key;
+    return pinMap;
+  }
+
   function draw(t) {
     const K = 1.8;                                           // sizes below are tuned for a smaller canvas
     g.clearRect(0, 0, W, H);
     g.fillStyle = '#0b1415'; g.fillRect(0, 0, W, H);
-    if (baseImg) { g.globalAlpha = 0.5; g.drawImage(baseImg, 0, 0, W, H); g.globalAlpha = 1; }
-    if (dataImg) { g.globalAlpha = 0.88; g.drawImage(dataImg, 0, 0, W, H); g.globalAlpha = 1; }   // in orchestra mode: every layer
+    // [CLAUDE ADDITION] the relief and the data (in orchestra mode: every layer), drawn as a wall of pins
+    if (baseImg || dataImg) g.drawImage(pinnedMap(), 0, 0, W, H);
 
     // soft vignette pulls the eye to the middle
     const vg = g.createRadialGradient(W / 2, H / 2, H * 0.45, W / 2, H / 2, W * 0.62);
@@ -1637,13 +1695,17 @@
     const spin = new THREE.Group(); root.add(spin);
 
     const loader = new THREE.TextureLoader(); loader.setCrossOrigin('anonymous');
-    const tex = (url, srgb) => { const t = loader.load(url); t.anisotropy = 4; if (srgb) t.encoding = THREE.sRGBEncoding; return t; };
+    const tex = (url, srgb, plain) => {
+      // [CLAUDE ADDITION] every globe image becomes pins too, on the same grid so the layers line up
+      const t = loader.load(url, plain ? undefined : (tt) => { const im = tt.image, w = im.width, h = im.height, pinned = pinify(im, w, h, w / 220); if (pinned !== im) { tt.image = pinned; tt.needsUpdate = true; } });
+      t.anisotropy = 4; if (srgb) t.encoding = THREE.sRGBEncoding; return t;
+    };
     const wms = (layer, extra) => `${GIBS}?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&LAYERS=${layer}&SRS=EPSG:4326&BBOX=-180,-90,180,90&WIDTH=2048&HEIGHT=1024&FORMAT=image/jpeg${extra || ''}`;
     const geo = r => new THREE.SphereGeometry(r, 96, 64);
 
     // dim relief for land and sea, city lights glowing on top, then the active NASA layer
     spin.add(new THREE.Mesh(geo(1), new THREE.MeshBasicMaterial({ map: tex(wms('BlueMarble_ShadedRelief_Bathymetry'), true), color: 0x44555f })));
-    spin.add(new THREE.Mesh(geo(1.002), new THREE.MeshBasicMaterial({ map: tex(wms('VIIRS_Black_Marble', '&TIME=2016-01-01'), true), transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false })));
+    spin.add(new THREE.Mesh(geo(1.002), new THREE.MeshBasicMaterial({ map: tex(wms('VIIRS_Black_Marble', '&TIME=2016-01-01'), true, true), transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false })));
     const overlay = new THREE.Mesh(geo(1.006), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.9, depthWrite: false }));
     spin.add(overlay);
     const overlayTex = {};
@@ -1867,6 +1929,7 @@
       cx.fillStyle = '#0b1415'; cx.fillRect(0, 0, 512, 512);
       paintImage(baseImg, 0.45, patch.cx, patch.cy);      // dim NASA relief so coastlines show
       paintImage(dataImg, 1, patch.cx, patch.cy);
+      { const pinned = pinify(colorCanvas, 512, 512, 9, { bg: '#0b1415' }); if (pinned !== colorCanvas) { cx.clearRect(0, 0, 512, 512); cx.drawImage(pinned, 0, 0); } }   // [CLAUDE ADDITION] pins on the terrain too
       map.needsUpdate = true;
       mesh.position.set(patch.cx, 0, -patch.cy); wire.position.set(patch.cx, 0.02, -patch.cy);
       const pos = geo.attributes.position;
