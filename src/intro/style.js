@@ -21,7 +21,7 @@
     { at: 5.5, say: 'Walk with the arrow keys', speak: 'Walk with the arrow keys, or W A S D.' },
     { at: 10.5, say: 'More rain: louder and brighter', speak: 'More rain plays louder and brighter.' },
     { at: 16.0, say: 'A tremble means extreme', speak: 'A tremble means extreme.' },
-    { at: 20.0, say: 'Press 8: seven layers, one chord', speak: 'Press 8 to hear all seven layers as one chord.' },
+    { at: 20.0, say: 'Press 6: five layers, one chord', speak: 'Press 6 to hear all five layers as one chord.' },
     { at: 25.5, say: 'Press T: then and now', note: '20 years apart', speak: 'Press T to hear twenty years ago. Now, your turn.' },
   ];
   // the app's own Earth Orchestra colours (index.html ORCHESTRA), plus the wall's resting tints
@@ -37,9 +37,8 @@
   const WALK = { from: 5.8, to: 9.9 };
   const RAIN = { at: 10.6, front: 5.5, height: 1.0 }; // the rain layer rises outwards from you
   const TREMBLE = { at: 16.0, rate: 7, depth: 0.13 }; // 7 Hz, as in the app
-  const LAYERS = [                                    // the orchestra roll call (app order after rain: keys 2 to 7)
-    { key: 'heat', at: 20.35 }, { key: 'plants', at: 20.8 }, { key: 'ocean', at: 21.25 },
-    { key: 'fire', at: 21.7 }, { key: 'ice', at: 22.15 }, { key: 'wind', at: 22.6 },
+  const LAYERS = [                                    // the orchestra roll call (app order after rain: keys 2 to 5; 6 = all)
+    { key: 'heat', at: 20.35 }, { key: 'plants', at: 20.95 }, { key: 'ocean', at: 21.55 }, { key: 'wind', at: 22.15 },
   ];
   const ORCH = { front: 7, height: 0.85 };
   const WIPES = [{ at: 25.75, to: 1 }, { at: 27.75, to: 0 }];   // to 2006 (then = 1), back to 2026
@@ -78,7 +77,7 @@
     const heat = land * K.clamp(Math.max(g(lon, lat, 12, 22, 22, 9), 0.95 * g(lon, lat, 45, 23, 10, 8), 0.9 * g(lon, lat, 133, -24, 14, 8), 0.7 * g(lon, lat, -112, 33, 9, 6), 0.55 * g(lon, lat, 70, 30, 12, 8), 0.5 * g(lon, lat, -65, -28, 7, 8)) + 0.08 * n);
     const plants = land * K.clamp(Math.max(g(lon, lat, -62, -5, 14, 10), 0.9 * g(lon, lat, 22, 0, 10, 7), 0.85 * g(lon, lat, 110, 0, 14, 8), 0.5 * g(lon, lat, -90, 50, 28, 8), 0.45 * g(lon, lat, 20, 52, 28, 7), 0.42 * g(lon, lat, 90, 58, 45, 6)) + 0.06 * n);
     const ocean = 0.58 * sea * K.clamp((0.22 + 0.78 * Math.exp(-Math.pow(lat / 24, 2))) * (0.85 + 0.3 * g(lon, lat, 150, 5, 35, 14)) + 0.05 * n);
-    // [Nov 15] the app's layers are now rain, heat, plants, ocean, fire, ice and wind (haze was removed)
+    // [Nov 15, late] the app's layers are rain, heat, plants, ocean and wind (haze, fire and snow were removed); fire and ice stay defined but unused
     const fire = land * K.clamp(0.75 * Math.max(g(lon, lat, 15, 9, 16, 4), g(lon, lat, 130, -15, 11, 5), 0.8 * g(lon, lat, -55, -12, 10, 6), 0.7 * g(lon, lat, 28, -12, 10, 5)) * (0.6 + 0.8 * n));
     const ice = K.clamp(K.smooth(58, 72, Math.abs(lat)) * (lat > 0 ? 0.85 : 1) + 0.7 * land * g(lon, lat, -42, 72, 14, 9) + 0.4 * land * g(lon, lat, 85, 31, 9, 3));
     const wind = K.clamp(0.9 * Math.exp(-Math.pow((lat + 50) / 9, 2)) + sea * (0.5 * Math.exp(-Math.pow((lat - 45) / 8, 2)) + 0.32 * Math.exp(-Math.pow((Math.abs(lat) - 15) / 6, 2))) + 0.05 * n);
@@ -333,8 +332,7 @@
       }
       k.play('thud', TREMBLE.at, { gain: 0.45, f: 110 });
       // the orchestra roll call: cello, flute, clarinet, horn join the violin (app notes A2, E5, E3, C#4), then hold
-      // [Nov 15] the roll call of the app's seven instruments: violin (already playing), cello A2, flute E5, clarinet E3,
-      // crackling fire (pops over a low E2), glass bells A5 and a breeze
+      // [Nov 15, late] the roll call of the app's five instruments: violin (already playing), cello A2, flute E5, clarinet E3 and a breeze
       k.tone(20.0, { f: 'A4', type: 'triangle', dur: 9.6, gain: 0.04, a: 0.4, hold: 7.5, verb: 0.25 });
       const NOTE = { heat: ['A2', 'triangle', 0.05], plants: ['E5', 'sine', 0.05], ocean: ['E3', 'square', 0.02], fire: ['E2', 'triangle', 0.035] };
       LAYERS.forEach((L, i) => {
