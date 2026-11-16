@@ -160,6 +160,9 @@
      desktops: a wide stage, the map big on the left and readings + controls in a panel on the right. */
   #side, #under { display: flex; flex-direction: column; align-items: center; gap: 34px; width: 100%; }
   #thennote { margin: 0; text-align: center; font-size: 12.5px; line-height: 1.7; color: var(--faint); }
+  @media (max-width: 699px) {
+    #hero { height: clamp(300px, 42vh, 400px); }      /* a phone's first screen should reach the layer buttons and the start button, not just the globe */
+  }
   @media (min-width: 700px) {
     main { max-width: 760px; }
     #wrap { width: min(100%, 640px); }
@@ -1031,7 +1034,7 @@
   function setLabel(btn, text) { const k = btn.querySelector('kbd'); btn.textContent = text; if (k) btn.appendChild(k); }
   const hapBtn = document.getElementById('haptics');
   let hapticsOn = matchMedia('(pointer: coarse)').matches, lastTier = 0, lastBuzz = 0;
-  if (navigator.vibrate) {
+  if (navigator.vibrate && matchMedia("(pointer: coarse)").matches) {   // only on touch devices: a desktop has nothing to buzz
     hapBtn.hidden = false;
     hapBtn.setAttribute('aria-pressed', String(hapticsOn)); setLabel(hapBtn, 'Vibration: ' + (hapticsOn ? 'on' : 'off'));
     hapBtn.addEventListener('click', () => {

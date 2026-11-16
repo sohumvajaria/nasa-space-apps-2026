@@ -1,4 +1,4 @@
-// Earth Jukebox intro tutorial, "Pin Wall" style (rebuilt from the Pin Wall reference for the Earth Jukebox).
+// GeoSonix intro tutorial, "Pin Wall" style (rebuilt from the Pin Wall reference for the GeoSonix).
 // Needs THREE (three.js 0.187.0), stage.js (K, registerStyle) and geo.js (window.EJ_GEO, Natural Earth outlines) first.
 // The app runs this file with THREE, K and registerStyle passed in, so it never meets the app's own older three.js.
 // Written with AI assistance (Claude).
@@ -178,7 +178,7 @@
     id: 'pin-wall-earth-jukebox',
     name: 'Pin Wall',
     family: 'Flat content made physical',
-    topic: 'How to use the Earth Jukebox',
+    topic: 'How to use the GeoSonix',
     duration: DURATION,
     beats: BEATS,
     fonts: ['500 60px "Oswald"', '500 40px "Inter"'],
