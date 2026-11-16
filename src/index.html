@@ -36,6 +36,14 @@
   [hidden] { display: none !important; }
   #sky { position: fixed; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; display: block; }
   #waves { display: block; width: 100%; height: 132px; border: 1px solid var(--line); border-radius: 24px; background: rgba(233, 228, 214, .028); flex: none; }
+  #guide { display: flex; flex-direction: column; gap: 12px; text-align: left; }
+  #guide[hidden] { display: none !important; }
+  #guidelog { max-height: 190px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; font: 400 14px/1.5 var(--sans); }
+  #guidelog p { margin: 0; color: var(--mute); }
+  #guidelog p.me { color: var(--ink); }
+  #guideform { display: flex; gap: 8px; flex-wrap: wrap; }
+  #guideq { flex: 1 1 160px; min-width: 0; padding: 9px 14px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--ink); font: inherit; font-size: 14px; }
+  #guideq:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   #hero { position: relative; width: 100%; max-width: 980px; margin: 0 auto 10px; height: clamp(420px, 68vh, 620px); }
   #globe { position: absolute; inset: 0; width: 100%; height: 100%; display: block; mix-blend-mode: screen; cursor: grab; touch-action: pan-y; }
   #globe:active { cursor: grabbing; }
@@ -213,6 +221,17 @@
 
   <aside id="side" aria-label="Readings and controls">
   <canvas id="waves" aria-hidden="true"></canvas>
+  <section class="group" id="guide" aria-label="Guide" hidden>
+    <span class="k">Guide <kbd>G</kbd></span>
+    <div id="guidelog" aria-live="off"></div>
+    <form id="guideform" autocomplete="off">
+      <label for="guideq" class="sr">Ask the guide</label>
+      <input id="guideq" type="text" maxlength="300" placeholder="Ask anything, or say what to do">
+      <button type="submit" class="pill" id="guidego">Ask</button>
+      <button type="button" class="pill" id="guidemic" hidden aria-pressed="false">Speak</button>
+    </form>
+    <p class="note">Press Escape to close and go back to the map.</p>
+  </section>
   <section id="hud" aria-label="Current readings">
     <div class="primary"><span class="k" id="stormk">Rain</span><b id="storm">-</b></div>
     <div><span class="k">Direction</span><b id="brg">-</b></div>
@@ -225,6 +244,7 @@
 
   <div class="row">
     <button type="button" class="pill" id="speak">Hear summary<kbd>H</kbd></button>
+    <button type="button" class="pill" id="guidebtn" aria-pressed="false">Guide<kbd>G</kbd></button>
     <button type="button" class="pill" id="mute" aria-pressed="false">Mute<kbd>M</kbd></button>
     <button type="button" class="pill" id="haptics" aria-pressed="true" hidden>Vibration: on</button>
     <button type="button" class="pill" id="view" aria-pressed="true">3D terrain<kbd>V</kbd></button>
@@ -909,7 +929,14 @@
       else if (e.key && e.key.toLowerCase() === 'h' && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); endIntro(true); speak(); }   // H always tells you where you are
       return;
     }
+    const tg = e.target && e.target.tagName;
+    if (tg === 'INPUT' && e.target.type !== 'range' || tg === 'TEXTAREA') {   // typing a question: letters are letters, not moves
+      if (e.key === 'Escape') { e.preventDefault(); closeGuide(); }
+      return;
+    }
     if (e.target && e.target.type === 'range') return;   // let the date slider use the arrow keys
+    if (e.key === 'Escape' && !document.getElementById('guide').hidden) { e.preventDefault(); closeGuide(); return; }
+    if ((e.key || '').toLowerCase() === 'g' && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); toggleGuide(); return; }
     const k = KEYMAP[e.key] || KEYMAP[e.key.toLowerCase?.()];
     if (k) { keys.add(k); e.preventDefault(); }
     if (e.key === 'Shift') keys.add('shift');
@@ -1968,6 +1995,109 @@
   setView(!!relief);
 
   let last = performance.now();
+  // ---------- the guide: press G, hear how to move, then ask anything (Claude answers and can do things for you) ----------
+  const guideEl = document.getElementById('guide'), guideLog = document.getElementById('guidelog'), guideQ = document.getElementById('guideq');
+  const guideBtn = document.getElementById('guidebtn'), guideMic = document.getElementById('guidemic');
+  const guideHistory = [];
+  let guideBusy = false;
+  function guideSay(who, text) {
+    const p = document.createElement('p'); p.className = who; p.textContent = text; guideLog.appendChild(p); guideLog.scrollTop = guideLog.scrollHeight;
+  }
+  function guideIntro() {                          // works with no internet and no key: this is how you learn to move
+    const n = LAYER_ORDER.length - 1;
+    return 'Guide open. To move, use the arrow keys or W A S D, and hold Shift to go faster. On a phone, drag on the map. ' +
+      'A soft pulse plays from home, Null Island, where the equator meets the prime meridian. It moves to your left or right ear to show which side home is on, and gets quieter as you walk away. ' +
+      `An instrument plays the data under you, louder where it is stronger. Press 1 to ${n} to switch layers and ${n + 1} for the whole orchestra. ` +
+      'H tells you where you are, T plays twenty years ago, and V flips between flat and 3D. ' +
+      'Type a question and press Enter, or press Escape to go back to the map.';
+  }
+  function openGuide() {
+    ensureAudio();
+    guideEl.hidden = false; guideBtn.setAttribute('aria-pressed', 'true');
+    if (!guideLog.children.length) guideSay('bot', guideIntro());
+    say(guideIntro());
+    guideEl.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
+    setTimeout(() => guideQ.focus({ preventScroll: true }), 50);
+  }
+  function closeGuide() {
+    guideEl.hidden = true; guideBtn.setAttribute('aria-pressed', 'false');
+    try { stopMic(); } catch (e) {}
+    if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+    toMap(guideBtn);
+    say('Guide closed.');
+  }
+  function toggleGuide() { if (guideEl.hidden) openGuide(); else closeGuide(); }
+  guideBtn.addEventListener('click', () => { toggleGuide(); });
+
+  function guideContext() {
+    const L = curLayer(), playing = Object.keys(ORCHESTRA).filter(k => levelAt(k, player.x, player.y) >= 0.03).map(k => ORCHESTRA[k].name);
+    const place = placeHere();
+    return {
+      layer: orchestra ? 'Earth Orchestra (all layers)' : L.noun, layer_dataset: orchestra ? 'all layers' : L.dataset,
+      level_here: orchestra ? (playing.length ? 'playing: ' + playing.join(', ') : 'quiet here') : L.say[tierIndex(realStorm)],
+      place: place.brief, lat: +player.y.toFixed(1), lon: +player.x.toFixed(1),
+      date: dataTime, then_and_now: thenMode, view: view3d ? '3D terrain' : 'flat map', muted,
+      to_null_island: `${hud.dist.textContent}, ${hud.brg.textContent}`, newest_day: latestDay(),
+    };
+  }
+  function runGuideAction(a) {
+    const i = a.input || {};
+    switch (a.tool) {
+      case 'switch_layer': if (LAYER_ORDER.includes(i.layer)) switchLayer(i.layer); break;
+      case 'go_to_place': {
+        const lat = Math.max(-WY, Math.min(WY, +i.lat)), lon = Math.max(-WX, Math.min(WX, +i.lon));
+        if (isFinite(lat) && isFinite(lon)) { player.x = lon; player.y = lat; if (ctx) updateListener(true); }
+        break;
+      }
+      case 'go_home': player.x = 0; player.y = 0; if (ctx) updateListener(true); break;
+      case 'change_date': {
+        const v = Math.max(+timeEl.min, Math.min(+timeEl.max, +timeEl.value + (parseInt(i.steps, 10) || 0)));
+        timeEl.value = v; timeEl.dispatchEvent(new Event('input')); break;
+      }
+      case 'set_then_and_now': if (!!i.on !== thenMode) toggleThen(); break;
+      case 'set_view': setView(i.mode === '3d'); break;
+      case 'set_muted': if (!!i.muted !== muted) toggleMute(); break;
+    }
+  }
+  async function askGuide(text) {
+    text = String(text || '').trim();
+    if (!text || guideBusy) return;
+    guideBusy = true; guideSay('me', text); guideQ.value = '';
+    const wait = document.createElement('p'); wait.textContent = 'Thinking...'; guideLog.appendChild(wait);
+    try {
+      const r = await fetch('/api/guide', { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ message: text, context: guideContext(), history: guideHistory.slice(-6) }) });
+      if (!r.ok) throw new Error(String(r.status));
+      const j = await r.json();
+      wait.remove();
+      (j.actions || []).forEach(a => { try { runGuideAction(a); } catch (e) { console.warn(e); } });
+      const reply = j.reply || ((j.actions || []).length ? 'Done.' : 'I did not catch that.');
+      guideSay('bot', reply); say(reply);
+      guideHistory.push({ role: 'user', text }, { role: 'assistant', text: reply });
+    } catch (e) {
+      wait.remove();
+      const m = 'The guide cannot answer right now. You can still move with the arrow keys, switch layers with the number keys, and press H to hear where you are.';
+      guideSay('bot', m); say(m);
+    }
+    guideBusy = false;
+  }
+  document.getElementById('guideform').addEventListener('submit', e => { e.preventDefault(); askGuide(guideQ.value); });
+
+  // speak a question instead of typing it (where the browser allows)
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let rec = null;
+  function stopMic() { if (rec) { rec.onend = null; rec.stop(); rec = null; } guideMic.setAttribute('aria-pressed', 'false'); }
+  if (SR) {
+    guideMic.hidden = false;
+    guideMic.addEventListener('click', () => {
+      if (rec) { stopMic(); return; }
+      rec = new SR(); rec.lang = navigator.language || 'en-US'; rec.interimResults = false; rec.maxAlternatives = 1;
+      rec.onresult = ev => { const t = ev.results[0][0].transcript; stopMic(); askGuide(t); };
+      rec.onerror = () => stopMic(); rec.onend = () => stopMic();
+      guideMic.setAttribute('aria-pressed', 'true'); try { rec.start(); } catch (e) { stopMic(); }
+    });
+  }
+
   // ---------- sound waves: one line per instrument, taller = louder, they cross each other ----------
   const wavesEl = document.getElementById('waves'), wg = wavesEl.getContext('2d');
   const SEMI_MIN = Math.min(...Object.values(ORCHESTRA).map(o => o.semis)), SEMI_MAX = Math.max(...Object.values(ORCHESTRA).map(o => o.semis));
