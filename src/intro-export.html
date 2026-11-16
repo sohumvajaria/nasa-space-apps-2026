@@ -40,7 +40,12 @@
         <option value="8" selected>Good: 8 samples per frame</option>
         <option value="16">Best: 16 samples per frame (slowest)</option>
       </select>
-      <label><input type="checkbox" id="voice"> Bake in the app's narrator voice (needs the ElevenLabs key in Vercel)</label>
+      <label for="voice">Narration</label>
+      <select id="voice">
+        <option value="none">None (sound only)</option>
+        <option value="files">Recorded voice files (intro/voice.json)</option>
+        <option value="tts">The app's narrator (needs the ElevenLabs key)</option>
+      </select>
     </div>
     <div class="row"><button class="go" id="go" type="button" disabled>Loading...</button><span id="links" class="row"></span></div>
     <progress id="bar" max="900" value="0"></progress>
@@ -81,17 +86,29 @@
   }
 
   // the sound: the scene's score rendered offline, plus (optionally) the narrator's six lines, with the score dipping under them
-  async function renderAudio(withVoice) {
+  let voiceFiles = null;
+  try { const r = await fetch('intro/voice.json'); if (r.ok) voiceFiles = (await r.json()).files; } catch (e) {}
+  $('voice').value = voiceFiles ? 'files' : 'none';
+  async function lineAudio(mode, i, text) {
+    if (mode === 'files') {
+      if (!voiceFiles || !voiceFiles[i]) throw new Error('No recorded voice files are listed in intro/voice.json yet.');
+      const r = await fetch(voiceFiles[i]); if (!r.ok) throw new Error('Missing voice file ' + voiceFiles[i]);
+      return r.arrayBuffer();
+    }
+    const r = await fetch('/api/tts?text=' + encodeURIComponent(text));
+    if (!r.ok) throw new Error('The narrator voice is not set up on this site (the ElevenLabs key is missing). Choose another narration option, or ask Sohum to add the key.');
+    return r.arrayBuffer();
+  }
+  async function renderAudio(mode) {
+    const withVoice = mode !== 'none';
     const { inter, frames } = await SOUND.renderOffline(k => style.sound(k), D, SR, { voiceover: withVoice });
     const L = new Float32Array(frames), R = new Float32Array(frames);
     for (let i = 0; i < frames; i++) { L[i] = inter[2 * i]; R[i] = inter[2 * i + 1]; }
     if (withVoice) {
       const dec = new OfflineAudioContext(1, 1, SR), duck = new Float32Array(frames).fill(1), voice = new Float32Array(frames);
-      for (const b of style.beats) {
-        say(`Fetching the narrator's line: "${b.speak}"`);
-        const r = await fetch('/api/tts?text=' + encodeURIComponent(b.speak));
-        if (!r.ok) throw new Error('The narrator voice is not set up on this site (the ElevenLabs key is missing). Untick the voice box, or ask Sohum to add the key.');
-        const buf = await dec.decodeAudioData(await r.arrayBuffer()), v = buf.getChannelData(0), s0 = Math.round((b.at + 0.3) * SR);
+      for (const [i, b] of style.beats.entries()) {
+        say(`Adding the narrator's line: "${b.speak}"`);
+        const buf = await dec.decodeAudioData(await lineAudio(mode, i, b.speak)), v = buf.getChannelData(0), s0 = Math.round((b.at + 0.3) * SR);
         for (let i = 0; i < v.length && s0 + i < frames; i++) voice[s0 + i] += v[i];
         const a = Math.max(0, s0 - 0.15 * SR), e = Math.min(frames, s0 + v.length + 0.25 * SR);
         for (let i = a; i < e; i++) { const edge = Math.min(1, (i - a) / (0.15 * SR), (e - i) / (0.25 * SR)); duck[i] = Math.min(duck[i], 1 - 0.55 * edge); }
@@ -111,9 +128,9 @@
     try {
       const vcfg = await pickVideo(), acfg = await pickAudio();
       if (!vcfg) throw new Error('This computer cannot encode H.264 video in the browser. Try Chrome on another computer.');
-      const samples = +$('quality').value, withVoice = $('voice').checked;
+      const samples = +$('quality').value, mode = $('voice').value, withVoice = mode !== 'none';
       say('Rendering the sound...');
-      const audio = await renderAudio(withVoice);
+      const audio = await renderAudio(mode);
       const muxer = new Mp4Muxer.Muxer({
         target: new Mp4Muxer.ArrayBufferTarget(), fastStart: 'in-memory', firstTimestampBehavior: 'offset',
         video: { codec: 'avc', width: W, height: H, frameRate: FPS },

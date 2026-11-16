@@ -21,13 +21,13 @@
     { at: 5.5, say: 'Walk with the arrow keys', speak: 'Walk with the arrow keys, or W A S D.' },
     { at: 10.5, say: 'More rain: louder and brighter', speak: 'More rain plays louder and brighter.' },
     { at: 16.0, say: 'A tremble means extreme', speak: 'A tremble means extreme.' },
-    { at: 20.0, say: 'Press 6: five layers, one chord', speak: 'Press 6 to hear all five layers as one chord.' },
+    { at: 20.0, say: 'Press 8: seven layers, one chord', speak: 'Press 8 to hear all seven layers as one chord.' },
     { at: 25.5, say: 'Press T: then and now', note: '20 years apart', speak: 'Press T to hear twenty years ago. Now, your turn.' },
   ];
   // the app's own Earth Orchestra colours (index.html ORCHESTRA), plus the wall's resting tints
   const TINT = {
     sea: '#3f6098', land: '#c9a57a', home: '#ffd36a', you: '#f4f6fa',
-    rain: '#5082ff', heat: '#ff5a32', plants: '#50e164', ocean: '#28d7d7', haze: '#ffc83c', extreme: '#ff6a46',
+    rain: '#5082ff', heat: '#ff5a32', plants: '#50e164', ocean: '#28d7d7', fire: '#ff4682', ice: '#dcf0ff', wind: '#a0ffd2', extreme: '#ff6a46',
   };
   const SEA = 0.35, LAND = 0.11;                     // resting heights
   const BPM = 72, BEAT = 60 / BPM;                   // the app's pulse tempo
@@ -37,8 +37,9 @@
   const WALK = { from: 5.8, to: 9.9 };
   const RAIN = { at: 10.6, front: 5.5, height: 1.0 }; // the rain layer rises outwards from you
   const TREMBLE = { at: 16.0, rate: 7, depth: 0.13 }; // 7 Hz, as in the app
-  const LAYERS = [                                    // the orchestra roll call (app order after rain)
-    { key: 'heat', at: 20.35 }, { key: 'plants', at: 20.95 }, { key: 'ocean', at: 21.55 }, { key: 'haze', at: 22.15 },
+  const LAYERS = [                                    // the orchestra roll call (app order after rain: keys 2 to 7)
+    { key: 'heat', at: 20.35 }, { key: 'plants', at: 20.8 }, { key: 'ocean', at: 21.25 },
+    { key: 'fire', at: 21.7 }, { key: 'ice', at: 22.15 }, { key: 'wind', at: 22.6 },
   ];
   const ORCH = { front: 7, height: 0.85 };
   const WIPES = [{ at: 25.75, to: 1 }, { at: 27.75, to: 0 }];   // to 2006 (then = 1), back to 2026
@@ -77,10 +78,13 @@
     const heat = land * K.clamp(Math.max(g(lon, lat, 12, 22, 22, 9), 0.95 * g(lon, lat, 45, 23, 10, 8), 0.9 * g(lon, lat, 133, -24, 14, 8), 0.7 * g(lon, lat, -112, 33, 9, 6), 0.55 * g(lon, lat, 70, 30, 12, 8), 0.5 * g(lon, lat, -65, -28, 7, 8)) + 0.08 * n);
     const plants = land * K.clamp(Math.max(g(lon, lat, -62, -5, 14, 10), 0.9 * g(lon, lat, 22, 0, 10, 7), 0.85 * g(lon, lat, 110, 0, 14, 8), 0.5 * g(lon, lat, -90, 50, 28, 8), 0.45 * g(lon, lat, 20, 52, 28, 7), 0.42 * g(lon, lat, 90, 58, 45, 6)) + 0.06 * n);
     const ocean = 0.58 * sea * K.clamp((0.22 + 0.78 * Math.exp(-Math.pow(lat / 24, 2))) * (0.85 + 0.3 * g(lon, lat, 150, 5, 35, 14)) + 0.05 * n);
-    const haze = K.clamp(Math.max(g(lon, lat, -20, 16, 22, 6), 0.8 * g(lon, lat, 8, 20, 15, 7), 0.8 * g(lon, lat, 80, 25, 12, 6), 0.72 * g(lon, lat, 115, 32, 10, 6)) * (0.75 + 0.5 * n));
+    // [Nov 15] the app's layers are now rain, heat, plants, ocean, fire, ice and wind (haze was removed)
+    const fire = land * K.clamp(0.75 * Math.max(g(lon, lat, 15, 9, 16, 4), g(lon, lat, 130, -15, 11, 5), 0.8 * g(lon, lat, -55, -12, 10, 6), 0.7 * g(lon, lat, 28, -12, 10, 5)) * (0.6 + 0.8 * n));
+    const ice = K.clamp(K.smooth(58, 72, Math.abs(lat)) * (lat > 0 ? 0.85 : 1) + 0.7 * land * g(lon, lat, -42, 72, 14, 9) + 0.4 * land * g(lon, lat, 85, 31, 9, 3));
+    const wind = K.clamp(0.9 * Math.exp(-Math.pow((lat + 50) / 9, 2)) + sea * (0.5 * Math.exp(-Math.pow((lat - 45) / 8, 2)) + 0.32 * Math.exp(-Math.pow((Math.abs(lat) - 15) / 6, 2))) + 0.05 * n);
     return {
       x, y, land, rough: land * 0.07 * N.fbm(x * 2.2, y * 2.2, 5, 3), r: Math.hypot(x, y), rnd: K.hash(x * 9.1, y * 7.3),
-      rain, core: K.smooth(0.72, 0.95, storm), layer: { heat, plants, ocean, haze },
+      rain, core: K.smooth(0.72, 0.95, storm), layer: { heat, plants, ocean, fire, ice, wind },
       lo: (lon + 180) / 360,                         // 0 at the left edge, 1 at the right (for the wipes)
     };
   }
@@ -329,13 +333,20 @@
       }
       k.play('thud', TREMBLE.at, { gain: 0.45, f: 110 });
       // the orchestra roll call: cello, flute, clarinet, horn join the violin (app notes A2, E5, E3, C#4), then hold
-      const NOTE = { heat: ['A2', 'triangle'], plants: ['E5', 'sine'], ocean: ['E3', 'square'], haze: ['C#4', 'sawtooth'] };
+      // [Nov 15] the roll call of the app's seven instruments: violin (already playing), cello A2, flute E5, clarinet E3,
+      // crackling fire (pops over a low E2), glass bells A5 and a breeze
       k.tone(20.0, { f: 'A4', type: 'triangle', dur: 9.6, gain: 0.04, a: 0.4, hold: 7.5, verb: 0.25 });
+      const NOTE = { heat: ['A2', 'triangle', 0.05], plants: ['E5', 'sine', 0.05], ocean: ['E3', 'square', 0.02], fire: ['E2', 'triangle', 0.035] };
       LAYERS.forEach((L, i) => {
-        const [n, type] = NOTE[L.key];
-        k.play('tock', L.at, { f: 700 - i * 90, gain: 0.3 });
-        k.tone(L.at, { f: n, type, dur: DURATION - L.at, gain: type === 'square' ? 0.02 : type === 'sawtooth' ? 0.025 : 0.05, a: 0.35, hold: DURATION - L.at - 1.6, filter: 'lowpass', f2: 1600, verb: 0.25 });
-        k.withMinor(() => { for (let t = L.at, j = 0; t < L.at + 0.8; t += 0.015, j++) k.play('tick', t, { gain: 0.22 * (1 - (t - L.at) / 0.8), f: 3000 + 3000 * K.hash(j, i, 3), pan: (K.hash(j, i, 4) - 0.5) * 1.6 }); });
+        k.play('tock', L.at, { f: 700 - i * 60, gain: 0.26 });
+        k.withMinor(() => { for (let t = L.at, j = 0; t < L.at + 0.7; t += 0.015, j++) k.play('tick', t, { gain: 0.2 * (1 - (t - L.at) / 0.7), f: 3000 + 3000 * K.hash(j, i, 3), pan: (K.hash(j, i, 4) - 0.5) * 1.6 }); });
+        if (NOTE[L.key]) {
+          const [n, type, gain] = NOTE[L.key];
+          k.tone(L.at, { f: n, type, dur: DURATION - L.at, gain, a: 0.35, hold: DURATION - L.at - 1.6, filter: 'lowpass', f2: 1600, verb: 0.25 });
+        }
+        if (L.key === 'fire') k.withMinor(() => { for (let t = L.at, j = 0; t < DURATION - 0.5; t += 0.09 + 0.25 * K.hash(j, 41), j++) k.play('pop', t, { f: 900 + 1400 * K.hash(j, 42), gain: 0.05 + 0.05 * K.hash(j, 43), pan: (K.hash(j, 44) - 0.5) * 1.2 }); });
+        if (L.key === 'ice') for (let t = L.at, j = 0; t < DURATION - 0.8; t += 1.2, j++) k.play('ding', t, { f: j % 2 ? 'E6' : 'A5', gain: 0.07, verb: 0.4 });
+        if (L.key === 'wind') for (let t = L.at; t < DURATION - 1; t += 2.6) k.play('whoosh', t, { dur: 2.4, gain: 0.16, top: 1400 });
       });
       // then & now: a sweep of light across the wall, there and back, each landing with a bell
       WIPES.forEach((w, i) => {

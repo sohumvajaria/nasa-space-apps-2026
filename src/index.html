@@ -1026,6 +1026,20 @@
   const introVideoEl = document.getElementById('introvideo');
   const introSkip = document.getElementById('introskip'), introStatus = document.getElementById('introstatus');
   fetch('intro/intro.json').then(r => (r.ok ? r.json() : null)).then(j => { if (j && j.video && Array.isArray(j.beats)) introVideo = j; }).catch(() => {});
+  // [CLAUDE ADDITION] recorded narration: intro/voice.json lists one audio file per beat (e.g. made with Gemini text-to-speech).
+  // When it exists, each beat plays its file instead of the app's voice (screen reader users still get the words).
+  let introVoices = null;
+  fetch('intro/voice.json').then(r => (r.ok ? r.json() : null)).then(j => {
+    if (j && Array.isArray(j.files)) introVoices = j.files.map(f => { const a = new Audio(); a.preload = 'auto'; a.src = f; return a; });
+  }).catch(() => {});
+  function introSpeak(i, text, baked) {
+    if (readerVoice) { say(text); return; }               // screen reader users: the words, in their own reader
+    if (baked) return;                                    // the video already speaks this line
+    const a = introVoices && introVoices[i];
+    if (!a) { say(text); return; }
+    introVoices.forEach(x => x.pause());
+    a.muted = false; a.currentTime = 0; a.play().catch(() => say(text));
+  }
   function introWanted() {
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
     try { return localStorage.getItem('ej-intro-seen') !== '1'; } catch (e) { return true; }
@@ -1060,6 +1074,9 @@
     if (ctx && master) { master.gain.cancelScheduledValues(ctx.currentTime); master.gain.setValueAtTime(0, ctx.currentTime); }
     introEl.hidden = false; introSkip.focus();
     try { localStorage.setItem('ej-intro-seen', '1'); } catch (e) {}
+    if (introVoices) introVoices.forEach(a => {           // unlock the voice files inside the click (phones need this)
+      a.muted = true; a.play().then(() => { if (a.muted) { a.pause(); a.currentTime = 0; a.muted = false; } }).catch(() => { a.muted = false; });   // skip if its line already started
+    });
     if (introVideo) startIntroVideo(); else startIntroLive();
   }
   function startIntroVideo() {
@@ -1068,7 +1085,7 @@
     introCanvas.hidden = true; introStatus.hidden = true; v.hidden = false;
     if (!v.getAttribute('src')) v.src = info.video;
     v.muted = false; v.currentTime = 0;
-    prepLines(info.beats);
+    if (!introVoices) prepLines(info.beats);
     v.play().catch(() => {                                // sound refused (some phones): play silently and speak every line
       run.voiced = false; v.muted = true; v.play().catch(() => endIntro(false));
     });
@@ -1076,7 +1093,7 @@
     const tick = () => {
       if (introRun !== run) return;
       const b = beatAt(info.beats, v.currentTime);
-      if (b !== run.beat) { run.beat = b; if (readerVoice || !run.voiced) say(info.beats[b].speak); }
+      if (b !== run.beat) { run.beat = b; introSpeak(b, info.beats[b].speak, run.voiced); }
       run.raf = requestAnimationFrame(tick);
     };
     run.raf = requestAnimationFrame(tick);
@@ -1086,7 +1103,7 @@
     const small = innerWidth < 900;
     try {
       const kit = await loadIntro();
-      prepLines(kit.style.beats);
+      if (!introVoices) prepLines(kit.style.beats);
       if (!kit.S) kit.S = await kit.K.run(introCanvas, kit.style, { samples: 1, width: small ? 960 : 1280, height: small ? 540 : 720 });
     } catch (err) { console.warn('intro could not load', err); endIntro(false); return; }
     if (!introOn) return;                                 // skipped while it was loading
@@ -1099,7 +1116,7 @@
       const t = (now - run.t0) / 1000;
       if (t >= D) { endIntro(false); return; }
       const b = beatAt(beats, t);
-      if (b !== run.beat) { run.beat = b; say(beats[b].speak); }
+      if (b !== run.beat) { run.beat = b; introSpeak(b, beats[b].speak, false); }
       kit.S.seek(t, 1);
       run.raf = requestAnimationFrame(tick);
     };
@@ -1109,6 +1126,7 @@
     if (!introOn) return;
     introOn = false;
     if (introRun) { cancelAnimationFrame(introRun.raf); introRun.stop(); introRun = null; }
+    if (introVoices && skipped) introVoices.forEach(a => a.pause());
     introEl.hidden = true;
     if (ctx && master) master.gain.setTargetAtTime(muted ? 0 : 0.9, ctx.currentTime, 0.3);   // the app's sound fades back in
     if (skipped) say('Intro skipped. Use the arrow keys to walk, and H to hear where you are.');
