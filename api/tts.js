@@ -33,6 +33,8 @@ function pickProvider() {
   return null;
 }
 
+const VOICES = ['shimmer', 'onyx', 'sage'];   // the three styles listeners can choose (OpenAI): warm, deep, calm
+
 module.exports = async (req, res) => {
   if (req.method !== 'GET') return res.status(405).json({ error: 'GET only' });
   const provider = pickProvider();
@@ -66,7 +68,7 @@ module.exports = async (req, res) => {
         headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: process.env.OPENAI_TTS_MODEL || 'gpt-4o-mini-tts',
-          voice: process.env.OPENAI_TTS_VOICE || 'shimmer',
+          voice: VOICES.includes(q.voice) ? q.voice : (process.env.OPENAI_TTS_VOICE || 'shimmer'),
           input: text, instructions: INSTRUCTIONS, response_format: 'mp3',
         }),
       });

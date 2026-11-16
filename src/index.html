@@ -255,6 +255,8 @@
     <button type="button" class="pill then" id="then" aria-pressed="false">Then &amp; now: 2006<kbd>T</kbd></button>
     <button type="button" class="pill" id="alarm" aria-pressed="true">Extreme tremble: on</button>
     <button type="button" class="pill" id="voice" aria-pressed="false">Voice: built-in</button>
+    <button type="button" class="pill" id="voicestyle" hidden>Voice style: Warm</button>
+    <button type="button" class="pill" id="speed">Speed: Normal</button>
     <button type="button" class="pill" id="replayintro">Replay intro</button>
   </div>
   <p class="note" id="thennote">Then &amp; now plays the same day 20 years earlier, so you can hear how a place has changed. It is one day's snapshot, so weather plays a part; ocean heat shows the long-term warming most clearly.</p>
@@ -1242,6 +1244,24 @@
     voiceBtn.textContent = 'Voice: ' + (readerVoice ? 'screen reader' : kokoroState === 'ready' ? 'natural'
       : kokoroState === 'loading' ? 'natural (loading)' : 'built-in');
   }
+  // voice style (server voice only) and speaking speed, remembered between visits
+  const STYLES = [['shimmer', 'Warm'], ['onyx', 'Deep'], ['sage', 'Calm']], SPEEDS = [[0.85, 'Slow'], [1, 'Normal'], [1.25, 'Fast'], [1.5, 'Faster']];
+  let styleI = 0, speedI = 1;
+  try { styleI = Math.max(0, +localStorage.getItem('tt-style') || 0) % STYLES.length; speedI = Math.max(0, Math.min(SPEEDS.length - 1, localStorage.getItem('tt-speed') == null ? 1 : +localStorage.getItem('tt-speed'))); } catch (e) {}
+  const rateNow = () => SPEEDS[speedI][0];
+  const styleBtn = document.getElementById('voicestyle'), speedBtn = document.getElementById('speed');
+  const applyStyleUI = () => { styleBtn.textContent = 'Voice style: ' + STYLES[styleI][1]; speedBtn.textContent = 'Speed: ' + SPEEDS[speedI][1]; };
+  applyStyleUI();
+  styleBtn.addEventListener('click', () => {
+    styleI = (styleI + 1) % STYLES.length; applyStyleUI();
+    try { localStorage.setItem('tt-style', String(styleI)); } catch (e) {}
+    warmVoice(); say('Voice style: ' + STYLES[styleI][1] + '.'); toMap(styleBtn);
+  });
+  speedBtn.addEventListener('click', () => {
+    speedI = (speedI + 1) % SPEEDS.length; applyStyleUI();
+    try { localStorage.setItem('tt-speed', String(speedI)); } catch (e) {}
+    say('Speed: ' + SPEEDS[speedI][1] + '.'); toMap(speedBtn);
+  });
   voiceBtn.addEventListener('click', () => {
     readerVoice = !readerVoice; applyVoiceUI();
     try { localStorage.setItem('ej-voice', readerVoice ? 'reader' : 'builtin'); } catch (e) {}
@@ -1257,9 +1277,9 @@
   // While anyone speaks, the music dips so the words are easy to hear.
   let ttsOff = false, ttsAudio = null, speechId = 0;
   function duck(on) { if (ctx && duckNode) duckNode.gain.setTargetAtTime(on ? 0.4 : 1, ctx.currentTime, 0.12); }
-  const voiceUrl = text => '/api/tts?text=' + encodeURIComponent(text);
+  const voiceUrl = text => '/api/tts?text=' + encodeURIComponent(text) + (styleI ? '&voice=' + STYLES[styleI][0] : '');
   // Ask once, for free, whether a neural voice is set up on the server. If not, the browser's voice is used from the start.
-  fetch('/api/tts?probe=1').then(r => { if (r.status !== 204) ttsOff = true; }).catch(() => { ttsOff = true; });
+  fetch('/api/tts?probe=1').then(r => { if (r.status !== 204) ttsOff = true; }).catch(() => { ttsOff = true; }).then(() => { document.getElementById('voicestyle').hidden = ttsOff; });
   function fetchVoice(text) {                // warm-up: download a phrase now so it is in the cache and plays instantly later
     return fetch(voiceUrl(text)).then(r => { if (r.status === 503 || r.status === 404) ttsOff = true; if (!r.ok) throw new Error('voice ' + r.status); return r.arrayBuffer(); });
   }
@@ -1387,7 +1407,7 @@
     const playNext = () => {
       if (id !== speechId) return;           // something newer was said meanwhile
       if (i >= parts.length) { duck(false); ttsAudio = null; return; }
-      const a = new Audio(kokoroDone.get(parts[i++])); ttsAudio = a;
+      const a = new Audio(kokoroDone.get(parts[i++])); ttsAudio = a; a.playbackRate = rateNow();
       a.onplaying = () => duck(true);
       a.onended = playNext;
       a.onerror = fallback;
@@ -1409,7 +1429,7 @@
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     if (bestVoice) u.voice = bestVoice;
-    u.rate = 0.92; u.pitch = 0.95; u.volume = 0.9;    // calmer: a touch slower and lower
+    u.rate = 0.92 * rateNow(); u.pitch = 0.95; u.volume = 0.9;    // calmer: a touch slower and lower
     u.onstart = () => duck(true);
     u.onend = u.onerror = () => { if (id === speechId) duck(false); };
     lastUtterance = u;
@@ -1432,7 +1452,7 @@
     const id = speechId;
     if (ttsOff) { kokoroSpeak(text, id); return; }   // no server voice: the free on-device voice
     // The audio element streams the voice: it starts playing as soon as the first bytes arrive.
-    const a = new Audio(); ttsAudio = a; a.preload = 'auto'; a.src = voiceUrl(text);
+    const a = new Audio(); ttsAudio = a; a.preload = 'auto'; a.playbackRate = rateNow(); a.src = voiceUrl(text);
     let started = false;
     const fallback = () => {                 // not playing (error, or too slow): use the browser voice rather than keep the listener waiting
       clearTimeout(slow);
