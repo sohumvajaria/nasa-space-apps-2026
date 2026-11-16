@@ -8,6 +8,9 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>GeoSonix</title>
 <style>
+  /* [CLAUDE ADDITION] Playfair Display (SIL Open Font License, see fonts/PlayfairDisplay-OFL.txt): a free high-contrast
+     display serif, standing in for Resonay (a paid TypeMates font). Used for the name wrapped around the globe. */
+  @font-face { font-family: "Playfair Display"; src: url("fonts/playfair-display-latin-800-normal.woff2") format("woff2"); font-weight: 800; font-style: normal; font-display: swap; }
   :root {
     color-scheme: dark;
     --bg: #0a1112;
@@ -1677,29 +1680,34 @@
     // [CLAUDE ADDITION] the name wraps around the planet: "GEOSONIX" in bold steel letters on a curved band that sits
     // in front of the globe and bends away round its sides, so the title and the globe read as one emblem.
     // The band does not spin with the Earth. The page's <h1> stays for screen readers.
-    const TITLE_R = 1.6, TITLE_ARC = Math.PI * 0.82, TITLE_H = 0.62;
-    const titleTex = (() => {
-      const c = document.createElement('canvas'); c.width = 4096; c.height = 460;
-      const x = c.getContext('2d'), word = 'GEOSONIX';
-      x.font = '900 330px "Arial Black", "Helvetica Neue", Arial, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
-      if ('letterSpacing' in x) x.letterSpacing = '34px';
-      const cx = c.width / 2, cy = c.height / 2 + 14;
-      // a deep shadow edge under and to the right, so the letters look thick
-      x.lineJoin = 'round';
-      for (let d = 14; d > 0; d -= 2) { x.fillStyle = `rgb(${10 + d},${22 + d * 2},${48 + d * 3})`; x.fillText(word, cx + d * 0.6, cy + d); }
-      // the face: brushed steel, bright on top, a cool blue band low down
-      const gr = x.createLinearGradient(0, cy - 150, 0, cy + 150);
-      gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.42, '#dfe7f2'); gr.addColorStop(0.52, '#8f9db3'); gr.addColorStop(0.62, '#c9d6e8'); gr.addColorStop(1, '#6f86ad');
+    const TITLE_R = 1.6, TITLE_ARC = Math.PI * 0.82, TITLE_TEX_W = 4096, TITLE_TEX_H = 720;
+    const TITLE_H = TITLE_R * TITLE_ARC * TITLE_TEX_H / TITLE_TEX_W;   // band height that keeps the letters' true proportions
+    const TITLE_FAMILY = '"Playfair Display", "Didot", "Bodoni 72", Georgia, serif', TITLE_FONT = '800 100px ' + TITLE_FAMILY;
+    const titleCanvas = document.createElement('canvas'); titleCanvas.width = TITLE_TEX_W; titleCanvas.height = TITLE_TEX_H;
+    const titleTex = new THREE.CanvasTexture(titleCanvas); titleTex.encoding = THREE.sRGBEncoding; titleTex.anisotropy = 8;
+    const drawTitle = () => {
+      const c = titleCanvas, x = c.getContext('2d'), word = 'GeoSonix';
+      x.clearRect(0, 0, c.width, c.height);
+      x.font = TITLE_FONT; x.textAlign = 'center'; x.textBaseline = 'alphabetic';
+      const size = Math.min(c.height * 0.8, 100 * c.width * 0.6 / x.measureText(word).width);   // the word fills about 60% of the band
+      x.font = '800 ' + Math.round(size) + 'px ' + TITLE_FAMILY;
+      // center the letters' actual ink box on the texture, so the word sits exactly on the globe's center
+      const m = x.measureText(word), asc = m.actualBoundingBoxAscent || 220, desc = m.actualBoundingBoxDescent || 0;
+      const ink = (m.actualBoundingBoxRight || m.width / 2) - (m.actualBoundingBoxLeft || m.width / 2);
+      const cx = c.width / 2 - ink / 2, cy = c.height / 2 + (asc - desc) / 2;
+      // a layered look, like Resonay's layer fonts: a dark offset layer down and to the left, then the light face
+      x.fillStyle = '#05070c'; for (let d = 1; d <= 12; d++) x.fillText(word, cx - d * 1.4, cy + d * 1.2);
+      const gr = x.createLinearGradient(0, cy - asc, 0, cy + desc);
+      gr.addColorStop(0, '#fbf8f0'); gr.addColorStop(0.55, '#e4ddcc'); gr.addColorStop(1, '#b9b09c');
       x.fillStyle = gr; x.fillText(word, cx, cy);
-      x.lineWidth = 7; x.strokeStyle = 'rgba(12,28,58,0.95)'; x.strokeText(word, cx, cy);
-      x.lineWidth = 2.5; x.strokeStyle = 'rgba(190,225,255,0.85)'; x.strokeText(word, cx - 1.5, cy - 2);
-      const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 8;
-      return t;
-    })();
+      x.lineWidth = 4; x.strokeStyle = 'rgba(5,7,12,0.55)'; x.strokeText(word, cx, cy);
+      titleTex.needsUpdate = true;
+    };
+    drawTitle();
+    if (document.fonts && document.fonts.load) document.fonts.load(TITLE_FONT).then(drawTitle).catch(() => {});   // redraw once the font arrives
     const title = new THREE.Mesh(
       new THREE.CylinderGeometry(TITLE_R, TITLE_R, TITLE_H, 160, 1, true, -TITLE_ARC / 2, TITLE_ARC),
       new THREE.MeshBasicMaterial({ map: titleTex, transparent: true, alphaTest: 0.35, side: THREE.FrontSide }));
-    title.rotation.x = 0.16;            // tipped a little, like an orbit seen from just above
     title.renderOrder = 2;
     scene.add(title);
 
@@ -1797,7 +1805,7 @@
       camera.position.z = wide ? 4.6 : 5.6; root.position.y = wide ? 0.08 : 0.22;
       // [CLAUDE ADDITION] step back on narrow screens so the wrapped name always fits across
       camera.position.z = Math.max(camera.position.z, 1.75 / (Math.tan(17 * Math.PI / 180) * camera.aspect));
-      title.position.y = root.position.y - 0.08;
+      title.position.y = root.position.y * (camera.position.z - TITLE_R) / camera.position.z;   // projects onto the globe's exact center
       sync();
       // ease toward the layer's center unless the listener is dragging the globe
       const lonC = player.x, latC = player.y;      // the hero globe follows you around the planet
