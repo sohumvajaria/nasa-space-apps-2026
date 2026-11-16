@@ -55,6 +55,8 @@
   #hero header a { pointer-events: auto; }
   #hero.nogl { height: auto; margin-top: 0; }
   #hero.nogl header { position: static; padding: 0; background: none; }
+  /* [CLAUDE ADDITION] the name is drawn wrapped around the globe, so the text title is kept for screen readers only */
+  #hero:not(.nogl) header { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
   #hud, .group { border: 1px solid var(--line); border-radius: 24px; background: rgba(233, 228, 214, .028); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
   #hud { padding: 26px 18px; box-shadow: 0 20px 60px -30px rgba(0,0,0,.6); }
   .group { padding: 22px 18px; }
@@ -174,6 +176,9 @@
     /* the hero is one centered row: the name beside the globe, close together, instead of pinned to opposite edges */
     #hero { max-width: 1240px; height: auto; margin: 0 auto -18px; padding-left: calc(clamp(240px, 24vw, 340px) * 0.2); display: flex; align-items: center; justify-content: center; gap: clamp(28px, 5vw, 80px); }
     #globe { position: relative; inset: auto; order: 2; flex: none; margin-top: 14px; width: clamp(240px, 24vw, 340px); height: clamp(230px, 21vw, 300px); }
+    /* [CLAUDE ADDITION] the globe and its wrapped name: one emblem in the middle */
+    #hero:not(.nogl) { padding-left: 0; }
+    #hero:not(.nogl) #globe { width: clamp(560px, 50vw, 760px); height: clamp(300px, 27vw, 400px); margin-top: 0; }
     #hero header { position: static; order: 1; padding: 0; display: block; text-align: left; text-shadow: none; }
     #hero header h1 { font-size: clamp(48px, 5.4vw, 84px); }
     #hero header .links { text-align: left; }
@@ -1669,6 +1674,35 @@
     const root = new THREE.Group(); root.position.y = 0.22; scene.add(root);
     const spin = new THREE.Group(); root.add(spin);
 
+    // [CLAUDE ADDITION] the name wraps around the planet: "GEOSONIX" in bold steel letters on a curved band that sits
+    // in front of the globe and bends away round its sides, so the title and the globe read as one emblem.
+    // The band does not spin with the Earth. The page's <h1> stays for screen readers.
+    const TITLE_R = 1.6, TITLE_ARC = Math.PI * 0.82, TITLE_H = 0.62;
+    const titleTex = (() => {
+      const c = document.createElement('canvas'); c.width = 4096; c.height = 460;
+      const x = c.getContext('2d'), word = 'GEOSONIX';
+      x.font = '900 330px "Arial Black", "Helvetica Neue", Arial, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+      if ('letterSpacing' in x) x.letterSpacing = '34px';
+      const cx = c.width / 2, cy = c.height / 2 + 14;
+      // a deep shadow edge under and to the right, so the letters look thick
+      x.lineJoin = 'round';
+      for (let d = 14; d > 0; d -= 2) { x.fillStyle = `rgb(${10 + d},${22 + d * 2},${48 + d * 3})`; x.fillText(word, cx + d * 0.6, cy + d); }
+      // the face: brushed steel, bright on top, a cool blue band low down
+      const gr = x.createLinearGradient(0, cy - 150, 0, cy + 150);
+      gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.42, '#dfe7f2'); gr.addColorStop(0.52, '#8f9db3'); gr.addColorStop(0.62, '#c9d6e8'); gr.addColorStop(1, '#6f86ad');
+      x.fillStyle = gr; x.fillText(word, cx, cy);
+      x.lineWidth = 7; x.strokeStyle = 'rgba(12,28,58,0.95)'; x.strokeText(word, cx, cy);
+      x.lineWidth = 2.5; x.strokeStyle = 'rgba(190,225,255,0.85)'; x.strokeText(word, cx - 1.5, cy - 2);
+      const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 8;
+      return t;
+    })();
+    const title = new THREE.Mesh(
+      new THREE.CylinderGeometry(TITLE_R, TITLE_R, TITLE_H, 160, 1, true, -TITLE_ARC / 2, TITLE_ARC),
+      new THREE.MeshBasicMaterial({ map: titleTex, transparent: true, alphaTest: 0.35, side: THREE.FrontSide }));
+    title.rotation.x = 0.16;            // tipped a little, like an orbit seen from just above
+    title.renderOrder = 2;
+    scene.add(title);
+
     const loader = new THREE.TextureLoader(); loader.setCrossOrigin('anonymous');
     const tex = (url, srgb) => { const t = loader.load(url); t.anisotropy = 4; if (srgb) t.encoding = THREE.sRGBEncoding; return t; };
     const wms = (layer, extra) => `${GIBS}?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&LAYERS=${layer}&SRS=EPSG:4326&BBOX=-180,-90,180,90&WIDTH=2048&HEIGHT=1024&FORMAT=image/jpeg${extra || ''}`;
@@ -1761,6 +1795,9 @@
       }
       const wide = matchMedia('(min-width: 1000px)').matches;      // the desktop banner is shorter, so the planet comes closer to fill it
       camera.position.z = wide ? 4.6 : 5.6; root.position.y = wide ? 0.08 : 0.22;
+      // [CLAUDE ADDITION] step back on narrow screens so the wrapped name always fits across
+      camera.position.z = Math.max(camera.position.z, 1.75 / (Math.tan(17 * Math.PI / 180) * camera.aspect));
+      title.position.y = root.position.y - 0.08;
       sync();
       // ease toward the layer's center unless the listener is dragging the globe
       const lonC = player.x, latC = player.y;      // the hero globe follows you around the planet
