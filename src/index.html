@@ -83,6 +83,26 @@
   /* [CLAUDE FIX] the map is focusable after "Begin listening", so screen readers hand it the arrow keys */
   #wrap:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 30px; }
   /* [CLAUDE ADDITION] the intro tutorial: a full-screen stage over the app, with a skip button */
+  /* the entrance: a close-up of Earth pulls back to a small globe with rings, then the app shows through */
+  #reveal { position: fixed; inset: 0; z-index: 45; background: var(--bg); pointer-events: none; overflow: hidden; transition: opacity .9s ease; }
+  #reveal.out { opacity: 0; }
+  #reveal canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #reveal .rv-big { position: absolute; left: 8vw; top: 24vh; margin: 0; font: 400 clamp(52px, 8.5vw, 132px)/1 var(--serif); letter-spacing: .04em; color: var(--ink);
+    text-shadow: 0 2px 40px rgba(0,0,0,.7); opacity: 0; transform: translateY(18px); transition: opacity 1s ease, transform 1.2s cubic-bezier(.2,.7,.2,1), filter 1s ease; }
+  #reveal.in .rv-big { opacity: 1; transform: none; }
+  #reveal.zoom .rv-big { opacity: 0; transform: translateY(-40px); filter: blur(6px); transition-duration: .9s; }
+  #reveal .rv-top { position: absolute; left: 0; right: 0; top: 7vh; text-align: center; font: 400 clamp(22px, 2.6vw, 36px)/1 var(--serif); letter-spacing: .3em; color: var(--ink);
+    opacity: 0; transform: translateY(10px); transition: opacity .9s ease, transform .9s ease; }
+  #reveal .rv-ring { position: absolute; border-radius: 50%; border: 1px solid rgba(233,228,214,.16); opacity: 0; transform: scale(.7); transition: opacity 1.1s ease, transform 1.4s cubic-bezier(.2,.7,.2,1); }
+  #reveal .rv-ring.dash { border-style: dashed; border-color: rgba(220,191,143,.22); }
+  #reveal .rv-dot { position: absolute; width: 5px; height: 5px; margin: -2.5px 0 0 -2.5px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); opacity: 0; transition: opacity .8s ease; }
+  #reveal .rv-label { position: absolute; font: 500 11px/1.5 var(--sans); letter-spacing: .2em; text-transform: uppercase; color: var(--mute); white-space: nowrap;
+    opacity: 0; transform: translateY(6px); transition: opacity .8s ease, transform .8s ease; }
+  #reveal .rv-label b { display: block; color: var(--ink); font-weight: 500; }
+  #reveal.rings .rv-top, #reveal.rings .rv-label { opacity: 1; transform: none; }
+  #reveal.rings .rv-ring { opacity: 1; transform: none; }
+  #reveal.rings .rv-dot { opacity: .9; }
+  @media (max-width: 700px) { #reveal .rv-label { display: none; } #reveal .rv-big { left: 6vw; top: 26vh; } }
   #intro { position: fixed; inset: 0; z-index: 50; background: #030304; display: flex; align-items: center; justify-content: center; }
   #intro[hidden] { display: none; }
   #introcanvas, #introvideo { width: 100%; height: 100%; object-fit: contain; display: block; }
@@ -322,6 +342,7 @@
   </section>
 
 <!-- [CLAUDE ADDITION] the 30-second intro tutorial (scene in intro/style.js). Plays on a first visit after "Begin listening". -->
+<div id="reveal" hidden aria-hidden="true"></div>
 <div id="intro" hidden role="dialog" aria-modal="true" aria-label="30-second intro: how to listen">
   <video id="introvideo" playsinline preload="none" hidden aria-hidden="true"></video>
   <canvas id="introcanvas" width="1920" height="1080" aria-hidden="true"></canvas>
@@ -1076,6 +1097,7 @@
     const first = introWanted();
     ensureAudio();                                        // builds the app's sound at once (it stays silent under the intro)
     if (first) startIntro();                              // started inside the click, so the browser lets the video play with sound
+    else playReveal();                                    // no intro: go straight to the entrance motion
   });
   // [CLAUDE FIX] after a button is pressed, send focus back to the map (once listening has started) instead of dropping it
   // on the page, which would put screen readers back into reading mode and stop the arrow keys from walking.
@@ -1203,6 +1225,7 @@
     if (ctx && master) master.gain.setTargetAtTime(muted ? 0 : 0.9, ctx.currentTime, 0.3);   // the app's sound fades back in
     if (skipped) say('Intro skipped. Use the arrow keys to walk, and H to hear where you are.');
     if (wrapNode.getAttribute('role') === 'application') wrapNode.focus({ preventScroll: true });
+    playReveal();                                         // after the intro: the entrance motion
   }
   introSkip.addEventListener('click', () => endIntro(true));
   document.getElementById('replayintro').addEventListener('click', () => { ensureAudio(); startIntro(); });
@@ -1786,6 +1809,110 @@
       renderer.render(scene, camera);
     };
     return st;
+  }
+
+  // ---------- the entrance: a close-up of Earth pulls back to a small globe with rings and the layer names ----------
+  // Plays once after the intro (or after "Begin listening" when there is no intro), about 5 seconds.
+  // Only for the eyes: it never takes focus, keys and sound work during it, and any key or click ends it early.
+  let revealOn = false;
+  function playReveal() {
+    const el = document.getElementById('reveal');
+    if (revealOn || reduceMotion || !THREE_OK || !el) return;
+    let renderer;
+    const canvas = document.createElement('canvas');
+    try { renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true }); } catch (e) { return; }
+    revealOn = true;
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    const W = innerWidth, H = innerHeight;
+    renderer.setSize(W, H, false);
+    const FOV = 40, camera = new THREE.PerspectiveCamera(FOV, W / H, 0.05, 500);
+    const scene = new THREE.Scene();
+    const loader = new THREE.TextureLoader(); loader.setCrossOrigin('anonymous');
+    const wms = (layer, extra) => `${GIBS}?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&LAYERS=${layer}&SRS=EPSG:4326&BBOX=-180,-90,180,90&WIDTH=2048&HEIGHT=1024&FORMAT=image/jpeg${extra || ''}`;
+    const tex = url => { const t = loader.load(url); t.encoding = THREE.sRGBEncoding; t.anisotropy = 8; return t; };   // same pictures as the globe above, so usually already downloaded
+    const earth = new THREE.Group(); scene.add(earth);
+    const geo = r => new THREE.SphereGeometry(r, 128, 96);
+    earth.add(new THREE.Mesh(geo(1), new THREE.MeshBasicMaterial({ map: tex(wms('BlueMarble_ShadedRelief_Bathymetry')), color: 0x8da2ad })));
+    earth.add(new THREE.Mesh(geo(1.002), new THREE.MeshBasicMaterial({ map: tex(wms('VIIRS_Black_Marble', '&TIME=2016-01-01')), transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending, depthWrite: false })));
+    // a thin blue edge of atmosphere
+    earth.add(new THREE.Mesh(geo(1.012), new THREE.ShaderMaterial({
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      vertexShader: 'varying vec3 vN; void main(){ vN = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: 'varying vec3 vN; void main(){ float f = pow(1.0 - max(dot(vN, vec3(0.0,0.0,1.0)), 0.0), 2.6); gl_FragColor = vec4(0.45, 0.7, 0.95, 1.0) * f * 0.9; }',
+    })));
+    const stars = (() => {
+      const n = 900, pts = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) { pts[3 * i] = (Math.random() - .5) * 120; pts[3 * i + 1] = (Math.random() - .5) * 80; pts[3 * i + 2] = -30 - Math.random() * 40; }
+      const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pts, 3));
+      return new THREE.Points(g, new THREE.PointsMaterial({ color: 0xcfe3ff, size: 1.3, sizeAttenuation: false, transparent: true, opacity: 0.55 }));
+    })();
+    scene.add(stars);
+    earth.rotation.set(0.35, -Math.PI / 2 - 0.5, 0);     // start over Africa and the Atlantic, near Null Island
+
+    // where the globe ends up: a size that leaves room for the rings and labels
+    const R = Math.max(48, Math.min(H * 0.19, W * 0.13));             // the globe's final radius in pixels
+    const k = R / (H / 2) * Math.tan(FOV / 2 * Math.PI / 180);
+    const zEnd = 1 / Math.sin(Math.atan(k));
+    const cx = W / 2, cy = H * 0.53;
+    const yShift = (H / 2 - cy) / (H / 2) * zEnd * Math.tan(FOV / 2 * Math.PI / 180);   // nudge the final globe a little below center
+
+    // the words and lines drawn over it
+    el.innerHTML = '';
+    el.appendChild(canvas);
+    const add = (cls, html, css) => { const d = document.createElement('div'); d.className = cls; if (html) d.innerHTML = html; Object.assign(d.style, css || {}); el.appendChild(d); return d; };
+    add('rv-big', 'GeoSonix');
+    add('rv-top', 'GeoSonix');
+    [[1.5, ''], [2.15, ' dash'], [2.9, '']].forEach(([m, c], i) => {
+      const r = R * m;
+      add('rv-ring' + c, '', { left: cx - r + 'px', top: cy - r + 'px', width: 2 * r + 'px', height: 2 * r + 'px', transitionDelay: i * 0.15 + 's' });
+    });
+    const LABELS = [['Rain', 'violin'], ['Land heat', 'cello'], ['Plants', 'flute'], ['Ocean heat', 'clarinet'], ['Wind', 'breeze'], ['Earth Orchestra', 'all five']];
+    const ANG = [150, 180, 210, 30, 0, -30];             // three on the left, three on the right, like points on an orbit
+    LABELS.forEach(([name, inst], i) => {
+      const a = ANG[i] * Math.PI / 180, r = R * 2.15;
+      const x = cx + Math.cos(a) * r, y = cy - Math.sin(a) * r;
+      add('rv-dot', '', { left: x + 'px', top: y + 'px', transitionDelay: 0.5 + i * 0.12 + 's' });
+      const left = Math.cos(a) < 0;
+      add('rv-label', `<b>${name}</b>${inst}`, Object.assign({ top: y - 10 + 'px', transitionDelay: 0.6 + i * 0.12 + 's', textAlign: left ? 'right' : 'left' },
+        left ? { right: W - x + 18 + 'px' } : { left: x + 18 + 'px' }));
+    });
+    el.className = ''; el.hidden = false;
+    requestAnimationFrame(() => el.classList.add('in'));
+
+    const ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    const t0 = performance.now();
+    let raf = 0, ending = false, cleaned = false;
+    const cleanup = () => {
+      if (cleaned) return; cleaned = true;
+      cancelAnimationFrame(raf); removeEventListener('keydown', skip, true); removeEventListener('pointerdown', skip, true);
+      el.hidden = true; el.className = ''; el.innerHTML = '';
+      try { renderer.dispose(); renderer.forceContextLoss(); } catch (e) {}
+      revealOn = false;
+    };
+    const finish = fast => {
+      if (ending) return; ending = true;
+      el.style.transitionDuration = fast ? '.35s' : '';
+      el.classList.add('out');
+      setTimeout(() => { el.style.transitionDuration = ''; cleanup(); }, fast ? 400 : 950);
+    };
+    const skip = () => finish(true);                     // any key or click: get out of the way (the key still does its job)
+    addEventListener('keydown', skip, true); addEventListener('pointerdown', skip, true);
+    const frame = now => {
+      const t = (now - t0) / 1000;
+      const p = ease(Math.min(1, Math.max(0, (t - 1.1) / 2.1)));   // hold the close-up, then pull back
+      earth.position.y = -0.86 * (1 - p) + yShift * p;
+      camera.position.set(0, 0, 1.9 + (zEnd - 1.9) * p);
+      camera.lookAt(0, 0, 0);
+      earth.rotation.y += 0.0009 + 0.0012 * (1 - p);
+      stars.material.opacity = 0.25 + 0.4 * p;
+      if (t > 1.0 && !el.classList.contains('zoom')) el.classList.add('zoom');
+      if (t > 2.7 && !el.classList.contains('rings')) el.classList.add('rings');
+      if (t > 6.2) finish(false);
+      renderer.render(scene, camera);
+      if (!cleaned) raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
   }
 
   const HS = 9;                              // terrain height (units) at full intensity
