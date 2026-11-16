@@ -11,7 +11,7 @@ How the app works:
 - The user walks a map of the whole world with the arrow keys or W A S D (Shift = faster; on touch, drag on the map). They always face north.
 - A soft pulse plays from Null Island (0 degrees north, 0 east), where the equator meets the prime meridian. It pans left or right to show which side home is on and gets quieter with distance.
 - One instrument per map layer plays the data under them, louder and brighter where the data is stronger. Layers: 1 Rain (violin, NASA GPM IMERG), 2 Land heat (cello, MODIS), 3 Plants (flute, MODIS vegetation), 4 Ocean heat (clarinet, GHRSST sea temperature), 5 Wind (breeze, MERRA-2 monthly average wind speed), 6 Earth Orchestra (all layers at once). Number keys switch layers.
-- Keys: H = hear where I am and what is playing; L = which layer; V = flat map or 3D terrain; M = mute; T = Then and now (the same day 20 years earlier); G = this guide; the date slider goes back up to 30 days. NASA publishes daily frames, so there are no forecasts and nothing is live to the hour.
+- Keys: H = hear where I am and what is playing; L = which layer; V = flat map or 3D terrain; M = mute; T = go back to 2006 (the same day 20 years earlier); comma and period = one day back or forward (Shift for a week, up to 30 days back); 7, 8, 9, 0 = sample sounds from light to extreme; N = voice; I = replay intro; B = vibration; G = this guide. NASA publishes daily frames, so there are no forecasts and nothing is live to the hour.
 - Satellites cannot see through clouds for some layers, so gaps are silent.
 
 Rules:
@@ -51,7 +51,7 @@ const TOOLS = [
   },
   {
     name: 'set_then_and_now',
-    description: 'Turn Then and now on (hear the same day 20 years earlier) or off.',
+    description: 'Go back to 2006 (hear the same day 20 years earlier) when on is true; return to today when false.',
     input_schema: { type: 'object', properties: { on: { type: 'boolean' } }, required: ['on'] },
   },
   {

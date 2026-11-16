@@ -110,6 +110,9 @@
   kbd { font: 11px var(--sans); color: var(--faint); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; margin-left: 6px; }
 
   #datastat { margin: 0; text-align: center; max-width: 440px; color: var(--faint); font-size: 12px; line-height: 1.7; }
+  #datastat dl { display: grid; grid-template-columns: auto auto; gap: 2px 14px; margin: 0; text-align: left; }
+  #datastat dt { color: var(--mute); letter-spacing: .12em; text-transform: uppercase; font-size: 10.5px; line-height: 1.95; }
+  #datastat dd { margin: 0; }
 
   details { width: 100%; max-width: 440px; border-top: 1px solid var(--line); padding-top: 18px; text-align: center; }
   summary { cursor: pointer; list-style: none; font-size: 11px; letter-spacing: .28em; text-transform: uppercase; color: var(--mute); }
@@ -117,8 +120,9 @@
   summary:hover { color: var(--ink); }
   summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 6px; border-radius: 4px; }
   details p { margin: 16px 0 0; color: var(--mute); font-size: 14px; line-height: 1.8; text-align: left; }
-  .howto { margin: 16px 0 0; padding: 0 0 0 20px; color: var(--mute); font-size: 14.5px; line-height: 1.6; text-align: left; }
-  .howto li { margin: 0 0 10px; padding-left: 4px; }
+  .howto { margin: 16px 0 0; padding: 0; list-style: none; color: var(--mute); font-size: 14.5px; line-height: 1.6; text-align: left; }
+  .howto li { margin: 0 0 9px; }
+  .howto kbd { margin: 0 3px 0 0; color: var(--ink); }
   .howto b { color: var(--ink); font-weight: 600; }
   details b { color: var(--ink); font-weight: 500; }
 
@@ -186,7 +190,7 @@
     main { grid-template-columns: minmax(0, 1fr) 440px; }
   }
   /* touch screens: the keyboard-key hints mean nothing there */
-  @media (pointer: coarse) { kbd { display: none; } }
+  @media (pointer: coarse) { kbd { display: none; } .howto kbd { display: inline; } }
 </style>
 </head>
 <body>
@@ -246,20 +250,20 @@
     <button type="button" class="pill" id="speak">Hear summary<kbd>H</kbd></button>
     <button type="button" class="pill" id="guidebtn" aria-pressed="false">Guide<kbd>G</kbd></button>
     <button type="button" class="pill" id="mute" aria-pressed="false">Mute<kbd>M</kbd></button>
-    <button type="button" class="pill" id="haptics" aria-pressed="true" hidden>Vibration: on</button>
+    <button type="button" class="pill" id="haptics" aria-pressed="true" hidden>Vibration: on<kbd>B</kbd></button>
     <button type="button" class="pill" id="view" aria-pressed="true">3D terrain<kbd>V</kbd></button>
   </div>
 
   <!-- [CLAUDE ADDITION] climate urgency + screen reader voice choice -->
   <div class="row">
-    <button type="button" class="pill then" id="then" aria-pressed="false">Then &amp; now: 2006<kbd>T</kbd></button>
+    <button type="button" class="pill then" id="then" aria-pressed="false">Go back to 2006<kbd>T</kbd></button>
     <button type="button" class="pill" id="alarm" aria-pressed="true">Extreme tremble: on</button>
-    <button type="button" class="pill" id="voice" aria-pressed="false">Voice: built-in</button>
+    <button type="button" class="pill" id="voice" aria-pressed="false">Voice: built-in<kbd>N</kbd></button>
     <button type="button" class="pill" id="voicestyle" hidden>Voice style: Warm</button>
     <button type="button" class="pill" id="speed">Speed: Normal</button>
-    <button type="button" class="pill" id="replayintro">Replay intro</button>
+    <button type="button" class="pill" id="replayintro">Replay intro<kbd>I</kbd></button>
   </div>
-  <p class="note" id="thennote">Then &amp; now plays the same day 20 years earlier, so you can hear how a place has changed. It is one day's snapshot, so weather plays a part; ocean heat shows the long-term warming most clearly.</p>
+  <p class="note" id="thennote">Plays the same day in 2006, so you can compare it with today.</p>
 
   </aside>
 
@@ -267,40 +271,43 @@
   <section class="group" id="key" aria-label="Sound key">
     <span class="k">Sound key</span>
     <div class="row">
-      <button type="button" class="pill" data-level="0.12">Light</button>
-      <button type="button" class="pill" data-level="0.45">Moderate</button>
-      <button type="button" class="pill" data-level="0.7">Heavy</button>
-      <button type="button" class="pill" data-level="1">Extreme</button>
+      <button type="button" class="pill" data-level="0.12">Light<kbd>7</kbd></button>
+      <button type="button" class="pill" data-level="0.45">Moderate<kbd>8</kbd></button>
+      <button type="button" class="pill" data-level="0.7">Heavy<kbd>9</kbd></button>
+      <button type="button" class="pill" data-level="1">Extreme<kbd>0</kbd></button>
     </div>
     <p class="note" id="keynote">Plays what you would hear standing in that much rain.</p>
   </section>
 
   <section class="group" aria-label="Date">
-    <label class="k" for="time">Date</label>
-    <input type="range" id="time" min="-30" max="0" step="1" value="0" aria-describedby="timeout">
+    <label class="k" for="time">Date<kbd aria-hidden="true">,</kbd><kbd aria-hidden="true">.</kbd></label>
+    <input type="range" id="time" min="-30" max="0" step="1" value="0" aria-describedby="timeout" aria-keyshortcuts=", .">
     <output id="timeout" for="time">-</output>
-    <p class="note">NASA publishes these maps as daily frames (some, like plants, update every 8 days), so you can go back in days. Forecasts are not part of this data.</p>
+    <p class="note">Choose any day from the past 30 days to hear that day's data.</p>
   </section>
   </div>
 
   <div class="sr" id="announce" role="status" aria-live="polite"></div>
   <div class="sr" id="summary" aria-live="off"></div>
 
-  <p id="datastat">Loading NASA data...</p>
+  <div id="datastat">Loading NASA data...</div>
 
   <details>
     <summary>How to listen</summary>
     <ul class="howto">
-      <li><b>Wear headphones.</b> You always face north.</li>
-      <li><b>Move:</b> arrow keys or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>. Hold <kbd>Shift</kbd> to go faster.</li>
-      <li><b>Find your way back:</b> a soft pulse beats from Null Island (0, 0). It pans toward it and fades as you walk away.</li>
-      <li><b>Hear the data:</b> each layer has an instrument (violin for rain, cello for land heat, flute for plants, clarinet for ocean heat, a breeze for wind). Louder and brighter means more intense.</li>
-      <li><b>Change layer:</b> <kbd>1</kbd> to <kbd>5</kbd>. <kbd>6</kbd> is the <b>Earth Orchestra</b>: every layer at once.</li>
-      <li><b>Where am I?</b> <kbd>H</kbd> for a short summary, <kbd>L</kbd> for the current layer.</li>
-      <li><b>Then &amp; now:</b> <kbd>T</kbd> plays the same day 20 years ago. Press it again to come back.</li>
-      <li><b>Extreme data</b> makes the instrument tremble, like strings warning of danger.</li>
-      <li><b>More:</b> <kbd>V</kbd> 3D or flat map, <kbd>M</kbd> mute.</li>
-      <li><b>Screen reader?</b> Set <b>Voice</b> to "screen reader" so you hear announcements only once.</li>
+      <li>Use headphones. North is always straight ahead.</li>
+      <li><kbd>&uarr;</kbd><kbd>&darr;</kbd><kbd>&larr;</kbd><kbd>&rarr;</kbd> or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move. Hold <kbd>Shift</kbd> to go faster.</li>
+      <li>The steady beat comes from Null Island (0, 0). Follow it to get back to the center.</li>
+      <li>Violin is rain, cello is land heat, flute is plants, clarinet is ocean heat, and the breeze is wind. Louder means stronger.</li>
+      <li>A shaking sound means extreme data.</li>
+      <li><kbd>1</kbd> to <kbd>5</kbd> Change layer. <kbd>6</kbd> Earth Orchestra (all layers).</li>
+      <li><kbd>H</kbd> Where you are. <kbd>L</kbd> Current layer.</li>
+      <li><kbd>,</kbd> One day back. <kbd>.</kbd> One day forward. Add <kbd>Shift</kbd> for a week.</li>
+      <li><kbd>T</kbd> Go back to 2006. Press again to return.</li>
+      <li><kbd>7</kbd> <kbd>8</kbd> <kbd>9</kbd> <kbd>0</kbd> Sound key, from weakest to strongest.</li>
+      <li><kbd>V</kbd> 3D or flat map. <kbd>M</kbd> Mute. <kbd>G</kbd> Guide. <kbd>I</kbd> Replay intro.</li>
+      <li><kbd>N</kbd> Voice. Choose "screen reader" if you use one.</li>
+      <li><kbd>B</kbd> Vibration on or off (phones).</li>
     </ul>
   </details>
 </main>
@@ -490,12 +497,21 @@
     return out;
   }
 
-  function statText() {
-    const L = curLayer();
-    if (orchestra) return `Data: five NASA layers from GIBS (GPM IMERG rain, MODIS land temperature and vegetation, GHRSST ocean temperature, MERRA-2 wind), frame for ${dataTime}. ` +
-      `The center pulse sits at Null Island (0, 0), where the equator meets the prime meridian.`;
-    return `Data: NASA ${L.dataset} (GIBS layer ${L.id}), frame for ${dataTime}. ` +
-      `The center pulse sits at Null Island (0, 0), where the equator meets the prime meridian. The whole world is walkable: 1 unit is 1 degree.`;
+  // The data panel: a short list of what is playing, where it comes from, and which day.
+  function showStat() {
+    const L = curLayer(), el = document.getElementById('datastat');
+    const d = new Date(dataTime + 'T00:00:00Z');
+    const rows = [
+      ['Layer', orchestra ? 'Earth Orchestra (all 5 layers)' : L.noun],
+      ['Data', orchestra ? 'NASA GPM IMERG, MODIS Terra, GHRSST MUR, MERRA-2' : 'NASA ' + L.dataset],
+      ['Date', isNaN(d) ? dataTime : `${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`],
+      ['Source', 'NASA GIBS'],
+      ['Center', 'Null Island (0\u00b0, 0\u00b0)'],
+      ['Scale', '1 step = 1 degree'],
+    ];
+    const dl = document.createElement('dl');
+    rows.forEach(([k, v]) => { const dt = document.createElement('dt'), dd = document.createElement('dd'); dt.textContent = k; dd.textContent = v; dl.append(dt, dd); });
+    el.replaceChildren(dl);
   }
 
   // The most intense spot in a field (smoothed, within 60 degrees of the equator, 45 for rain).
@@ -568,7 +584,7 @@
       if (ctx) updateListener(true);
       placed = true;
     }
-    document.getElementById('datastat').textContent = statText();
+    showStat();
     if (orchestra) showOrchestraMap();          // in orchestra mode the map keeps showing every layer
   }
 
@@ -936,7 +952,7 @@
       if (e.key === 'Escape') { e.preventDefault(); closeGuide(); }
       return;
     }
-    if (e.target && e.target.type === 'range') return;   // let the date slider use the arrow keys
+    if (e.target && e.target.type === 'range' && /^(Arrow|Home|End|Page)/.test(e.key)) return;   // let the date slider use the arrow keys
     if (e.key === 'Escape' && !document.getElementById('guide').hidden) { e.preventDefault(); closeGuide(); return; }
     if ((e.key || '').toLowerCase() === 'g' && !e.metaKey && !e.ctrlKey && !e.altKey) { e.preventDefault(); toggleGuide(); return; }
     const k = KEYMAP[e.key] || KEYMAP[e.key.toLowerCase?.()];
@@ -948,6 +964,17 @@
     if (li >= 0) switchLayer(LAYER_ORDER[li]);
     if (e.key.toLowerCase() === 'l') say(layerAnnouncement());     // which layer am I on?
     if (e.key.toLowerCase() === 'm') toggleMute();
+    if (e.metaKey || e.ctrlKey || e.altKey) return;            // leave browser shortcuts (Cmd+N, Ctrl+I...) alone
+    if (e.code === 'Comma' || e.code === 'Period') {           // , and . step the date a day; with Shift, a week
+      e.preventDefault(); stepDate((e.code === 'Period' ? 1 : -1) * (e.shiftKey ? 7 : 1)); return;
+    }
+    const ki = ['7', '8', '9', '0'].indexOf(e.key);           // sample sounds: light, moderate, heavy, extreme
+    if (ki >= 0) { playKey(keyBtns[ki], true); return; }
+    if (e.repeat) return;
+    const low = e.key.toLowerCase();
+    if (low === 'n') document.getElementById('voice').click();
+    if (low === 'i') document.getElementById('replayintro').click();
+    if (low === 'b') { const hb = document.getElementById('haptics'); if (hb.hidden) say('Vibration is not available on this device.'); else hb.click(); }
   });
   window.addEventListener('keyup', e => {
     const k = KEYMAP[e.key] || KEYMAP[e.key.toLowerCase?.()];
@@ -993,14 +1020,17 @@
   wrapNode.addEventListener('contextmenu', e => e.preventDefault());
 
   // ---------- vibration when you walk into more intense data (phones that support it) ----------
+  // change a button's words but keep its key hint (<kbd>)
+  function setLabel(btn, text) { const k = btn.querySelector('kbd'); btn.textContent = text; if (k) btn.appendChild(k); }
   const hapBtn = document.getElementById('haptics');
   let hapticsOn = matchMedia('(pointer: coarse)').matches, lastTier = 0, lastBuzz = 0;
   if (navigator.vibrate) {
     hapBtn.hidden = false;
-    hapBtn.setAttribute('aria-pressed', String(hapticsOn)); hapBtn.textContent = 'Vibration: ' + (hapticsOn ? 'on' : 'off');
+    hapBtn.setAttribute('aria-pressed', String(hapticsOn)); setLabel(hapBtn, 'Vibration: ' + (hapticsOn ? 'on' : 'off'));
     hapBtn.addEventListener('click', () => {
       hapticsOn = !hapticsOn; hapBtn.setAttribute('aria-pressed', String(hapticsOn));
-      hapBtn.textContent = 'Vibration: ' + (hapticsOn ? 'on' : 'off'); if (hapticsOn) navigator.vibrate(30); toMap(hapBtn);
+      setLabel(hapBtn, 'Vibration: ' + (hapticsOn ? 'on' : 'off')); if (hapticsOn) navigator.vibrate(30);
+      say('Vibration ' + (hapticsOn ? 'on.' : 'off.')); toMap(hapBtn);
     });
   }
   function buzzOnTier(idx, now) {
@@ -1022,7 +1052,7 @@
       // [CLAUDE FIX] screen readers (NVDA, JAWS) normally keep the arrow keys for reading the page. Marking the map as an
       // "application" and moving focus onto it hands the arrow keys to the app, so the listener can walk.
       wrapNode.setAttribute('role', 'application');
-      wrapNode.setAttribute('aria-label', 'Terra-fic Tunes map. Arrow keys or W A S D to walk, H for a summary, 1 to 6 to change layer, T for then and now. Press Tab to leave the map.');
+      wrapNode.setAttribute('aria-label', 'Terra-fic Tunes map. Arrow keys or W A S D to walk, H for a summary, 1 to 6 to change layer, comma and period to change the day, T to go back to 2006. Press Tab to leave the map.');
       wrapNode.tabIndex = 0;
       if (!introOn) wrapNode.focus();
       warmVoice();                           // get the narrator's most common phrases ready
@@ -1239,7 +1269,7 @@
   const voiceBtn = document.getElementById('voice');
   function applyVoiceUI() {
     voiceBtn.setAttribute('aria-pressed', String(readerVoice));
-    voiceBtn.textContent = 'Voice: ' + (readerVoice ? 'screen reader' : ttsOff ? 'built-in' : 'natural');
+    setLabel(voiceBtn, 'Voice: ' + (readerVoice ? 'screen reader' : ttsOff ? 'built-in' : 'natural'));
   }
   // voice style (server voice only) and speaking speed, remembered between visits
   const STYLES = [['shimmer', 'Warm'], ['onyx', 'Deep'], ['sage', 'Calm']], SPEEDS = [[0.85, 'Slow'], [1, 'Normal'], [1.25, 'Fast'], [1.5, 'Faster']];
@@ -1369,14 +1399,16 @@
 
   // ---------- sound key: hear each level on demand ----------
   const keyBtns = [...document.querySelectorAll('#key button[data-level]')];
-  keyBtns.forEach(b => b.addEventListener('click', async () => {
+  async function playKey(b, spoken) {
     await ensureAudio();
+    if (spoken) say(b.firstChild.textContent.trim() + '.');
     previewLevel = parseFloat(b.dataset.level);
     keyBtns.forEach(x => x.setAttribute('aria-pressed', String(x === b)));
     clearTimeout(previewTimer);
     previewTimer = setTimeout(() => { previewLevel = null; keyBtns.forEach(x => x.setAttribute('aria-pressed', 'false')); }, 3500);
     b.blur();
-  }));
+  }
+  keyBtns.forEach(b => b.addEventListener('click', () => playKey(b, false)));
 
   // ---------- layer picker ----------
   const layerBtns = [...document.querySelectorAll('#layers button')];
@@ -1386,10 +1418,10 @@
     document.getElementById('stormk').textContent = orchestra ? 'Orchestra' : L.noun;
     document.getElementById('layerblurb').textContent = orchestra ? ORCH_BLURB : L.blurb;
     const lv = orchestra ? ['Quiet', 'Medium', 'Loud', 'Full'] : L.tiers.slice(1).map(t => t[0].toUpperCase() + t.slice(1));
-    keyBtns.forEach((b, i) => { b.textContent = lv[i]; b.setAttribute('aria-pressed', 'false'); });
+    keyBtns.forEach((b, i) => { setLabel(b, lv[i]); b.setAttribute('aria-pressed', 'false'); });
     document.getElementById('keynote').textContent = orchestra ? 'Plays the whole orchestra at that level.'
       : `Plays what the ${ORCHESTRA[layerKey].name} sounds like in ${L.noun.toLowerCase() === 'rain' ? 'that much rain' : 'data at that level'}.`;
-    document.getElementById('datastat').textContent = statText();
+    showStat();
     document.getElementById('c').setAttribute('aria-label', `Top-down map of NASA ${L.noun.toLowerCase()} data. A sound source, the glowing orb, sits at Null Island where the equator meets the prime meridian; your position is the small pale dot.`);
   }
   function switchLayer(key) {
@@ -1426,10 +1458,26 @@
     if (thenMode) return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()} · ${THEN_YEARS} years earlier`;   // [CLAUDE ADDITION]
     return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()} · ` + (off ? `${-off} day${off === -1 ? '' : 's'} earlier` : 'latest available');
   }
+  const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  // what a screen reader or the voice says for a day: "November 10, 3 days back"
+  function daySpoken(off) {
+    const d = dayFor(off);
+    return `${MONTH_NAMES[d.getUTCMonth()]} ${d.getUTCDate()}` + (thenMode ? `, ${d.getUTCFullYear()}` : '') +
+      (off ? `, ${-off} day${off === -1 ? '' : 's'} back` : ', the latest day');
+  }
+  // , and . step one day; with Shift (< and >) a week. Every step is spoken, and the ends are said plainly.
+  function stepDate(days) {
+    const min = +timeEl.min, max = +timeEl.max, cur = +timeEl.value;
+    const v = Math.max(min, Math.min(max, cur + days));
+    if (v === cur) { say(days > 0 ? 'Already at the latest day.' : 'That is as far back as it goes: 30 days.'); return; }
+    timeEl.value = v; timeEl.dispatchEvent(new Event('input'));
+    say(daySpoken(v) + '.');
+  }
   let timeDebounce = null;
   timeEl.addEventListener('input', () => {
     const off = +timeEl.value;
     timeOut.textContent = dayLabel(off);
+    timeEl.setAttribute('aria-valuetext', daySpoken(off));
     clearTimeout(timeDebounce);
     timeDebounce = setTimeout(() => {
       dataTime = dayFor(off).toISOString().slice(0, 10);
@@ -1437,6 +1485,7 @@
     }, 300);
   });
   timeOut.textContent = dayLabel(0);
+  timeEl.setAttribute('aria-valuetext', daySpoken(0));
 
   // [CLAUDE ADDITION] Then & now (key T or the button): jump between today's frame and the same day 20 years earlier.
   // The slider still works inside either year. While the older frame downloads, that layer is silent rather than
@@ -1448,15 +1497,15 @@
     dataTime = dayFor(off).toISOString().slice(0, 10);
     timeOut.textContent = dayLabel(off);
     thenBtn.setAttribute('aria-pressed', String(thenMode));
-    thenBtn.firstChild.textContent = thenMode ? 'Then & now: back to 2026 ' : 'Then & now: 2006 ';
+    setLabel(thenBtn, thenMode ? `Back to ${dayFor(0).getUTCFullYear() + THEN_YEARS}` : `Go back to ${new Date(BASE_TIME).getUTCFullYear() - THEN_YEARS}`);
     if (orchestra) { loadAllLayers(); }
     else {
       if (!ready.get(layerKey + '|' + dataTime)) { field = null; dataImg = null; document.getElementById('datastat').textContent = 'Loading NASA data...'; }
       loadWindow();
     }
     const d = dayFor(off);
-    say(thenMode ? `Twenty years ago: ${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}.`
-                 : `Now: ${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}.`);
+    say(thenMode ? `Back in ${d.getUTCFullYear()}. ${MONTH_NAMES[d.getUTCMonth()]} ${d.getUTCDate()}.`
+                 : `Back to today. ${MONTH_NAMES[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}.`);
   }
   thenBtn.addEventListener('click', e => { toggleThen(); toMap(e.currentTarget); });
   window.addEventListener('keydown', e => { if (!introOn && e.key && e.key.toLowerCase() === 't' && !e.repeat) toggleThen(); });
@@ -1890,7 +1939,7 @@
     return 'Guide open. To move, use the arrow keys or W A S D, and hold Shift to go faster. On a phone, drag on the map. ' +
       'A soft pulse plays from home, Null Island, where the equator meets the prime meridian. It moves to your left or right ear to show which side home is on, and gets quieter as you walk away. ' +
       `An instrument plays the data under you, louder where it is stronger. Press 1 to ${n} to switch layers and ${n + 1} for the whole orchestra. ` +
-      'H tells you where you are, T plays twenty years ago, and V flips between flat and 3D. ' +
+      'H tells you where you are, comma and period change the day, T goes back to 2006, and V flips between flat and 3D. ' +
       'Type a question and press Enter, or press Escape to go back to the map.';
   }
   function openGuide() {
@@ -1958,7 +2007,7 @@
         return ({ switch_layer: () => i.layer === 'all' ? 'Switched to the Earth Orchestra.' : `Switched to ${LABEL[i.layer] || i.layer}.`,
           go_to_place: () => `Took you to ${i.name || 'that place'}.`, go_home: () => 'Took you home to Null Island.',
           change_date: () => `Moved the date ${Math.abs(i.steps || 0)} day${Math.abs(i.steps || 0) === 1 ? '' : 's'} ${(i.steps || 0) < 0 ? 'back' : 'forward'}.`,
-          set_then_and_now: () => i.on ? 'Then and now is on.' : 'Then and now is off.', set_view: () => i.mode === '3d' ? '3D terrain.' : 'Flat map.',
+          set_then_and_now: () => i.on ? 'Went back to 2006.' : 'Back to today.', set_view: () => i.mode === '3d' ? '3D terrain.' : 'Flat map.',
           set_muted: () => i.muted ? 'Muted.' : 'Unmuted.' }[a.tool] || (() => ''))();
       }).filter(Boolean).join(' ');
       const reply = j.reply || did || 'I did not catch that.';
