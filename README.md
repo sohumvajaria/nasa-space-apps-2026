@@ -53,7 +53,7 @@ It's a static site with two small serverless functions, so there's no build step
 
 **Sound.** Everything is synthesised live with the Web Audio API, with no audio files. The home pulse is placed in 3D with an HRTF panner so it genuinely sounds like it's off to one side. Each instrument is built from oscillators and filters (bowed sawtooth pairs for the strings, a nearly pure tone with breath for the flute, a square-plus-triangle blend for the clarinet's hollow sound), and its volume and brightness follow the data under you.
 
-**Voice.** Spoken announcements use [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M), an open-source speech model that runs entirely in your browser on the graphics card. It's free, needs no key, and what it says never leaves your device. The model is about 160 MB the first time and cached after that. Where it isn't available, which includes most phones, the browser's own voice takes over instantly, so you never wait for a sentence.
+**Voice.** Spoken announcements come from a neural text-to-speech voice (OpenAI's `gpt-4o-mini-tts`), streamed from a small serverless function so a sentence starts playing before it has finished being made. Phrases people hear often are cached at the edge, which makes them nearly instant, and listeners can pick a warm, deep or calm voice and a speaking speed. If the voice is slow, down or out of credit, the browser's own voice takes over immediately, so nobody waits in silence.
 
 **Graphics.** The hero globe and the 3D terrain use [Three.js](https://threejs.org/). The terrain is fixed to the world and bends away from you on the graphics card as you walk, which keeps it smooth instead of popping when the view re-centres.
 
@@ -74,7 +74,7 @@ Everything you hear comes from NASA data, accessed through GIBS:
 
 The data is courtesy of NASA's Earth Science Data Systems and GIBS. The wind layer is a monthly average of wind speed (the newest month NASA publishes), not the wind outside right now, because GIBS doesn't offer live wind or wind direction.
 
-Open-source pieces: [Kokoro-82M](https://huggingface.co/hexgrad/Kokoro-82M) and `kokoro-js` (Apache 2.0) for the voice, [Three.js](https://threejs.org/) for graphics, and Claude from Anthropic for the optional guide. The narrated intro was voiced with Gemini.
+Other pieces: [Three.js](https://threejs.org/) for graphics, OpenAI for the spoken voice, and Claude from Anthropic for the guide. The narrated intro was voiced with Gemini.
 
 ## Honest limits
 
@@ -83,7 +83,7 @@ We'd rather you know what this can't do before you try it.
 - **It isn't live.** GIBS publishes daily frames, and some layers update less often than that, so you're hearing yesterday, not this minute. There are no forecasts.
 - **Clouds leave gaps.** Satellites can't see through clouds for some layers, and gaps are silent on purpose, so quiet doesn't always mean "nothing there".
 - **Wind is a monthly average of speed only.** There's no direction and no today's-gusts.
-- **Phones use the browser voice.** The natural voice needs WebGPU, which most phones and some browsers don't have yet.
+- **The natural voice needs the server.** If its key is missing, out of credit or the connection is slow, you hear the browser's own voice instead, which varies by device and sounds more robotic.
 - **Then & now compares single days.** Weather plays a part, so it's an impression of change, not a climate trend.
 
 ## Run it yourself
@@ -97,14 +97,14 @@ python3 -m http.server 8000
 # open http://localhost:8000
 ```
 
-That gives you everything except the guide and the optional server voice, which are serverless functions in `api/`. To run those too, use the [Vercel CLI](https://vercel.com/docs/cli) from the repo root with `vercel dev`.
+That gives you everything except the guide and the natural voice, which are serverless functions in `api/`. To run those too, use the [Vercel CLI](https://vercel.com/docs/cli) from the repo root with `vercel dev`.
 
-To deploy your own copy, import the repo into Vercel (the included `vercel.json` already points at `src/`). For the guide, add an `ANTHROPIC_API_KEY` environment variable in the project settings and set a small monthly spend limit in the Anthropic console, since the endpoint is public once deployed. An optional `ELEVENLABS_API_KEY` or `OPENAI_API_KEY` turns on a server voice for devices without WebGPU. Never put a key in the code.
+To deploy your own copy, import the repo into Vercel (the included `vercel.json` already points at `src/`). For the guide, add an `ANTHROPIC_API_KEY` environment variable in the project settings and set a small monthly spend limit in the Anthropic console, since the endpoint is public once deployed. An `OPENAI_API_KEY` turns on the natural voice (an `ELEVENLABS_API_KEY` works too); without one, the browser's own voice is used. Never put a key in the code.
 
 ## What's in the repo
 
 - `src/` is the app. `index.html` is the main page, `features.html` is the full feature tour, and `intro/` holds the narrated tutorial.
-- `api/guide.js` is the voice guide, and `api/tts.js` is the optional server voice.
+- `api/guide.js` is the voice guide, and `api/tts.js` is the natural voice.
 - `tools/` has helper scripts, and `data/` and `docs/` are for datasets and write-ups.
 
 ## Team

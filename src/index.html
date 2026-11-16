@@ -1026,7 +1026,6 @@
       wrapNode.tabIndex = 0;
       if (!introOn) wrapNode.focus();
       warmVoice();                           // get the narrator's most common phrases ready
-      setTimeout(() => { if (ttsOff) startKokoro(); }, 1500);   // no server voice: start the free on-device voice now, so it is ready when needed
     }
   }
   startBtn.addEventListener('click', () => {            // [CLAUDE ADDITION] on a first visit, the intro plays first
@@ -1077,8 +1076,7 @@
   const beatAt = (beats, t) => beats.reduce((i, x, k) => (t >= x.at ? k : i), 0);
   function prepLines(beats) {                             // get the six spoken lines ready, so the voice keeps time
     try {
-      const prep = ttsOff ? kokoroUrl : fetchVoice;
-      if (!(ttsOff && kokoroState === 'failed')) beats.forEach(b => prep(b.speak).catch(() => {}));
+      if (!ttsOff) beats.forEach(b => fetchVoice(b.speak).catch(() => {}));
     } catch (e) {}
   }
   async function loadIntro() {
@@ -1236,13 +1234,11 @@
   // [CLAUDE FIX] Announcements used to go to BOTH the built-in voice and the screen reader, so screen reader users heard
   // two voices at once. "Voice" now chooses one: built-in (default, for people without a screen reader) or screen reader.
   let readerVoice = false;
-  let kokoroState = 'off';                   // the on-device narrator: off, loading, ready or failed
   try { readerVoice = localStorage.getItem('ej-voice') === 'reader'; } catch (e) {}
   const voiceBtn = document.getElementById('voice');
   function applyVoiceUI() {
     voiceBtn.setAttribute('aria-pressed', String(readerVoice));
-    voiceBtn.textContent = 'Voice: ' + (readerVoice ? 'screen reader' : kokoroState === 'ready' ? 'natural'
-      : kokoroState === 'loading' ? 'natural (loading)' : 'built-in');
+    voiceBtn.textContent = 'Voice: ' + (readerVoice ? 'screen reader' : ttsOff ? 'built-in' : 'natural');
   }
   // voice style (server voice only) and speaking speed, remembered between visits
   const STYLES = [['shimmer', 'Warm'], ['onyx', 'Deep'], ['sage', 'Calm']], SPEEDS = [[0.85, 'Slow'], [1, 'Normal'], [1.25, 'Fast'], [1.5, 'Faster']];
@@ -1269,151 +1265,18 @@
   });
   applyVoiceUI();
   // ---------- the voice: a soft, human-sounding narrator, with the browser's best voice as a backup ----------
-  // Three ways to speak, best first:
+  // Two ways to speak:
   //   1. /api/tts (a Vercel function), streamed, if an API key is set in Vercel (see api/tts.js)
-  //   2. Kokoro, a free open-source neural voice that runs entirely in this browser: no key, no account.
-  //      It downloads once (then the browser keeps it) and runs in a background thread, on the graphics card when possible.
-  //   3. the browser's own voice: the most natural one it has, a little slower and lower
+  //   2. the browser's own voice: the most natural one it has, a little slower and lower. It is also the instant
+  //      fallback whenever the server voice is slow, down or out of credit, so the listener never waits in silence.
   // While anyone speaks, the music dips so the words are easy to hear.
   let ttsOff = false, ttsAudio = null, speechId = 0;
   function duck(on) { if (ctx && duckNode) duckNode.gain.setTargetAtTime(on ? 0.4 : 1, ctx.currentTime, 0.12); }
   const voiceUrl = text => '/api/tts?text=' + encodeURIComponent(text) + (styleI ? '&voice=' + STYLES[styleI][0] : '');
   // Ask once, for free, whether a neural voice is set up on the server. If not, the browser's voice is used from the start.
-  fetch('/api/tts?probe=1').then(r => { if (r.status !== 204) ttsOff = true; }).catch(() => { ttsOff = true; }).then(() => { document.getElementById('voicestyle').hidden = ttsOff; });
+  fetch('/api/tts?probe=1').then(r => { if (r.status !== 204) ttsOff = true; }).catch(() => { ttsOff = true; }).then(() => { document.getElementById('voicestyle').hidden = ttsOff; applyVoiceUI(); });
   function fetchVoice(text) {                // warm-up: download a phrase now so it is in the cache and plays instantly later
     return fetch(voiceUrl(text)).then(r => { if (r.status === 503 || r.status === 404) ttsOff = true; if (!r.ok) throw new Error('voice ' + r.status); return r.arrayBuffer(); });
-  }
-  // Kokoro (Apache 2.0, onnx-community/Kokoro-82M-v1.0-ONNX) via kokoro-js, in a module worker so the music never stutters
-  const KOKORO_VOICE = 'af_heart', KOKORO_SPEED = 0.9;   // a warm, calm voice, a little slower than normal
-  const KOKORO_WORKER = `
-    import { KokoroTTS } from 'https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/dist/kokoro.web.js';
-    let tts = null;
-    // The message handler is registered FIRST, before anything is awaited: a module worker drops messages that arrive
-    // before its handler exists, so phrases asked for while the model is still loading would be lost.
-    // One phrase at a time (the model cannot run two at once). What you asked for now goes before the background warm-up.
-    const queue = []; let busy = false;
-    let markReady; const ready = new Promise(r => { markReady = r; });
-    async function pump() {
-      if (busy) return;
-      busy = true;
-      while (queue.length) {
-        queue.sort((a, b) => (a.warm - b.warm) || (a.id - b.id));
-        const { id, text, voice, speed } = queue.shift();
-        try {
-          await ready;
-          if (!tts) throw new Error('voice model did not load');
-          const audio = await tts.generate(text, { voice, speed });
-          const d = audio.audio; let pk = 0;
-          for (let i = 0; i < d.length; i++) pk = Math.max(pk, Math.abs(d[i]));
-          if (pk > 0) { const g = Math.min(3, 0.85 / pk); for (let i = 0; i < d.length; i++) d[i] *= g; }   // steady loudness for every phrase
-          postMessage({ type: 'audio', id, blob: await audio.toBlob() });
-        } catch (err) { postMessage({ type: 'error', id, error: String(err) }); }
-      }
-      busy = false;
-    }
-    onmessage = e => {
-      const m = e.data;
-      if (m.bump) { const j = queue.find(q => q.id === m.bump); if (j) j.warm = 0; return; }   // a warm-up phrase is wanted right now
-      queue.push({ id: m.id, text: m.text, voice: m.voice, speed: m.speed, warm: m.warm ? 1 : 0 });
-      pump();
-    };
-    // the graphics card (WebGPU) makes speech about 3x faster than real time. fp16 is a 163 MB model, half the size of fp32 and just as fast.
-    const gpu = !!(self.navigator.gpu && await self.navigator.gpu.requestAdapter().catch(() => null));
-    KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', gpu ? { dtype: 'fp16', device: 'webgpu' } : { dtype: 'q8', device: 'wasm' })
-      .then(t => { tts = t; postMessage({ type: 'ready' }); })
-      .catch(e => postMessage({ type: 'failed', error: String(e) }))
-      .finally(() => markReady());
-  `;
-  let kokoroWorker = null, kokoroSeq = 0;
-  const kokoroJobs = new Map();              // job id -> {resolve, reject}
-  const kokoroJobIds = new Map();            // text -> id of the job still being made
-  function startKokoro() {
-    if (kokoroWorker || kokoroState === 'failed') return;
-    if (navigator.connection && navigator.connection.saveData) { kokoroState = 'failed'; return; }   // respect data saver
-    const nc = navigator.connection || {};
-    // Without WebGPU the model runs on the CPU, about as slow as real time, so the browser voice is the better choice.
-    if (!navigator.gpu || nc.type === 'cellular' || /^(slow-2g|2g|3g)$/.test(nc.effectiveType || '')) { kokoroState = 'failed'; applyVoiceUI(); return; }
-    try {
-      kokoroWorker = new Worker(URL.createObjectURL(new Blob([KOKORO_WORKER], { type: 'text/javascript' })), { type: 'module' });
-    } catch (e) { kokoroState = 'failed'; return; }
-    kokoroState = 'loading'; applyVoiceUI();
-    setTimeout(() => {                       // still not loaded after 3 minutes: give up and keep the browser voice
-      if (kokoroState !== 'loading') return;
-      kokoroState = 'failed'; applyVoiceUI();
-      kokoroJobs.forEach(j => j.reject(new Error('voice took too long to load'))); kokoroJobs.clear();
-      try { kokoroWorker.terminate(); } catch (e) {}
-    }, 180000);
-    kokoroWorker.onmessage = e => {
-      const m = e.data;
-      if (m.type === 'ready') { kokoroState = 'ready'; applyVoiceUI(); warmKokoro(); }
-      else if (m.type === 'failed') {
-        kokoroState = 'failed'; applyVoiceUI();
-        kokoroJobs.forEach(j => j.reject(new Error(m.error))); kokoroJobs.clear();
-      } else {
-        const j = kokoroJobs.get(m.id); if (!j) return;
-        kokoroJobs.delete(m.id);
-        kokoroJobIds.forEach((jid, t) => { if (jid === m.id) kokoroJobIds.delete(t); });
-        if (m.type === 'audio') j.resolve(URL.createObjectURL(m.blob)); else { console.warn('Kokoro could not make a phrase:', m.error); j.reject(new Error(m.error)); }
-      }
-    };
-    kokoroWorker.onerror = () => { kokoroState = 'failed'; applyVoiceUI(); kokoroJobs.forEach(j => j.reject(new Error('worker'))); kokoroJobs.clear(); };
-  }
-  function kokoroVoice(text, warm) {
-    startKokoro();
-    if (kokoroState === 'failed') return Promise.reject(new Error('no on-device voice'));
-    return new Promise((resolve, reject) => {
-      const id = ++kokoroSeq;
-      kokoroJobs.set(id, { resolve, reject }); kokoroJobIds.set(text, id);
-      kokoroWorker.postMessage({ id, text, voice: KOKORO_VOICE, speed: KOKORO_SPEED, warm: !!warm });
-    });
-  }
-  const kokoroCache = new Map();             // text -> Promise of an audio URL, made on this device
-  const kokoroDone = new Map();              // text -> audio URL, for phrases that are ready to play right now
-  function kokoroUrl(text, warm) {
-    if (!kokoroCache.has(text)) {
-      const pr = kokoroVoice(text, warm);
-      pr.then(url => kokoroDone.set(text, url), () => kokoroCache.delete(text));
-      kokoroCache.set(text, pr);
-    }
-    else if (!warm && kokoroJobIds.has(text) && kokoroWorker) kokoroWorker.postMessage({ bump: kokoroJobIds.get(text) });   // it was queued as warm-up: move it up
-    return kokoroCache.get(text);
-  }
-  const kokoroSentences = t => (t.match(/[^.!?]+[.!?]*\s*/g) || [t]).map(x => x.trim()).filter(Boolean);
-  function warmKokoro() {                    // make the phrases you hear most ahead of time, so they start instantly
-    const phrases = LAYER_ORDER.map(k => k === 'all' ? 'Earth Orchestra.' : `Layer ${LAYER_ORDER.indexOf(k) + 1} of ${LAYER_ORDER.length}: ${LABEL[k]}, played by the ${ORCHESTRA[k].name}.`);
-    phrases.forEach(p => kokoroSentences(p).forEach(x => kokoroUrl(x, true).catch(() => {})));
-    Object.keys(ORCHESTRA).forEach(k => (LAYERS[k].say || []).forEach(x => kokoroUrl(x + '.', true).catch(() => {})));   // "Heavy rain." etc.
-    kokoroUrl('Quiet here.', true).catch(() => {});
-  }
-  // As you walk, quietly prepare the summary for where you are, so pressing H speaks at once in the natural voice.
-  let summaryPrepared = '';
-  setInterval(() => {
-    if (kokoroState !== 'ready' || !ctx || readerVoice || !ttsOff || typeof summaryText !== 'function') return;
-    let t; try { t = summaryText(); } catch (e) { return; }
-    if (!t || t === summaryPrepared) return;
-    summaryPrepared = t;
-    kokoroSentences(t).forEach(x => kokoroUrl(x, true).catch(() => {}));
-  }, 1200);
-  function kokoroSpeak(text, id) {           // no server voice: the natural on-device voice if these words are ready, else the browser's, at once
-    if (kokoroState === 'failed') { builtinSpeak(text, id); return; }
-    const parts = kokoroSentences(text);
-    if (!parts.every(x => kokoroDone.has(x))) {
-      builtinSpeak(text, id);                 // never keep the listener waiting
-      parts.forEach(x => kokoroUrl(x, true).catch(() => {}));   // make it now, so next time it is the natural voice
-      return;
-    }
-    let i = 0;
-    const fallback = () => { if (id === speechId) builtinSpeak(parts.slice(Math.max(0, i - 1)).join(' '), ++speechId); };
-    const playNext = () => {
-      if (id !== speechId) return;           // something newer was said meanwhile
-      if (i >= parts.length) { duck(false); ttsAudio = null; return; }
-      const a = new Audio(kokoroDone.get(parts[i++])); ttsAudio = a; a.playbackRate = rateNow();
-      a.onplaying = () => duck(true);
-      a.onended = playNext;
-      a.onerror = fallback;
-      a.play().catch(fallback);
-    };
-    playNext();
   }
   let bestVoice = null;
   function pickVoice() {                     // the most natural English voice this browser has
@@ -1450,7 +1313,7 @@
   function voiceSpeak(text) {
     stopSpeech();
     const id = speechId;
-    if (ttsOff) { kokoroSpeak(text, id); return; }   // no server voice: the free on-device voice
+    if (ttsOff) { builtinSpeak(text, id); return; }   // no server voice (or it is down): the browser's own voice
     // The audio element streams the voice: it starts playing as soon as the first bytes arrive.
     const a = new Audio(); ttsAudio = a; a.preload = 'auto'; a.playbackRate = rateNow(); a.src = voiceUrl(text);
     let started = false;
@@ -1479,9 +1342,8 @@
   const LABEL = { rain: 'Rain', heat: 'Land heat', plants: 'Plants', ocean: 'Ocean heat', wind: 'Wind' };
   const LAYER_ORDER = ['rain', 'heat', 'plants', 'ocean', 'wind', 'all'];
   function warmVoice() {                     // prepare the phrases you hear most, so they play instantly
-    if (ttsOff && kokoroState === 'failed') return;
-    const prep = ttsOff ? kokoroUrl : fetchVoice;   // server voice if set up, otherwise make them on this device
-    LAYER_ORDER.forEach(k => prep(k === 'all' ? 'Earth Orchestra.'
+    if (ttsOff) return;                      // only the server voice needs preparing
+    LAYER_ORDER.forEach(k => fetchVoice(k === 'all' ? 'Earth Orchestra.'
       : `Layer ${LAYER_ORDER.indexOf(k) + 1} of ${LAYER_ORDER.length}: ${LABEL[k]}, played by the ${ORCHESTRA[k].name}.`).catch(() => {}));
   }
   function layerAnnouncement() {
