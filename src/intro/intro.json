@@ -1,0 +1,13 @@
+{
+  "video": "intro/intro.mp4",
+  "narrated": true,
+  "note": "Rendered with intro-export.html on a teammate's laptop; narration made with Google Gemini text-to-speech and mixed in by Claude. Beats tell the app when to send each line to a screen reader.",
+  "beats": [
+    { "at": 0.0, "speak": "Welcome. This soft pulse is home. Press S to skip." },
+    { "at": 5.5, "speak": "Walk with the arrow keys, or W A S D." },
+    { "at": 10.5, "speak": "More rain plays louder and brighter." },
+    { "at": 16.0, "speak": "A tremble means extreme." },
+    { "at": 20.0, "speak": "Press 6 to hear all five layers as one chord." },
+    { "at": 25.5, "speak": "Press T to hear twenty years ago. Now, your turn." }
+  ]
+}
